@@ -1,0 +1,45 @@
+[project]
+name = "mofa"
+version = "0.0.1"
+authors = [
+    { name = "Xiaoli Yan", email = "xyan11@uic.edu" },
+    { name = "Eliu Huerta", email = "huerta@anl.gov" },
+    { name = "Logan Ward", email = "lward@anl.gov" },
+]
+description = 'Generating useful MOFs on HPC'
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+keywords = ["HPC", "AI", "Workflows", "Quantum Chemistry", "Chemical Engineering"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Topic :: System :: Distributed Computing",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Programming Language :: Python :: 3",
+]
+dependencies = [
+    "colmena==0.5.*",
+    "parsl>=2023.04",
+    "tqdm"
+]
+
+[tool.setuptools.packages.find]
+include = ['mofa*']
+
+[project.urls]
+repository = "https://github.com/exalearn/examol"
+
+[project.optional-dependencies]
+test = [
+    'flake8',
+    'pytest',
+    'pytest-forked',
+    'pytest-timeout',
+    'pytest-cov',
+]
