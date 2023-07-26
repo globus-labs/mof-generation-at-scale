@@ -1,7 +1,7 @@
 # MOF Generation on HPC
 
 [![CI](https://github.com/globus-labs/mof-generation-at-scale/actions/workflows/python-package-conda.yml/badge.svg?branch=main)](https://github.com/globus-labs/mof-generation-at-scale/actions/workflows/python-package-conda.yml)
-[![Coverage Status](https://coveralls.io/repos/github/globus-labs/mof-generation-at-scale/badge.svg?branch=add-ci)](https://coveralls.io/github/globus-labs/mof-generation-at-scale?branch=add-ci)
+[![Coverage Status](https://coveralls.io/repos/github/globus-labs/mof-generation-at-scale/badge.svg?branch=main)](https://coveralls.io/github/globus-labs/mof-generation-at-scale?branch=main)
 
 Create new MOFs by combining generative AI and simulation on HPC.
 
