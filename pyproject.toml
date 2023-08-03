@@ -34,7 +34,7 @@ dependencies = [
 include = ['mofa*']
 
 [project.urls]
-repository = "https://github.com/exalearn/examol"
+repository = "https://github.com/globus-labs/mof-generation-at-scale"
 
 [project.optional-dependencies]
 test = [

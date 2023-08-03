@@ -15,8 +15,12 @@ dependencies:
   - matplotlib
   - pytest
 
+  # Tools to work with molecular data
+  - openbabel==3.1.*
+  - rdkit==2023.03.2
+
   # Use Conda PyTorch to avoid OpenMP disagreement with other libraries
-  - pytorch==2.0.*
+  - pytorch==1.13.*
   - cpuonly
 
   - pip
