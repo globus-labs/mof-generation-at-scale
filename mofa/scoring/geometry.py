@@ -1,17 +1,14 @@
-"""Metrics for screening a MOF based on its geometry"""
+"""Metrics for screening a MOF or linker based on its geometry"""
 import numpy as np
 import ase
 
+from mofa.scoring.base import LinkerScorer
 
-def get_closest_atomic_distance(atoms: ase.Atoms) -> float:
-    """Find the closest distance between atoms
 
-    Args:
-        atoms: Structure to be evaluated
-    Returns:
-        Distance between the closest atoms
-    """
+class MinimumDistance(LinkerScorer):
+    """Rate molecules based on the closest distance between atoms"""
 
-    dists: np.ndarray = atoms.get_all_distances(mic=True)
-    inds = np.triu_indices(dists.shape[0], k=1)
-    return np.min(dists[inds])
+    def __call__(self, linker: ase.Atoms) -> float:
+        dists: np.ndarray = linker.get_all_distances(mic=True)
+        inds = np.triu_indices(dists.shape[0], k=1)
+        return np.min(dists[inds])
