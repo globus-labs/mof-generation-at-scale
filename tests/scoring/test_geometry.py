@@ -1,6 +1,6 @@
 from ase import Atoms
 
-from mofa.scoring.geometry import get_closest_atomic_distance
+from mofa.scoring.geometry import MinimumDistance
 
 
 def test_distance():
@@ -8,4 +8,4 @@ def test_distance():
     atoms = Atoms(positions=[[0, 0, 0]], cell=[1., 1., 1.])
     atoms *= [2, 2, 2]
 
-    assert get_closest_atomic_distance(atoms) == 1.
+    assert MinimumDistance()(atoms) == 1.
