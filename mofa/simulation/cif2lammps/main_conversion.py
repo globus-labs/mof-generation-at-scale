@@ -16,7 +16,7 @@ from .UFF_construction import UFF
 from .Dreiding_construction import Dreiding
 from .zeoliteFFs_construction import MZHB
 from .ZIFFF_construction import ZIFFF
- #  add more force field classes here as they are made
+ #   add more force field classes here as they are made
 
 def single_conversion(cif, force_field=UFF4MOF, ff_string='UFF4MOF', small_molecule_force_field=None, 
     outdir='unopt_lammps_data', charges=False, parallel=False, replication='1x1x1', read_cifs_pymatgen=False, add_molecule=None,
@@ -100,7 +100,7 @@ def run_conversion():
     print(args)
 
     if args.add_molecule != None:
-        #  should be name of molecule, model, number to add
+        #   should be name of molecule, model, number to add
         add_molecule = args.add_molecule.split(', ')
         add_molecule[2] = int(add_molecule[2])
     else:

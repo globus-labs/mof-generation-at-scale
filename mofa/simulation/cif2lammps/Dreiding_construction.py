@@ -30,68 +30,68 @@ class Dreiding(force_field):
             bond_types = [SG.get_edge_data(name, n)['bond_type'] for n in nbors]
             mass = mass_key[element_symbol]
 
-            #  Atom typing for Dreiding, this can be made much more robust with pattern matching,
-            #  but this works for most ToBaCCo MOFs, use at your own risk.
+            #   Atom typing for Dreiding, this can be made much more robust with pattern matching,
+            #   but this works for most ToBaCCo MOFs, use at your own risk.
             ty = None
             if 'A' in bond_types and element_symbol != 'O':
                 ty = element_symbol + '_' + 'R'
                 hyb = 'resonant'
             else:
-                #  Group 1
+                #   Group 1
                 if element_symbol == 'H':
                     ty = element_symbol + '_'
                     hyb = 'sp1'
-                #  Group 6
+                #   Group 6
                 elif element_symbol in ('C', 'Si'):
                     ty = element_symbol + '_' + str(len(nbors) - 1)
                     hyb = 'sp' + str(len(nbors) - 1)
-                #  Group 7
+                #   Group 7
                 elif element_symbol in ('N'):
                     ty = element_symbol + '_' + str(len(nbors))
                     hyb = 'sp' + str(len(nbors))
-                #  Group 8
+                #   Group 8
                 elif element_symbol in ('O', 'S'):
-                    #  oxygen case is complex with the UFF4MOF oxygen types
+                    #   oxygen case is complex with the UFF4MOF oxygen types
                     if element_symbol == 'O':
-                        #  -OH, for example
+                        #   -OH, for example
                         if len(nbors) == 2 and 'A' not in bond_types and 'D' not in bond_types and not any(i in metals for i in nbor_symbols):
                             ty = 'O_3'
                             hyb = 'sp3'
-                        #  furan oxygen, for example
+                        #   furan oxygen, for example
                         elif len(nbors) == 2 and 'A' in bond_types and not any(i in metals for i in nbor_symbols):
                             ty = 'O_R'
                             hyb = 'sp2'
-                        #  carboxyllic oxygen
+                        #   carboxyllic oxygen
                         elif len(nbors) == 2 and 'D' in bond_types and not any(i in metals for i in nbor_symbols):
                             ty = 'O_2'
                             hyb = 'sp2'
-                        #  carboxylate oxygen bound to metal node
+                        #   carboxylate oxygen bound to metal node
                         elif len(nbors) == 2 and any(i in metals for i in nbor_symbols):
                             ty = 'O_2_M'
                             hyb = 'sp2'
-                        #  central 3-connected oxygen 
+                        #   central 3-connected oxygen 
                         elif len(nbors) == 3 and all(i in metals for i in nbor_symbols):
                             ty = 'O_2_M'
                             hyb = 'sp2'
-                        #  node oxygens bound to metals 
+                        #   node oxygens bound to metals 
                         elif len(nbors) >= 3 and any(i in metals for i in nbor_symbols):
                             ty = 'O_3_M'
                             hyb = 'sp2'
                         else:
                             raise ValueError('Oxygen with neighbors ' + ' '.join(nbor_symbols) + ' is not parametrized')
-                    #  sulfur case is simple
+                    #   sulfur case is simple
                     elif element_symbol == 'S':
                         ty = 'S_' + str(len(nbors) + 1)
                         hyb = 'sp' + str(len(nbors) + 1)
-                #  Group 9
+                #   Group 9
                 elif element_symbol in ('F', 'Br'):
                     ty = element_symbol + '_'
                     hyb = 'sp1'
-                #  Metals
+                #   Metals
                 elif element_symbol in metals:
                     ty = element_symbol
                     hyb = 'NA'
-                #  if no type can be identified
+                #   if no type can be identified
                 else:
                     raise ValueError('No Dreiding type identified for ' + element_symbol + 'with neighbors ' + ' '.join(nbor_symbols))
                     
@@ -172,15 +172,15 @@ class Dreiding(force_field):
         if mult == 0.0:
             return 'NA'
 
-        #  cases taken from the DREIDING paper (same cases, different force constants for UFF)
-        #  they are not done in order to save some lines, I don't know of a better way for doing
-        #  this besides a bunch of conditionals.
+        #   cases taken from the DREIDING paper (same cases, different force constants for UFF)
+        #   they are not done in order to save some lines, I don't know of a better way for doing
+        #   this besides a bunch of conditionals.
         if hyb_j == 'sp3' and hyb_k == 'sp3':
-            #  case (a)
+            #   case (a)
             phi0 = 60.0
             n = 3.0
             V = 2.0
-            #  case (h)
+            #   case (h)
             if els_j == 'O' and els_k == 'O':
                 phi0 = 90.0
                 n = 2.0
@@ -191,48 +191,48 @@ class Dreiding(force_field):
                 V = 2.0
 
         elif (hyb_j in ('sp2', 'resonant') and hyb_k == 'sp3') or (hyb_k in ('sp2', 'resonant') and hyb_j == 'sp3'):
-            #  case (b)
+            #   case (b)
             phi0 = 0.0
             n = 6.0
             V = 1.0
 
             if (hyb_j == 'sp3' and els_j == 'O') or (hyb_k == 'sp3' and els_k == 'O'):
-                #  case (i)
+                #   case (i)
                 phi0 = 180.0
                 n = 2.0
                 V = 2.0
-            #  case (j) not needed for the current ToBaCCo MOFs
+            #   case (j) not needed for the current ToBaCCo MOFs
 
         elif hyb_j in ('sp2', 'resonant') and hyb_k in ('sp2', 'resonant'):
             if bond_order == 2.0:
-                #  case (c)
+                #   case (c)
                 phi0 = 180.0
                 n = 2.0
                 V = 45.0
             elif bond_order == 1.5:
-                #  case (d)
+                #   case (d)
                 phi0 = 180.0
                 n = 2.0
                 V = 25.0
             elif bond_order == 1.0 and (hyb_j != 'resonant' or hyb_k != 'resonant'):
-                #  case (e)
+                #   case (e)
                 phi0 = 180.0
                 n = 2.0
                 V = 5.0
             elif bond_order == 1.0 and (hyb_j == 'resonant' and hyb_k == 'resonant'):
-                #  case (f)
+                #   case (f)
                 phi0 = 180.0
                 n = 2.0
                 V = 10.0
 
-        #  case (g)
+        #   case (g)
         elif hyb_j == 'sp1' or hyb_k == 'sp1':
             return 'NA'
 
         elif hyb_j == 'NA' or hyb_k == 'NA':
             return 'NA'
         
-        #  divide by multiplicity and halve to match UFF paper
+        #   divide by multiplicity and halve to match UFF paper
         V /= mult
         V *= 0.5
         d = (n*phi0) + 180.0
@@ -260,7 +260,7 @@ class Dreiding(force_field):
         comments = {}
         sb = 'dreiding'
 
-        #  determine style and special bonds
+        #   determine style and special bonds
         if charges:
             style = 'lj/cut/coul/long'
             cutoff = 12.5
@@ -291,7 +291,7 @@ class Dreiding(force_field):
             fft_j = SG.nodes[j]['force_field_type']
             bond_type = data['bond_type']
 
-            #  look for the bond order, otherwise use the convention based on the bond type
+            #   look for the bond order, otherwise use the convention based on the bond type
             try:
                 bond_order = bond_order_dict[(fft_i,fft_j)]
             except KeyError:
@@ -302,7 +302,7 @@ class Dreiding(force_field):
 
             bond = tuple(sorted([fft_i, fft_j]) + [bond_order])
 
-            #  add to list if bond type already exists, else add a new type
+            #   add to list if bond type already exists, else add a new type
             try:
                 bonds[bond].append((i,j))
             except KeyError:
@@ -315,7 +315,7 @@ class Dreiding(force_field):
         all_bonds = {}
         ID = 0
         count = 0
-        #  index bonds by ID
+        #   index bonds by ID
         for b in bonds:
 
             ID += 1
@@ -354,11 +354,11 @@ class Dreiding(force_field):
                 fft_i, i = sort_ik[0]
                 fft_k, k = sort_ik[1]
 
-                #  look up bond constants (don't need to calculate again, yay!)
+                #   look up bond constants (don't need to calculate again, yay!)
                 angle = sorted((fft_i, fft_k))
                 angle = (angle[0], fft_j, angle[1])
 
-                #  add to list if angle type already exists, else add a new type
+                #   add to list if angle type already exists, else add a new type
                 try:
                     angles[angle].append((i,j,k))
                 except KeyError:
@@ -371,7 +371,7 @@ class Dreiding(force_field):
         count = 0
         styles = []
 
-        #  index angles by ID
+        #   index angles by ID
         for a in angles:
 
             ID += 1
@@ -421,8 +421,8 @@ class Dreiding(force_field):
             hybridization = (hyb_j, hyb_k)
             element_symbols = (els_j, els_k)
 
-            #  here I calculate  parameters for each dihedral (I know) but I prefer identifying
-            #  those dihedrals before passing to the final dihedral data construction.
+            #   here I calculate  parameters for each dihedral (I know) but I prefer identifying
+            #   those dihedrals before passing to the final dihedral data construction.
             params = self.dihedral_parameters(bond, hybridization, element_symbols, nodes)
             
             if params != 'NA':
@@ -464,7 +464,7 @@ class Dreiding(force_field):
                 fft_i = data['force_field_type']
                 j,k,l = nbors
 
-                #  only need to consider one combination
+                #   only need to consider one combination
                 imps = [[i, j, k, l]]
 
                 try:
