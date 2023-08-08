@@ -86,7 +86,7 @@ class MZHB(force_field):
         
         i,j = bond
 
-        # divide by two in LAMMPS
+        #  divide by two in LAMMPS
         if i == 'Si' and j == 'O':
             k_ij = 537.31/2.0
             r_ij = 1.620
@@ -105,7 +105,7 @@ class MZHB(force_field):
 
         if j == 'Si' and i == 'O' and k == 'O':
 
-            # divide by two in LAMMPS
+            #  divide by two in LAMMPS
             K = 156.81169/2.0
             theta0 = 109.470
 
@@ -113,7 +113,7 @@ class MZHB(force_field):
 
         elif j == 'O':
 
-            # divide by two in LAMMPS
+            #  divide by two in LAMMPS
             K = 51.19440/2.0
             theta0 = 149.800
 
@@ -121,15 +121,15 @@ class MZHB(force_field):
 
     def dihedral_parameters(self):
 
-        # dihedrals are the same for everything
+        #  dihedrals are the same for everything
         pass        
 
     def improper_parameters(self, fft_i, O_2_flag):
 
-        # there are no impropers
+        #  there are no impropers
         pass
 
-    # Si-O bonds
+    #  Si-O bonds
     def enumerate_bonds(self):
 
         SG = self.system['graph']
@@ -143,7 +143,7 @@ class MZHB(force_field):
 
             bond = tuple(sorted([fft_i, fft_j]))
 
-            # add to list if bond type already exists, else add a new type
+            #  add to list if bond type already exists, else add a new type
             try:
                 bonds[bond].append((i,j))
             except KeyError:
@@ -154,7 +154,7 @@ class MZHB(force_field):
         all_bonds = {}
         ID = 0
         count = 0
-        # index bonds by ID
+        #  index bonds by ID
         for b in bonds:
 
             ID += 1
@@ -189,7 +189,7 @@ class MZHB(force_field):
                 angle = sorted((fft_i, fft_k))
                 angle = (angle[0], fft_j, angle[1])
 
-                # add to list if angle type already exists, else add a new type
+                #  add to list if angle type already exists, else add a new type
                 try:
                     angles[angle].append((i,j,k))
                 except KeyError:
@@ -202,7 +202,7 @@ class MZHB(force_field):
         count = 0
         styles = []
 
-        # index angles by ID
+        #  index angles by ID
         for a in angles:
 
             ID += 1

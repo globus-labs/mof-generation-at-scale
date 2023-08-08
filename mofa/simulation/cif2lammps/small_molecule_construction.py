@@ -29,7 +29,7 @@ def add_small_molecules(FF, ff_string):
     elif ff_string == 'Ions':
         SM_constants = small_molecule_constants.Ions
         FF.pair_data['special_bonds'] = 'lj/coul 0.0 0.0 1.0'
-    # insert more force fields here if needed
+    #  insert more force fields here if needed
     else:
         raise ValueError('the small molecule force field', ff_string, 'is not defined')
 
@@ -44,13 +44,13 @@ def add_small_molecules(FF, ff_string):
         offset = min(SMG.nodes())
 
         for node,data in SMG.nodes(data=True):
-            #print(node, data)
+            # print(node, data)
             atoms.append(Atom(data['element_symbol'], data['cartesian_position']))
         
         atoms.set_cell(FF.system['box'])
         unit_cell = atoms.get_cell()
         cutoffs = neighborlist.natural_cutoffs(atoms)
-        NL = neighborlist.NewPrimitiveNeighborList(cutoffs, use_scaled_positions=False, self_interaction=False, skin=0.10) # shorten the cutoff a bit
+        NL = neighborlist.NewPrimitiveNeighborList(cutoffs, use_scaled_positions=False, self_interaction=False, skin=0.10)  #  shorten the cutoff a bit
         NL.build([True, True, True], unit_cell, atoms.get_positions())
 
         for i in atoms:
@@ -109,7 +109,7 @@ def add_small_molecules(FF, ff_string):
             else:
                 SMG.nodes[n]['force_field_type'] = SMG.nodes[n]['element_symbol'] + '_' + ID_string
 
-        # add COM sites where relevant, extend this list as new types are added
+        #  add COM sites where relevant, extend this list as new types are added
         if ID_string in ('O2', 'N2'):
 
             coords = []
@@ -172,7 +172,7 @@ def add_small_molecules(FF, ff_string):
 
         constants = SM_constants[ID_string]
 
-        # add new atom types
+        #  add new atom types
         for name,data in sorted(subG.nodes(data=True), key=lambda x:x[0]):
 
             fft = data['force_field_type']
@@ -201,7 +201,7 @@ def add_small_molecules(FF, ff_string):
                 elif 'hybrid' in FF.pair_data['style'] and style not in FF.pair_data['style']:
                     FF.pair_data['style'] += ' ' + style
 
-        # add new bonds
+        #  add new bonds
         used_bonds = []
         ty = nbonds
         for e0,e1,data in subG.edges(data=True):
@@ -209,7 +209,7 @@ def add_small_molecules(FF, ff_string):
             bonds = constants['bonds']
             fft_i = SG.nodes[e0]['force_field_type']
             fft_j = SG.nodes[e1]['force_field_type']
-            # make sure the order corresponds to that in the molecule dictionary
+            #  make sure the order corresponds to that in the molecule dictionary
             bond = tuple(sorted([fft_i, fft_j]))
 
             try:
@@ -242,7 +242,7 @@ def add_small_molecules(FF, ff_string):
             except KeyError:
                 pass
         
-        # add new angles
+        #  add new angles
         used_angles = []
         ty = nangles
         for name,data in subG.nodes(data=True):
@@ -291,7 +291,7 @@ def add_small_molecules(FF, ff_string):
                 except KeyError:
                     pass
 
-        # add new dihedrals
+        #  add new dihedrals
 
     FF.bond_data['count'] = (FF.bond_data['count'][0], len(FF.bond_data['params']))
     FF.angle_data['count'] = (FF.angle_data['count'][0], len(FF.angle_data['params']))
@@ -315,7 +315,7 @@ def add_small_molecules(FF, ff_string):
 
 
         if 'long' in FF.pair_data['style']:
-            FF.pair_data['M_site_dist'] = 0.1546 # only TIP4P/2005 is implemented 
+            FF.pair_data['M_site_dist'] = 0.1546  #  only TIP4P/2005 is implemented 
         elif 'cut' in FF.pair_data['style'] and ff_string == 'TIP4P_2005_cutoff':
             FF.pair_data['M_site_dist'] = 0.1546
         elif 'cut' in FF.pair_data['style'] and ff_string == 'TIP4P_cutoff':
@@ -433,4 +433,4 @@ def read_small_molecule_file(sm_file, system):
 
         ind += 1
 
-    system['SM_graph'] = nx.compose(SMG, system['SM_graph']) # don't want to overwrite extra framework species already in the cif
+    system['SM_graph'] = nx.compose(SMG, system['SM_graph'])  #  don't want to overwrite extra framework species already in the cif

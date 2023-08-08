@@ -119,7 +119,7 @@ class UFF4MOF(force_field):
 
             if len(nbors) > 1:
 
-                # 4 connected metals require shape matching
+                #  4 connected metals require shape matching
                 if (element_symbol in metals and len(nbors) == 4):
 
                     count += 1
@@ -168,11 +168,11 @@ class UFF4MOF(force_field):
                 ty = element_symbol + '_' + 'R'
                 hyb = 'resonant'
             else:
-                # Group 1
+                #  Group 1
                 if element_symbol == 'H':
                     ty = element_symbol + '_'
                     hyb = 'sp1'
-                # Group 6
+                #  Group 6
                 elif element_symbol in ('C', 'Si'):
                     if len(element_symbol) == 1:
                         ty = element_symbol + '_' + str(len(nbors) - 1)
@@ -180,11 +180,11 @@ class UFF4MOF(force_field):
                     else:
                         ty = element_symbol + str(len(nbors) - 1)
                         hyb = 'sp' + str(len(nbors) - 1)
-                # Group 7
+                #  Group 7
                 elif element_symbol in ('N', 'P'):
                     if element_symbol == 'N':
                         if len(nbors) < 4:
-                            # special case for -NO2
+                            #  special case for -NO2
                             if sorted(nbor_symbols) == ['C', 'O', 'O']:
                                 ty = element_symbol + '_R'
                                 hyb = 'sp2'
@@ -198,78 +198,78 @@ class UFF4MOF(force_field):
                             ty = 'P_3+3'
                         else:
                             ty = 'P_3+5'
-                # Group 8
+                #  Group 8
                 elif element_symbol in ('O', 'S'):
                     if element_symbol == 'O':
-                        # =O for example
+                        #  =O for example
                         if len(nbors) == 1:
                             ty = 'O_1'
                             hyb = 'sp1'
-                        # -OH, for example
+                        #  -OH, for example
                         elif len(nbors) == 2 and 'A' not in bond_types and 'D' not in bond_types and not any(i in metals for i in nbor_symbols):
                             ty = 'O_3'
                             hyb = 'sp3'
-                        # coordinated solvent, same parameters as O_3, but different name to modulate bond orders
+                        #  coordinated solvent, same parameters as O_3, but different name to modulate bond orders
                         elif len(nbors) in (2,3) and len([i for i in nbor_symbols if i in metals]) == 1 and 'H' in nbor_symbols:
                             ty = 'O_3_M'
                             hyb = 'sp3'
-                        # furan oxygen, for example
+                        #  furan oxygen, for example
                         elif len(nbors) == 2 and 'A' in bond_types and not any(i in metals for i in nbor_symbols):
                             ty = 'O_R'
                             hyb = 'sp2'
-                        # carboxyllic oxygen
+                        #  carboxyllic oxygen
                         elif len(nbors) == 2 and 'D' in bond_types and not any(i in metals for i in nbor_symbols):
                             ty = 'O_2'
                             hyb = 'sp2'
-                        # carboxylate oxygen bound to metal node, same parameters as O_2, but different name to modulate bond orders
+                        #  carboxylate oxygen bound to metal node, same parameters as O_2, but different name to modulate bond orders
                         elif len(nbors) == 2 and any(i in metals for i in nbor_symbols) and 'C' in nbor_symbols:
                             ty = 'O_2_M'
                             hyb = 'sp2'
-                        # 2 connected oxygens bonded to metals
+                        #  2 connected oxygens bonded to metals
                         elif len(nbors) == 2 and len([i for i in nbor_symbols if i in metals]) == 1:
                             ty = 'O_3'
                             hyb = 'sp2'
                         elif len(nbors) == 2 and len([i for i in nbor_symbols if i in metals]) == 2:
                             ty = 'O_2_z'
                             hyb = 'sp2'
-                        # 3 connected oxygens bonded to metals
+                        #  3 connected oxygens bonded to metals
                         elif len(nbors) == 3 and len([i for i in nbor_symbols if i in metals]) > 1:
-                            # trigonal geometry
+                            #  trigonal geometry
                             if dist_triangle < dist_tetrahedral and not any(i in ['Zr', 'Eu', 'Tb', 'U'] for i in nbor_symbols):
                                 ty = 'O_2_z'
                                 hyb = 'sp2'
-                            # sometimes oxygens in Zr6 and analagous nodes can have near trigonal geometry, still want O_3_f, however
+                            #  sometimes oxygens in Zr6 and analagous nodes can have near trigonal geometry, still want O_3_f, however
                             elif dist_triangle < dist_tetrahedral and any(i in ['Zr', 'Eu', 'Tb', 'U'] for i in nbor_symbols):
                                 ty = 'O_3_f'
                                 hyb = 'sp2'
-                            # tetrahedral-like geometry
+                            #  tetrahedral-like geometry
                             elif dist_tetrahedral < dist_triangle and any(i in ['Zr', 'Eu', 'Tb', 'U'] for i in nbor_symbols):
                                 ty = 'O_3_f'
                                 hyb = 'sp3'
-                        # 4 connected oxygens bonded to metals
+                        #  4 connected oxygens bonded to metals
                         elif len(nbors) == 4 and any(i in metals for i in nbor_symbols):
                             ty = 'O_3_f'
                             hyb = 'sp3'
 
-                    # sulfur case is simple
+                    #  sulfur case is simple
                     elif element_symbol == 'S':
-                        # -SH like patterns
+                        #  -SH like patterns
                         if len(nbors) == 2:
                             ty = 'S_' + str(len(nbors) + 1)
                             hyb = 'sp' + str(len(nbors) + 1)
-                        # trigonal S
+                        #  trigonal S
                         elif len(nbors) == 3:
                             ty = 'S_2'
                             hyb = 'sp2'
-                        # tetrahedral S connected to metals
+                        #  tetrahedral S connected to metals
                         elif len(nbors) > 3 and any(i in metals for i in nbor_symbols):
                             ty = 'S_3_f'
                             hyb = 'sp3'
-                        # tetrahedral S connected to non-metals
+                        #  tetrahedral S connected to non-metals
                         elif len(nbors) > 3 and not any(i in metals for i in nbor_symbols):
                             ty = 'S_3+6'
                             hyb = 'sp3'
-                # Group 9
+                #  Group 9
                 elif element_symbol in ('F', 'Cl', 'Br') and len(nbor_symbols) in (0,1,2,4):
                     if element_symbol != 'Cl':
                         if len(element_symbol) == 1:
@@ -277,7 +277,7 @@ class UFF4MOF(force_field):
                         else:
                             ty = element_symbol
                         hyb = 'sp1'
-                    # some Cl have 90 degree angles in CoRE MOFs
+                    #  some Cl have 90 degree angles in CoRE MOFs
                     else:
                         if len(nbor_symbols) > 0:
                             if dist_corner <= dist_linear:
@@ -287,48 +287,48 @@ class UFF4MOF(force_field):
                         else:
                             ty = 'Cl'
 
-                # metals
+                #  metals
                 elif element_symbol in metals and element_symbol not in ('As', 'Bi', 'Tl', 'Sb', 'At', 'Cs', 'Fr', 'Ni', 'Rb'):
 
                     hyb = 'NA'
 
-                    # symbol to add to type
+                    #  symbol to add to type
                     if len(element_symbol) == 1:
                         add_symbol = element_symbol + '_'
                     else:
                         add_symbol = element_symbol
 
-                    # 2 connected, linear
+                    #  2 connected, linear
                     if len(nbors) == 2 and dist_linear < 60.0:
                         options = ('1f1', '4f2', '4+2', '6f3', '6+3', '6+2', '6+4')
                         ty = typing_loop(options, add_symbol, UFF4MOF_atom_parameters)
 
-                    # incomplete square planar
+                    #  incomplete square planar
                     elif len(nbors) == 3 and dist_square < min(dist_tetrahedral, dist_triangle):
                         options = ('4f2', '4+2')
                         ty = typing_loop(options, add_symbol, UFF4MOF_atom_parameters)
 
-                    # incomplete tetrahedron
+                    #  incomplete tetrahedron
                     elif len(nbors) == 3 and dist_tetrahedral < min(dist_square, dist_triangle):
                         options = ('3f2', '3+2')
                         ty = typing_loop(options, add_symbol, UFF4MOF_atom_parameters)
 
-                    # trigonal, only Cu, Zn, Ag
+                    #  trigonal, only Cu, Zn, Ag
                     elif len(nbors) == 3 and dist_triangle < min(dist_square, dist_tetrahedral):
                         options = ['2f2']
                         ty = typing_loop(options, add_symbol, UFF4MOF_atom_parameters)
 
-                    # 4 connected, square planar
+                    #  4 connected, square planar
                     elif len(nbors) == 4 and dist_square < dist_tetrahedral:
                         options = ('4f2', '4+2', '6f3', '6+3', '6+2', '6+4')
                         ty = typing_loop(options, add_symbol, UFF4MOF_atom_parameters)
 
-                    # 4 connected, tetrahedral 3+3 does not apply for As, Sb, Tl, Bi
+                    #  4 connected, tetrahedral 3+3 does not apply for As, Sb, Tl, Bi
                     elif len(nbors) == 4 and (dist_tetrahedral < dist_square):
                         options = ('3f2', '3f4', '3+1', '3+2', '3+3', '3+4', '3+5', '3+6')
                         ty = typing_loop(options, add_symbol, UFF4MOF_atom_parameters)
 
-                    # paddlewheels, 5 neighbors if bare, 6 neighbors if pillared, one should be another metal
+                    #  paddlewheels, 5 neighbors if bare, 6 neighbors if pillared, one should be another metal
                     elif len(nbors) in (5,6) and any(i in metals for i in nbor_symbols):
                         if (dist_square < dist_tetrahedral):
                             options = ('4f2', '4+2', '6f3', '6+3', '6+2', '6+4')
@@ -340,22 +340,22 @@ class UFF4MOF(force_field):
                             message += 'The neighbors are ' + ' '.join(nbor_symbols)
                             warnings.warn(message)
 
-                    # M3O(CO2H)6 metals, e.g. MIL-100, paddlewheel options are secondary, followed by 8f4 (should give nearly correct geometry)
+                    #  M3O(CO2H)6 metals, e.g. MIL-100, paddlewheel options are secondary, followed by 8f4 (should give nearly correct geometry)
                     elif len(nbors) in (5,6) and not any(i in metals for i in nbor_symbols) and (dist_square < dist_tetrahedral):
                         options = ('6f3', '6+2', '6+3', '6+4', '4f2', '4+2')
                         ty = typing_loop(options, add_symbol, UFF4MOF_atom_parameters)
 
-                    # 5,6 connected, with near-tetrahedral angles
+                    #  5,6 connected, with near-tetrahedral angles
                     elif len(nbors) in (5,6) and not any(i in metals for i in nbor_symbols) and (dist_tetrahedral < dist_square):
                         options = ('8f4', '3f2', '3f4', '3+1', '3+2', '3+3', '3+4', '3+5', '3+6')
                         ty = typing_loop(options, add_symbol, UFF4MOF_atom_parameters)
 
-                    # highly connected metals (max of 12 neighbors)
+                    #  highly connected metals (max of 12 neighbors)
                     elif 7 <= len(nbors) <= 14:
                         options = ['8f4']
                         ty = typing_loop(options, add_symbol, UFF4MOF_atom_parameters)
 
-                # only one type for Bi
+                #  only one type for Bi
                 elif element_symbol in ('As', 'Bi', 'Tl', 'Sb'):
                     ty = element_symbol + '3+3'
                     hyb = 'NA'
@@ -410,14 +410,14 @@ class UFF4MOF(force_field):
         r0_i, theta0_i, x1_i, D1_i, zeta_i, Z1_i, V_i, X_i = params_i
         r0_j, theta0_j, x1_j, D1_j, zeta_j, Z1_j, V_j, X_j = params_j
 
-        # bond-order correction
+        #  bond-order correction
         rbo = -0.1332 * (r0_i+r0_j) * np.log(bond_order)
-        # electronegativity correction
+        #  electronegativity correction
         ren = r0_i*r0_j * (((np.sqrt(X_i) - np.sqrt(X_j))**2)) / (X_i*r0_i + X_j*r0_j)
-        # equilibrium distance
+        #  equilibrium distance
         r_ij = r0_i + r0_j + rbo - ren
         r_ij3 = r_ij * r_ij * r_ij
-        # force constant (1/2 factor should be included here for LAMMPS)
+        #  force constant (1/2 factor should be included here for LAMMPS)
         k_ij = 0.5 * 664.12 * ((Z1_i*Z1_j)/r_ij3)
 
         return ('harmonic', k_ij, r_ij)
@@ -437,19 +437,19 @@ class UFF4MOF(force_field):
         r0_j, theta0_j, x1_j, D1_j, zeta_j, Z1_j, V_j, X_j = params_j
         r0_k, theta0_k, x1_k, D1_k, zeta_k, Z1_k, V_k, X_k = params_k
 
-        # linear
+        #  linear
         if theta0_j == 180.0:
             n = 1
             b = 1
-        # trigonal planar
+        #  trigonal planar
         elif theta0_j == 120.0:
             n = 3
             b = -1
-        # square planar or octahedral
+        #  square planar or octahedral
         elif theta0_j == 90.0:
             n = 4
             b = 1
-        # general non-linear
+        #  general non-linear
         else:
             n = 'NA'
             b = 'NA'
@@ -458,10 +458,10 @@ class UFF4MOF(force_field):
         sinT0 = np.sin(math.radians(theta0_j))
 
         r_ik = np.sqrt(r_ij**2.0 + r_jk**2.0 - 2.0*r_ij*r_jk*cosT0)
-        # force constant
+        #  force constant
         K = ((664.12*Z1_i*Z1_k)/(r_ik**5.0)) * (3.0*r_ij*r_jk*(1.0-cosT0**2.0)-r_ik**2.0*cosT0)
 
-        # general non-linear
+        #  general non-linear
         if theta0_j not in (90.0, 120.0, 180.0):
 
             angle_style = 'fourier'
@@ -471,10 +471,10 @@ class UFF4MOF(force_field):
             
             return (angle_style, K, C0, C1, C2)
 
-        # the 1/2 scaling is needed to correct the LAMMPS angle energy calculation
-        # angle energy for angle_style cosine/periodic is multiplied by 2 in LAMMPS for some reason
-        # see https://github.com/lammps/lammps/blob/master/src/MOLECULE/angle_cosine_periodic.cpp, line 140
-        # the 1/2 factor for the UFF fourier angles should be included here as it is not included in LAMMPS
+        #  the 1/2 scaling is needed to correct the LAMMPS angle energy calculation
+        #  angle energy for angle_style cosine/periodic is multiplied by 2 in LAMMPS for some reason
+        #  see https://github.com/lammps/lammps/blob/master/src/MOLECULE/angle_cosine_periodic.cpp, line 140
+        #  the 1/2 factor for the UFF fourier angles should be included here as it is not included in LAMMPS
         K *= 0.5
 
         return (angle_style, K, b, n)
@@ -496,17 +496,17 @@ class UFF4MOF(force_field):
         if mult == 0.0:
             return 'NA'
 
-        # cases taken from the DREIDING paper (same cases, different force constants for UFF)
-        # they are not done in order to save some lines, I don't know of a better way for doing
-        # this besides a bunch of conditionals.
+        #  cases taken from the DREIDING paper (same cases, different force constants for UFF)
+        #  they are not done in order to save some lines, I don't know of a better way for doing
+        #  this besides a bunch of conditionals.
         if hyb_j == 'sp3' and hyb_k == 'sp3':
-            # case (a)
+            #  case (a)
             phi0 = 60.0
             n = 3.0
             V_j = UFF4MOF_atom_parameters[fft_j][6]
             V_k = UFF4MOF_atom_parameters[fft_k][6]
             V = np.sqrt(V_j*V_k)
-            # case (h)
+            #  case (h)
             if els_j == 'O' and els_k == 'O':
                 phi0 = 90.0
                 n = 2.0
@@ -517,11 +517,11 @@ class UFF4MOF(force_field):
                 V = 6.8
 
         elif (hyb_j in ('sp2', 'resonant') and hyb_k == 'sp3') or (hyb_k in ('sp2', 'resonant') and hyb_j == 'sp3'):
-            # case (b)
+            #  case (b)
             phi0 = 180.0
             n = 6.0
             V = 2.0
-            # case (i) 
+            #  case (i) 
             if hyb_j == 'sp3' and els_j in ('O', 'S'):
                 phi0 = 180.0
                 n = 2.0
@@ -534,9 +534,9 @@ class UFF4MOF(force_field):
                 U_j = UFF4MOF_atom_parameters[fft_j][6]
                 U_k = UFF4MOF_atom_parameters[fft_k][6]
                 V = 5 * np.sqrt(U_j*U_k) * (1.0 + 4.18 * np.log(bond_order))
-            # case (j) not needed for the current ToBaCCo MOFs
+            #  case (j) not needed for the current ToBaCCo MOFs
 
-        # case (c, d, e, f)
+        #  case (c, d, e, f)
         elif hyb_j in ('sp2', 'resonant') and hyb_k in ('sp2', 'resonant'):
             phi0 = 180.0
             n = 2.0
@@ -544,14 +544,14 @@ class UFF4MOF(force_field):
             U_k = UFF4MOF_atom_parameters[fft_k][6]
             V = 5 * np.sqrt(U_j*U_k) * (1.0 + 4.18 * np.log(bond_order))
 
-        # case (g)
+        #  case (g)
         elif hyb_j == 'sp1' or hyb_k == 'sp1':
             return 'NA'
 
         elif hyb_j == 'NA' or hyb_k == 'NA':
             return 'NA'
         
-        # divide by multiplicity and halve to match UFF paper
+        #  divide by multiplicity and halve to match UFF paper
         V /= mult
         V *= 0.5
         d = -1.0 * np.cos(math.radians(n*phi0))
@@ -562,14 +562,14 @@ class UFF4MOF(force_field):
         
         if fft_i in ('N_R', 'C_R', 'C_2'):
 
-            # constants for C_R and N_R
+            #  constants for C_R and N_R
             C0 = 1.0
             C1 = -1.0
             C2 = 0.0
             K = 6.0/3.0
             al = 1
 
-            # constants for bound O_2
+            #  constants for bound O_2
             if O_2_flag:
                 K = 50.0/3.0
 
@@ -585,7 +585,7 @@ class UFF4MOF(force_field):
         params = {}
         comments = {}
 
-        # determine style and special bonds
+        #  determine style and special bonds
         if charges:
             style = 'lj/cut/coul/long'
             sb = 'lj 0.0 0.0 1.0 coul 0.0 0.0 0.0'
@@ -618,26 +618,26 @@ class UFF4MOF(force_field):
             esi = SG.nodes[i]['element_symbol']
             esj = SG.nodes[j]['element_symbol']
 
-            # look for the bond order, otherwise use the convention based on the bond type
+            #  look for the bond order, otherwise use the convention based on the bond type
             try:
                 bond_order = bond_order_dict[(fft_i,fft_j)]
             except KeyError:
                 try:
                     bond_order = bond_order_dict[(fft_j,fft_i)]
                 except KeyError:
-                    # half for metal-nonmetal
+                    #  half for metal-nonmetal
                     if any(a in metals for a in (esi, esj)) and not all(a in metals for a in (esi, esj)):
                         bond_order = 0.5
-                    # quarter for metal-metal
+                    #  quarter for metal-metal
                     elif all(a in metals for a in (esi, esj)):
                         bond_order = 0.25
-                    # use bond order
+                    #  use bond order
                     else:
                         bond_order = bond_order_dict[bond_type]
 
             bond = tuple(sorted([fft_i, fft_j]) + [bond_order])
 
-            # add to list if bond type already exists, else add a new type
+            #  add to list if bond type already exists, else add a new type
             try:
                 bonds[bond].append((i,j))
             except KeyError:
@@ -651,7 +651,7 @@ class UFF4MOF(force_field):
         ID = 0
         count = 0
         styles = []
-        # index bonds by ID
+        #  index bonds by ID
         for b in bonds:
 
             ID += 1
@@ -698,7 +698,7 @@ class UFF4MOF(force_field):
                 fft_i, i = sort_ik[0]
                 fft_k, k = sort_ik[1]
 
-                # look up bond constants (don't need to calculate again, yay!)
+                #  look up bond constants (don't need to calculate again, yay!)
                 try:
                     bond_type_ij = inv_bonds[(i,j)]
                 except KeyError:
@@ -717,10 +717,10 @@ class UFF4MOF(force_field):
                 angle = sorted((fft_i, fft_k))
                 sorted_rs = sorted((r_ij, r_jk))
 
-                #angle = (angle[0], fft_j, angle[1], r_ij, r_jk)
+                # angle = (angle[0], fft_j, angle[1], r_ij, r_jk)
                 angle = (angle[0], fft_j, angle[1], sorted_rs[0], sorted_rs[1])
 
-                # add to list if angle type already exists, else add a new type
+                #  add to list if angle type already exists, else add a new type
                 try:
                     angles[angle].append((i,j,k))
                 except KeyError:
@@ -733,7 +733,7 @@ class UFF4MOF(force_field):
         count = 0
         styles = []
 
-        # index angles by ID
+        #  index angles by ID
         for a in angles:
 
             ID += 1
@@ -783,8 +783,8 @@ class UFF4MOF(force_field):
             hybridization = (hyb_j, hyb_k)
             element_symbols = (els_j, els_k)
 
-            # here I calculate  parameters for each dihedral (I know) but I prefer identifying
-            # those dihedrals before passing to the final dihedral data construction.
+            #  here I calculate  parameters for each dihedral (I know) but I prefer identifying
+            #  those dihedrals before passing to the final dihedral data construction.
             params = self.dihedral_parameters(bond, hybridization, element_symbols, nodes)
             
             if params != 'NA':
@@ -826,12 +826,12 @@ class UFF4MOF(force_field):
                 fft_i = data['force_field_type']
                 fft_nbors = tuple(sorted([SG.nodes[m]['force_field_type'] for m in nbors]))
                 O_2_flag = False
-                # force constant is much larger if j,k, or l is O_2
+                #  force constant is much larger if j,k, or l is O_2
                 if 'O_2' in fft_nbors or 'O_2_M' in fft_nbors:
                     O_2_flag = True
                 j,k,l = nbors
 
-                # only need to consider one combination
+                #  only need to consider one combination
                 imps = [[i, j, k, l]]
 
                 try:
