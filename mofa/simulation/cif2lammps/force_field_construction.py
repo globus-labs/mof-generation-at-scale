@@ -1,7 +1,7 @@
 from __future__ import print_function
 from abc import abstractmethod
 
-#  import UFF4MOF_constants
+# import UFF4MOF_constants
 from . import atomic_data
 
 metals = atomic_data.metals
