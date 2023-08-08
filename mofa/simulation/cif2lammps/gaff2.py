@@ -1,6 +1,6 @@
 from textwrap import dedent
 
-#  AMBER General Force Field for organic molecules (Version 2.11, May 2016)
+#   AMBER General Force Field for organic molecules (Version 2.11, May 2016)
 gaff_atom_types = dedent("""
 c  12.01         0.616               Sp2 C carbonyl group 
 cs 12.01         0.616               Sp2 C in c=S
@@ -101,7 +101,7 @@ sx 32.06         2.900               Special s4 in conjugated systems
 sy 32.06         2.900               Special s6 in conjugated systems
 """)
 
-#  hn  ho  hs  n   na  nc  nd  ne  nf  n2  n3  n4  o   oh  os  ow  sh  ss
+#   hn  ho  hs  n   na  nc  nd  ne  nf  n2  n3  n4  o   oh  os  ow  sh  ss
 gaff_bonds = dedent("""
 ow-hw  553.0    0.9572          TIP3P_Water       1	
 hw-hw  553.0    1.5136          TIP3P_Water       1	
@@ -4889,7 +4889,7 @@ sh-s6-ss    71.1      102.64              SOURCE3            1
 s -s6-s     71.4      109.34              SOURCE3            1
 ss-s6-ss    71.2      101.82              SOURCE3            1
 br-sh-hs    49.8       95.64              SOURCE3            1
-c1-sh-hs    55.6       95.99 calculated_based_on_C  # C-SH            0
+c1-sh-hs    55.6       95.99 calculated_based_on_C  #  C-SH            0
 c2-sh-hs    52.8       96.79      SOURCE4_SOURCE5           12    0.5703
 c3-sh-hs    51.4       96.40      SOURCE3_SOURCE5          191    0.6428
 ca-sh-hs    53.2       95.50      SOURCE4_SOURCE5           44    0.8350
@@ -7526,9 +7526,9 @@ n2-ca-ca-n2         1.1          180.          2.           dac guess, 9/94
 na-n2-ca-n2         1.1          180.          2.           dac, 10/94
 """)
 
-#   hw  ow  0000.     0000.                                4.  flag for fast water
+#    hw  ow  0000.     0000.                                4.  flag for fast water
 
-#  MOD4      RE
+#   MOD4      RE
 gaff_LJ_params = dedent("""
   hc          1.4593  0.0208
   ha          1.4735  0.0161
@@ -7627,67 +7627,67 @@ gaff_LJ_params = dedent("""
   pf          2.0732  0.2295
  """)
 
-#  END
- #  
-#  ----------------------------------------------------------------------------
- #  Equilibrium  Sources
- #  SOURCE1
- #  Authors: Frank H. Allen, Olga Kennard and David G. Watson
- #  Title : Tables of Bond lengths determined by X-ray and neutron
- #  diffraction. Part 1. Bond lengths in organic compounds
- #  Journal: J. Chem. Soc. Perkin Trans. II 1987, S1-S19
- #  
-#  SOURCE2
- #  Authors: Harmony, M. D.; Laurie, V. W.; Kuczkowski, R. L.; Schwendeman,
- #  R. H.; Ramsay, D. A.; Lovas, F. J.; Lafferty, W. J.; Maki, A. G.
- #  Title : Molecular structures of gas-phase polyatomic molecules determined
- #  by spectroscopic methods
- #  Journal: J. Phys. Chem. Ref. Data, Vol 8, 1979, 619
- #  
-#  SOURCE3
- #  Optimized geometries at MP2/6-31G* level
- #  
-#  SOURCE4
- #  Optimized geometries at B3LYP/6-31G* level (15,000 molecules)
- #  
-#  SOURCE5
- #  Optimized geometries at B3LYP/6-31G* level (30,000 molecules)
- #  ---------------------------------------------------------------------------
- #  Bond stretching parameter format
- #  atom_type  force_constant   equ. length  source_ID occurrence rmsd
- #  xx-yy          581.1           1.288      SOURCE1     103    0.0100
- #  ---------------------------------------------------------------------------
- #  atom_type  force_constant   equ. angle   source_ID   occurrence   rmsd
- #  xx-yy-zz      35.450          103.620     SOURCE3         3      0.7078
- #  ---------------------------------------------------------------------------
- #  aa-bb-cc-dd 4    2.000         0.000 2	set2_17	SS AUE=0.8458 RMSE=1.0943 TorType=3
- #  |           |    |             |     |     |    |           |   |         |
- #  atom_type   |    force_constant|     Vterm |    Opt_methods |   |    Torsional_Type
- #              multiplicity       phase    model_cmpd          Prediction_Error 
-#  
-#  TorType=1: parameter comes from gaff
- #  TorType=2: parameter introduced in gaff, but updated 
-#  TorType=3: parameter newly introduced
- #  Opt_method=SS: systematic search
- #  Opt_method=GA: genetic algorithm
- #  ---------------------------------------------------------------------------
- #  Version gaff2.1
- #  van der Waals:  redeveloped to reproduce both high-level ab initio interaction
- #                  energies and experimental pure liquid properties.
- #  Reference bond lengthes and angles:  updated based on the statistics of more
- #                  than 30,000 geometries optimized at at least B3LYP/6-31G* level.
- #  Bond length and bond angle force constants: redeveloped to reproduce vibrational
- #                  frequencies of more than 600 molecules. The AUE and RMSE of more
- #                  than 22000 frequencies is 51 and 67 cm-1, respectively.
- #  Torsional angle parameters:  developed to reproduce ab initio rotation profiles
- #                  (MP2/aug-cc-pVTZ) for 400 most common model compounds including
- #                  some PTM residues. The average RMS errors of reproducing ab
- #                  initio rotation profiles is 0.94 kcal/mol
- #  !!!Suggestions/criticisms/comments are always welcome !!!
- #  ----------------------------------------------------------------------------
- #  Version gaff2.11
- #  Updates to GAFF 2.11, May, 2017:
- #     added new atom types for n3/n4/n/nh/os/ss in RG3 and RG4
- #     updated bond length/angle parameters involved by the newly introduced atom types
- #  ----------------------------------------------------------------------------
+#   END
+ #   
+#   ----------------------------------------------------------------------------
+ #   Equilibrium  Sources
+ #   SOURCE1
+ #   Authors: Frank H. Allen, Olga Kennard and David G. Watson
+ #   Title : Tables of Bond lengths determined by X-ray and neutron
+ #   diffraction. Part 1. Bond lengths in organic compounds
+ #   Journal: J. Chem. Soc. Perkin Trans. II 1987, S1-S19
+ #   
+#   SOURCE2
+ #   Authors: Harmony, M. D.; Laurie, V. W.; Kuczkowski, R. L.; Schwendeman,
+ #   R. H.; Ramsay, D. A.; Lovas, F. J.; Lafferty, W. J.; Maki, A. G.
+ #   Title : Molecular structures of gas-phase polyatomic molecules determined
+ #   by spectroscopic methods
+ #   Journal: J. Phys. Chem. Ref. Data, Vol 8, 1979, 619
+ #   
+#   SOURCE3
+ #   Optimized geometries at MP2/6-31G* level
+ #   
+#   SOURCE4
+ #   Optimized geometries at B3LYP/6-31G* level (15,000 molecules)
+ #   
+#   SOURCE5
+ #   Optimized geometries at B3LYP/6-31G* level (30,000 molecules)
+ #   ---------------------------------------------------------------------------
+ #   Bond stretching parameter format
+ #   atom_type  force_constant   equ. length  source_ID occurrence rmsd
+ #   xx-yy          581.1           1.288      SOURCE1     103    0.0100
+ #   ---------------------------------------------------------------------------
+ #   atom_type  force_constant   equ. angle   source_ID   occurrence   rmsd
+ #   xx-yy-zz      35.450          103.620     SOURCE3         3      0.7078
+ #   ---------------------------------------------------------------------------
+ #   aa-bb-cc-dd 4    2.000         0.000 2	set2_17	SS AUE=0.8458 RMSE=1.0943 TorType=3
+ #   |           |    |             |     |     |    |           |   |         |
+ #   atom_type   |    force_constant|     Vterm |    Opt_methods |   |    Torsional_Type
+ #               multiplicity       phase    model_cmpd          Prediction_Error 
+#   
+#   TorType=1: parameter comes from gaff
+ #   TorType=2: parameter introduced in gaff, but updated 
+#   TorType=3: parameter newly introduced
+ #   Opt_method=SS: systematic search
+ #   Opt_method=GA: genetic algorithm
+ #   ---------------------------------------------------------------------------
+ #   Version gaff2.1
+ #   van der Waals:  redeveloped to reproduce both high-level ab initio interaction
+ #                   energies and experimental pure liquid properties.
+ #   Reference bond lengthes and angles:  updated based on the statistics of more
+ #                   than 30,000 geometries optimized at at least B3LYP/6-31G* level.
+ #   Bond length and bond angle force constants: redeveloped to reproduce vibrational
+ #                   frequencies of more than 600 molecules. The AUE and RMSE of more
+ #                   than 22000 frequencies is 51 and 67 cm-1, respectively.
+ #   Torsional angle parameters:  developed to reproduce ab initio rotation profiles
+ #                   (MP2/aug-cc-pVTZ) for 400 most common model compounds including
+ #                   some PTM residues. The average RMS errors of reproducing ab
+ #                   initio rotation profiles is 0.94 kcal/mol
+ #   !!!Suggestions/criticisms/comments are always welcome !!!
+ #   ----------------------------------------------------------------------------
+ #   Version gaff2.11
+ #   Updates to GAFF 2.11, May, 2017:
+ #      added new atom types for n3/n4/n/nh/os/ss in RG3 and RG4
+ #      updated bond length/angle parameters involved by the newly introduced atom types
+ #   ----------------------------------------------------------------------------
 

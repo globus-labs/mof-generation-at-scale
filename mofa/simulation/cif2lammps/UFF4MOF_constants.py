@@ -1,10 +1,10 @@
-#  I am aware I have not followed the Python syntax guidlines for this data entry, but it 
-#  really makes things easier to have justified columns -Ryther
+#   I am aware I have not followed the Python syntax guidlines for this data entry, but it 
+#   really makes things easier to have justified columns -Ryther
 
-#  UFF and UFF4MOF parameters are taken directly from gulp-5.1 (uff4mof.lib)
+#   UFF and UFF4MOF parameters are taken directly from gulp-5.1 (uff4mof.lib)
 
 UFF4MOF_atom_parameters = {
- #  type    r0     theta_0   x_i     D_i     zeta    Z_i     Vi/Uj   Xi       
+ #   type    r0     theta_0   x_i     D_i     zeta    Z_i     Vi/Uj   Xi       
 "H_"   : (0.354, 180.0,    2.886,  0.044,  12.0,   0.7120, 0.000,  4.528),
 "H_b"  : (0.460,  83.5,    2.886,  0.044,  12.0,   0.7125, 0.000,  4.528),
 "He4+4": (0.849,  90.0,    2.362,  0.056,  15.24,  0.0972, 0.000,  9.660),
@@ -99,7 +99,7 @@ UFF4MOF_atom_parameters = {
 "Zn2f2": (1.300, 120.0,    2.763,  0.124,  12.0,   1.3084, 0.000,  5.106),
 "Ga3+3": (1.260, 109.4712, 4.383,  0.415,  11.0,   1.8206, 0.000,  2.999),
 "Ga3f2": (1.150, 109.4712, 4.383,  0.415,  11.0,   1.8206, 0.000,  2.999),
-"Ga6f3": (1.480, 90.0 ,    4.383,  0.415,  11.0,   1.8206, 0.000,  2.999),
+"Ga6f3": (1.480, 90.0,     4.383,  0.415,  11.0,   1.8206, 0.000,  2.999),
 "Ge3"  : (1.197, 109.4712, 4.280,  0.379,  12.0,   2.7888, 0.701,  4.051),
 "As3+3": (1.211,  92.1,    4.230,  0.309,  13.0,   2.8640, 1.500,  5.188),
 "Se3+2": (1.190,  90.6,    4.205,  0.291,  14.0,   2.7645, 0.335,  6.428),
@@ -229,13 +229,13 @@ UFF4MOF_atom_parameters = {
 "Md6+3": (1.689,  90.0000, 3.274,  0.011,  12.0,   3.8882, 0.000,  3.4700),
 "No6+3": (1.679,  90.0000, 3.248,  0.011,  12.0,   3.8882, 0.000,  3.4750),
 "Lr6+3": (1.698,  90.0000, 3.236,  0.011,  12.0,   3.8882, 0.000,  3.5000),
-   # #  Special O-types for using alternate bond orders
-"O_2_M": (0.634, 120.00, 3.500, 0.060, 14.085, 2.3000, 2.000, 8.7410),  #  carboxyllic oxygen bonded to metal
-"O_3_M": (0.658, 104.51, 3.500, 0.060, 14.085, 2.3000, 0.018, 8.7410)  #  this should be used for O in coordinated solvent
+   #  #   Special O-types for using alternate bond orders
+"O_2_M": (0.634, 120.00, 3.500, 0.060, 14.085, 2.3000, 2.000, 8.7410),  #   carboxyllic oxygen bonded to metal
+"O_3_M": (0.658, 104.51, 3.500, 0.060, 14.085, 2.3000, 0.018, 8.7410)  #   this should be used for O in coordinated solvent
 }
 
-#  all M-M bonds have order 0.25 unless otherwise specified by UFF4MOF
- #  all M-O bonds have order 0.50 unless otherwise specified by UFF4MOF
+#   all M-M bonds have order 0.25 unless otherwise specified by UFF4MOF
+ #   all M-O bonds have order 0.50 unless otherwise specified by UFF4MOF
 UFF4MOF_bond_orders_0 = {
     ("Ti4+2", "Ti4+2") : 0.25,
     ("V_4+2", "V_4+2") : 3.00,
@@ -292,12 +292,12 @@ UFF4MOF_bond_orders_0 = {
     'T': 3.00
 }
 
-#    if len(symbol) > 2:
- #        symbol = symbol[0:2]
- #    radii.append((symbol, vdw_radius))
- # 
-# radii = set(radii)
- # 
-# for l in sorted(radii):
- #    print('{:4} {:5.3f}'.format(l[0], l[1]))
+#     if len(symbol) > 2:
+ #         symbol = symbol[0:2]
+ #     radii.append((symbol, vdw_radius))
+ #  
+#  radii = set(radii)
+ #  
+#  for l in sorted(radii):
+ #     print('{:4} {:5.3f}'.format(l[0], l[1]))
 

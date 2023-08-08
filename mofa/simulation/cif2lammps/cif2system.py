@@ -221,7 +221,7 @@ def initialize_system(filename, charges=False, small_molecule_cutoff=5, read_pym
         es1 = G.nodes[e1]['element_symbol']
         bond_type = data['bond_type']
 
-        #  carboxylate oxygens should have aromatic bonds with C
+        #   carboxylate oxygens should have aromatic bonds with C
         if len(nbors0_symbols) == 2 and es0 == 'O' and es1 == 'C' and any(i in metals for i in nbors0_symbols) and bond_type != 'A':
             print_flag = True
             data['bond_type'] = 'A'
@@ -229,7 +229,7 @@ def initialize_system(filename, charges=False, small_molecule_cutoff=5, read_pym
             print_flag = True
             data['bond_type'] = 'A'
 
-        #  nitro nitrogens should have aromatic bonds with O
+        #   nitro nitrogens should have aromatic bonds with O
         if es0 == 'N' and es1 == 'O' and sorted(nbors0_symbols) == ['C', 'O', 'O']:
             print_flag = True
             data['bond_type'] = 'A'
@@ -257,7 +257,7 @@ def initialize_system(filename, charges=False, small_molecule_cutoff=5, read_pym
         formula = ''.join([str(x) for es in comp for x in es])
         components.append((len(elems), formula, S))
 
-    print('there are', len(components), 'components in the system with (  # atoms, formula unit):')
+    print('there are', len(components), 'components in the system with (  #  atoms, formula unit):')
     SM = nx.Graph()
     framework = nx.Graph()
     
@@ -363,15 +363,15 @@ def duplicate_system(system, replications, small_molecule_cutoff=10):
 
             count += 1
             
-            #  this data stays the same
+            #   this data stays the same
             element_symbol = node_data['element_symbol']
             charge = node_data['charge']
             
-            #  update index
+            #   update index
             original_atom = node_data['index']
             new_index = count
             
-            #  update coordinates
+            #   update coordinates
             fvec = node_data['fractional_position']
             translated_fvec = fvec + trans_vec
             fvec = np.array([c/d for c,d in zip(fvec, replications)])
@@ -463,7 +463,7 @@ def duplicate_system(system, replications, small_molecule_cutoff=10):
         formula = ''.join([str(x) for es in comp for x in es])
         components.append((len(elems), formula, S))
 
-    print('there are', len(components), 'components in the system with (  # atoms, formula unit):')
+    print('there are', len(components), 'components in the system with (  #  atoms, formula unit):')
     SM = nx.Graph()
     framework = nx.Graph()
     for component in components:
@@ -687,7 +687,7 @@ def write_cif_from_system(system, filename):
         out.write('_geom_bond_atom_site_label_1' + '\n')
         out.write('_geom_bond_atom_site_label_2' + '\n')
         out.write('_geom_bond_distance' + '\n')
-        # out.write('_geom_bond_site_symmetry_1' + '\n')
+        #  out.write('_geom_bond_site_symmetry_1' + '\n')
         out.write('_ccdc_geom_bond_type' + '\n')
 
         for n0, n1, data in G.edges(data=True):
