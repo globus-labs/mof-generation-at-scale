@@ -16,7 +16,7 @@ from . import UFF4MOF_constants
 from . import UFF_constants
 from . import Dreiding_constants
 
-# add more force field classes here as they are made
+#  add more force field classes here as they are made
 
 UFF4MOF_atom_parameters = UFF4MOF_constants.UFF4MOF_atom_parameters
 UFF4MOF_bond_orders_0 = UFF4MOF_constants.UFF4MOF_bond_orders_0
@@ -43,7 +43,7 @@ def lammps_inputs(args):
 
     cifname, force_field, ff_string, sm_ff_string, outdir, charges, replication, read_pymatgen, add_molecule, sm_file = args
 
-    # add more forcefields here as they are created
+    #  add more forcefields here as they are created
     if ff_string == 'UFF4MOF':
         FF_args = {'FF_parameters':UFF4MOF_atom_parameters, 'bond_orders':UFF4MOF_bond_orders_0}
         cutoff = 12.50
@@ -84,7 +84,7 @@ def lammps_inputs(args):
         if len(FF.system['SM_graph'].nodes()) != 0:
             warnings.warn('extra-framework molecules detected, but no small molecule force field is specified!')
 
-    #write_cif_from_system(system, 'check.cif')
+    # write_cif_from_system(system, 'check.cif')
     first_line = "Created by Ryther's code on " + str(datetime.datetime.now())
 
     SG = FF.system['graph']
@@ -156,7 +156,7 @@ def lammps_inputs(args):
             mass = FF.atom_masses[fft]
             aty = FF.atom_types[fft]
             sym = FF.atom_element_symbols[fft]
-            data.write('{:>5} {:>10} # {:>1}'.format(aty, mass, sym))
+            data.write('{:>5} {:>10}  #  {:>1}'.format(aty, mass, sym))
             data.write('\n')
         data.write('\n')
 
@@ -174,11 +174,11 @@ def lammps_inputs(args):
                 comment = FF.pair_data['comments'][aty]
                 style = FF.pair_data['style']
     
-                # type
+                #  type
                 data.write('    {:<3}'.format(aty))
                 format_string = ' '.join(['{:{w}.{p}f}' if not np.issubdtype(x, np.integer) else '{:{w}}' for x in params[1:]])
                 data.write(format_string.format(*params[1:], w=12, p=5))
-                data.write(' '.join([' #'] + comment))
+                data.write(' '.join(['  # '] + comment))
                 data.write('\n')
 
         data.write('\n')
@@ -200,9 +200,9 @@ def lammps_inputs(args):
                     data.write('\n')
                     continue
 
-                # type
+                #  type
                 data.write('    {:<3}'.format(bty))
-                # style needs to be written for hybrid
+                #  style needs to be written for hybrid
                 data.write('{:<20}'.format(params[0]))
 
                 try:
@@ -212,10 +212,10 @@ def lammps_inputs(args):
 
 
                 data.write(format_string.format(*params[1:], w=12, p=5))
-                data.write(' '.join([' #'] + comment))
+                data.write(' '.join(['  # '] + comment))
                 data.write('\n')
             else:
-                # type
+                #  type
                 data.write('    {:<3}'.format(bty))
 
                 try:
@@ -224,7 +224,7 @@ def lammps_inputs(args):
                     format_string = ' '.join(['{:{w}}' for x in params[1:]])
 
                 data.write(format_string.format(*params[1:], w=12, p=5))
-                data.write(' '.join([' #'] + comment))
+                data.write(' '.join(['  # '] + comment))
                 data.write('\n')
 
         data.write('\n')
@@ -239,9 +239,9 @@ def lammps_inputs(args):
             style = FF.angle_data['style']
 
             if 'hybrid' in style:
-                # type
+                #  type
                 data.write('    {:<3}'.format(aty))
-                # style needs to be written for hybrid
+                #  style needs to be written for hybrid
                 data.write('{:<20}'.format(params[0]))
                 
                 try:
@@ -250,10 +250,10 @@ def lammps_inputs(args):
                     format_string = ' '.join(['{:{w}}' for x in params[1:]])
 
                 data.write(format_string.format(*params[1:], w=12, p=5))
-                data.write(' '.join([' #'] + comment))
+                data.write(' '.join(['  # '] + comment))
                 data.write('\n')
             else:
-                # type
+                #  type
                 data.write('    {:<3}'.format(aty))
 
                 try:
@@ -262,7 +262,7 @@ def lammps_inputs(args):
                     format_string = ' '.join(['{:{w}}' for x in params[1:]])
 
                 data.write(format_string.format(*params[1:], w=12, p=5))
-                data.write(' '.join([' #'] + comment))
+                data.write(' '.join(['  # '] + comment))
                 data.write('\n')
 
         if N_dihedrals != 0:
@@ -278,20 +278,20 @@ def lammps_inputs(args):
                 style = FF.dihedral_data['style']
 
                 if 'hybrid' in style:
-                    # type
+                    #  type
                     data.write('    {:<3}'.format(dty))
-                    # style needs to be written for hybrid
+                    #  style needs to be written for hybrid
                     data.write('{:<20}'.format(params[0]))
                     format_string = ' '.join(['{:{w}.{p}f}' if not np.issubdtype(x, np.integer) else '{:{w}}' for x in params[1:]])
                     data.write(format_string.format(*params[1:], w=12, p=5))
-                    data.write(' '.join([' #'] + comment))
+                    data.write(' '.join(['  # '] + comment))
                     data.write('\n')
                 else:
-                    # type
+                    #  type
                     data.write('    {:<3}'.format(dty))
                     format_string = ' '.join(['{:{w}.{p}f}' if not np.issubdtype(x, np.integer) else '{:{w}}' for x in params[1:]])
                     data.write(format_string.format(*params[1:], w=12, p=5))
-                    data.write(' '.join([' #'] + comment))
+                    data.write(' '.join(['  # '] + comment))
                     data.write('\n')
 
         if N_impropers != 0:
@@ -307,20 +307,20 @@ def lammps_inputs(args):
                 style = FF.improper_data['style']
     
                 if 'hybrid' in style:
-                    # type
+                    #  type
                     data.write('    {:<3}'.format(ity))
-                    # style needs to be written for hybrid
+                    #  style needs to be written for hybrid
                     data.write('{:<20}'.format(params[0]))
                     format_string = ' '.join(['{:{w}.{p}f}' if not np.issubdtype(x, np.integer) else '{:{w}}' for x in params[1:]])
                     data.write(format_string.format(*params[1:], w=12, p=5))
-                    data.write(' '.join([' #'] + comment))
+                    data.write(' '.join(['  # '] + comment))
                     data.write('\n')
                 else:
-                    # type
+                    #  type
                     data.write('    {:<3}'.format(ity))
                     format_string = ' '.join(['{:{w}.{p}f}' if not np.issubdtype(x, np.integer) else '{:{w}}' for x in params[1:]])
                     data.write(format_string.format(*params[1:], w=12, p=5))
-                    data.write(' '.join([' #'] + comment))
+                    data.write(' '.join(['  # '] + comment))
                     data.write('\n')
 
         data.write('\n')
@@ -505,7 +505,7 @@ def lammps_inputs(args):
         infile.write('pair_modify     ' + mixing_rules + '\n')
         infile.write('special_bonds   ' + sb + '\n')
 
-        # use ewald summation for long range solver unless using pair_style lj/cut/tip4p/long
+        #  use ewald summation for long range solver unless using pair_style lj/cut/tip4p/long
         if 'long' in pair_style and 'tip4p' not in pair_style:
             infile.write('kspace_style    ewald 1.0e-5\n')
         elif 'tip4p/long' in pair_style:
@@ -525,7 +525,7 @@ def lammps_inputs(args):
                 params0 = [np.round(x,6) if isfloat(x) else x for x in params0]
                 style0, eps0, sig0 = params0
 
-                comment = '#' + ' ' + ' '.join(FF.pair_data['comments'][aty0])
+                comment = '  # ' + ' ' + ' '.join(FF.pair_data['comments'][aty0])
     
                 line = ['pair_coeff',aty0, aty0, style0, eps0, sig0, comment]
                 infile.write('{:12} {:<3} {:<3} {:20} {:10.6f} {:10.6f} {:<20}'.format(*line))
@@ -545,11 +545,11 @@ def lammps_inputs(args):
                 style1, eps1, sig1 = params1
                 comment1 = FF.pair_data['comments'][aty1][0]
 
-                comments = '#' + ' ' + comment0 + ' ' + comment1
+                comments = '  # ' + ' ' + comment0 + ' ' + comment1
 
-                # current logic is to use the longer style, this actually works well when using lj/cut for 
-                # framework atoms and lj/cut + charge interactions for framework/molecule and molecule/molecule
-                # interactions. This is mostly what I use pair_style hybrid for.
+                #  current logic is to use the longer style, this actually works well when using lj/cut for 
+                #  framework atoms and lj/cut + charge interactions for framework/molecule and molecule/molecule
+                #  interactions. This is mostly what I use pair_style hybrid for.
                 style = style0 if len(style0) > len(style1) else style1
                 
                 if 'geometric' in mixing_rules:
