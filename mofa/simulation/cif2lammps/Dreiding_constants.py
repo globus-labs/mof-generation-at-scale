@@ -1,6 +1,6 @@
 
 Dreiding_atom_parameters = {
-    #   Atom   R1     theta    R0      D0      phi  S
+    # Atom   R1     theta    R0      D0      phi  S
     "H_":  (0.330, 180.0,   3.195,  0.0152, 0.0, 12.382),
     "B_3": (0.880, 109.471, 4.02,   0.095,  0.0, 14.23),
     "B_2": (0.790, 120.0,   4.02,   0.095,  0.0, 14.23),
@@ -21,7 +21,7 @@ Dreiding_atom_parameters = {
     "Si3": (0.937, 109.471, 4.27,   0.31,   0.0, 12.0),
     "P_3": (0.890, 93.3,    4.15,   0.32,   0.0, 12.0),
     "S_3": (1.040, 92.1,    4.03,   0.344,  0.0, 12.0),
-    "S_R": (1.040, 92.1,    4.03,   0.344,  0.0, 12.0),  #    same as S_3, but R is more useful
+    "S_R": (1.040, 92.1,    4.03,   0.344,  0.0, 12.0),  # same as S_3, but R is more useful
     "Cl_": (0.997, 180.0,   3.9503, 0.2833, 0.0, 13.861),
     "Ga3": (1.210, 109.471, 4.39,   0.4,    0.0, 12.0),
     "Ge3": (1.210, 109.471, 4.27,   0.4,    0.0, 12.0),
@@ -37,23 +37,23 @@ Dreiding_atom_parameters = {
     "Ca":  (1.940, 90.0,    3.472,  0.05,   0.0, 12.0),
     "Fe":  (1.285, 90.0,    4.54,   0.055,  0.0, 12.0),
     "Zn":  (1.330, 109.471, 4.54,   0.055,  0.0, 12.0),
-    "Cu":  (1.302, 90.0,    4.54,   0.055,  0.0, 12.0),  #    R1 taken from UFF, the rest are just a copy of DREIDING Zn
-    "Zr":  (1.564, 109.471, 4.54,   0.055,  0.0, 12.0),  #    R1 taken from UFF, the rest are just a copy of DREIDING Zn
-    "Cr":  (1.345, 90.0,    4.54,   0.055,  0.0, 12.0),  #    R1 taken from UFF, the rest are just a copy of DREIDING Zn
-    #    added for easier IDs
+    "Cu":  (1.302, 90.0,    4.54,   0.055,  0.0, 12.0),  # R1 taken from UFF, the rest are just a copy of DREIDING Zn
+    "Zr":  (1.564, 109.471, 4.54,   0.055,  0.0, 12.0),  # R1 taken from UFF, the rest are just a copy of DREIDING Zn
+    "Cr":  (1.345, 90.0,    4.54,   0.055,  0.0, 12.0),  # R1 taken from UFF, the rest are just a copy of DREIDING Zn
+    # added for easier IDs
     "O_2_M": (0.560, 120.0,   3.4046, 0.0957, 0.0, 13.483),
     "O_3_M": (0.660, 104.51,  3.4046, 0.0957, 0.0, 13.483)
 }
 
 Dreiding_bond_orders_0 = {
-    ("Cu", "Cu")    : 0.25,
-    ("Cu", "O_2_M") : 0.50,
-    ("Zn", "O_2_M") : 0.50,
-    ("Zr", "O_2_M") : 0.50,
-    ("Cr", "O_2_M") : 0.50,
-    ("Zn", "O_3_M") : 0.50,
-    ("Zr", "O_3_M") : 0.50,
-    ("Cr", "O_3_M") : 0.50,
+    ("Cu", "Cu"): 0.25,
+    ("Cu", "O_2_M"): 0.50,
+    ("Zn", "O_2_M"): 0.50,
+    ("Zr", "O_2_M"): 0.50,
+    ("Cr", "O_2_M"): 0.50,
+    ("Zn", "O_3_M"): 0.50,
+    ("Zr", "O_3_M"): 0.50,
+    ("Cr", "O_3_M"): 0.50,
     'S': 1.00,
     'A': 1.50,
     'D': 2.00,

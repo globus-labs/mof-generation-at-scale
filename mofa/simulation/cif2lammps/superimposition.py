@@ -1,7 +1,7 @@
-#   Copyright (C) 2002, Thomas Hamelryck (thamelry@vub.ac.be)
- #   This code is part of the Biopython distribution and governed by its
- #   license.  Please see the LICENSE file that should have been included
- #   as part of this package.
+# Copyright (C) 2002, Thomas Hamelryck (thamelry@vub.ac.be)
+ # This code is part of the Biopython distribution and governed by its
+ # license.  Please see the LICENSE file that should have been included
+ # as part of this package.
 """Align on protein structure onto another using SVD alignment.
 SVDSuperimposer finds the best rotation and translation to put
 two point sets on top of each other (minimizing the RMSD). This is
@@ -75,7 +75,7 @@ class SVDSuperimposer(object):
         """Initialize the class."""
         self._clear()
 
-    #   Private methods
+    # Private methods
 
     def _clear(self):
         self.reference_coords = None
@@ -91,7 +91,7 @@ class SVDSuperimposer(object):
         diff = coords1 - coords2
         return sum(sum(diff * diff)) / coords1.shape[0]
 
-    #   Public methods
+    # Public methods
 
     def set(self, reference_coords, coords):
         """Set the coordinates to be superimposed.
@@ -101,9 +101,9 @@ class SVDSuperimposer(object):
         DIM is the dimension of the points, N is the number
         of points to be superimposed.
         """
-        #   clear everything from previous runs
+        # clear everything from previous runs
         self._clear()
-        #   store cordinates
+        # store cordinates
         self.reference_coords = reference_coords
         self.coords = coords
         n = reference_coords.shape
@@ -118,16 +118,16 @@ class SVDSuperimposer(object):
             raise Exception("No coordinates set.")
         coords = self.coords
         reference_coords = self.reference_coords
-        #   center on centroid
+        # center on centroid
         av1 = sum(coords) / self.n
         av2 = sum(reference_coords) / self.n
         coords = coords - av1
         reference_coords = reference_coords - av2
-        #   correlation matrix
+        # correlation matrix
         a = dot(transpose(coords), reference_coords)
         u, d, vt = svd(a)
         self.rot = transpose(dot(transpose(vt), transpose(u)))
-        #   check if we have found a reflection
+        # check if we have found a reflection
         if det(self.rot) < 0:
             vt[2] = -vt[2]
             self.rot = transpose(dot(transpose(vt), transpose(u)))

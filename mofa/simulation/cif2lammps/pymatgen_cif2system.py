@@ -26,7 +26,7 @@ def M(vec1, vec2):
     """
     ax = np.cross(vec1, vec2)
     
-    if np.any(ax):  #   need to check that the rotation axis has non-zero components
+    if np.any(ax):  # need to check that the rotation axis has non-zero components
        
         ax_norm = ax/norm(np.cross(vec1, vec2))
         cos_ang = np.dot(vec1, vec2)/(norm(vec1) * norm(vec2))
@@ -112,7 +112,7 @@ def cif_read_pymatgen(filename, charges=False, coplanarity_tolerance=0.1):
         charge_list = [0.0 for a in atoms]
 
     cutoffs = neighborlist.natural_cutoffs(atoms)
-    NL = neighborlist.NewPrimitiveNeighborList(cutoffs, use_scaled_positions=False, self_interaction=False, skin=skin)  #   default atom cutoffs work well
+    NL = neighborlist.NewPrimitiveNeighborList(cutoffs, use_scaled_positions=False, self_interaction=False, skin=skin)  # default atom cutoffs work well
     NL.build([True, True, True], unit_cell, atoms.get_positions())
     
     G = nx.Graph()
@@ -162,12 +162,12 @@ def cif_read_pymatgen(filename, charges=False, coplanarity_tolerance=0.1):
         nbor_symbols = [G.nodes[n]['element_symbol'] for n in nbors]
         nonmetal_nbor_symbols = [n for n in nbor_symbols if n not in metals]
 
-        #   remove C-M bonds if C is also bonded to carboxylate atoms, these are almost always wrong
+        # remove C-M bonds if C is also bonded to carboxylate atoms, these are almost always wrong
         for n, nsym in zip(nbors, nbor_symbols):
             if isym == 'C' and sorted(nonmetal_nbor_symbols) == ['C', 'O', 'O'] and nsym in metals:
                 G.remove_edge(i,n)
 
-      #  #   intial bond typing, guessed from rounding pymatgen bond orders
+      # # intial bond typing, guessed from rounding pymatgen bond orders
     linkers = nx.connected_components(NMG)
     aromatic_atoms = []
     for linker in linkers:
@@ -200,18 +200,18 @@ def cif_read_pymatgen(filename, charges=False, coplanarity_tolerance=0.1):
 
                 if bond_order < 1.0 and bond_order != 0.5:
                     bond_order = 1.0
-                #   shortest observed single bond had order 1.321
+                # shortest observed single bond had order 1.321
                 elif 1.00 <= bond_order < 1.33:
                     bond_order = 1.0
                 elif 1.33 <= bond_order < 1.75:
                     bond_order = 1.5
-                #   bond orders tend to be on the high end for aromatic compounds
+                # bond orders tend to be on the high end for aromatic compounds
                 elif 1.75 <= bond_order < 2.00:
                     bond_order = 1.5
                 elif 2.00 <= bond_order < 3.00:
                     bond_order = round(bond_order)
                 
-                #   bonds between two disparate cycles or cycles and non-cycles should have order 1.0
+                # bonds between two disparate cycles or cycles and non-cycles should have order 1.0
                 if check_cycles and cyloc != None:
                     if n not in CB[cyloc]:
                         bond_order = 1.0
@@ -240,10 +240,10 @@ def cif_read_pymatgen(filename, charges=False, coplanarity_tolerance=0.1):
         all_cycles = nx.simple_cycles(nx.to_directed(SG))
         all_cycles = set([tuple(sorted(cy)) for cy in all_cycles if len(cy) > 4])
 
-          #  #   assign aromatic bond orders as 1.5 (in most cases they will be already)
+          # # assign aromatic bond orders as 1.5 (in most cases they will be already)
         for cycle in all_cycles:
 
-            #   rotate the ring normal vec onto the z-axis to determine coplanarity
+            # rotate the ring normal vec onto the z-axis to determine coplanarity
             coords = np.array([G.nodes[c]['position'] for c in cycle])
             fcoords = np.dot(inv_uc, coords.T).T
             anchor = fcoords[0]
@@ -260,7 +260,7 @@ def cif_read_pymatgen(filename, charges=False, coplanarity_tolerance=0.1):
             coords = np.dot(RZ, coords.T).T
             maxZ = max([abs(z) for z in coords[:,-1]])
 
-            #   if coplanar make all bond orders 1.5
+            # if coplanar make all bond orders 1.5
             if maxZ < coplanarity_tolerance:
 
                 aromatic_atoms.extend(list(cycle))

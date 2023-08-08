@@ -1,10 +1,10 @@
-#   I am aware I have not followed the Python syntax guidlines for this data entry, but it 
-#   really makes things easier to have justified columns -Ryther
+# I am aware I have not followed the Python syntax guidlines for this data entry, but it 
+# really makes things easier to have justified columns -Ryther
 
-#   UFF and UFF4MOF parameters are taken directly from gulp-5.1 (uff4mof.lib)
+# UFF and UFF4MOF parameters are taken directly from gulp-5.1 (uff4mof.lib)
 
 UFF_atom_parameters = {
- #   type    r0     theta_0   x_i     D_i     zeta    Z_i     Vi/Uj   Xi       
+ # type    r0     theta_0   x_i     D_i     zeta    Z_i     Vi/Uj   Xi       
 "H_":    (0.354, 180.0,    2.886,  0.044,  12.0,   0.7120, 0.000,  4.528),
 "H_b":   (0.460,  83.5,    2.886,  0.044,  12.0,   0.7125, 0.000,  4.528),
 "He4+4": (0.849,  90.0,    2.362,  0.056,  15.24,  0.0972, 0.000,  9.660),
@@ -56,7 +56,7 @@ UFF_atom_parameters = {
 "Co6+2": (1.241,  90.0,    2.872,  0.014,  12.0,   2.4301, 0.000,  4.105),
 "Ni4+2": (1.164,  90.0,    2.834,  0.015,  12.0,   2.4301, 0.000,  4.465),
 "Cu3+1": (1.302, 109.4712, 3.495,  0.005,  12.0,   1.7565, 0.000,  3.729),
-"Cu4+1": (1.302,  90.0,    3.495,  0.005,  12.0,   1.7565, 0.000,  3.729),  #   justed changed to angle to 90.0 for paddlewheels
+"Cu4+1": (1.302,  90.0,    3.495,  0.005,  12.0,   1.7565, 0.000,  3.729),  # justed changed to angle to 90.0 for paddlewheels
 "Zn3+2": (1.193, 109.4712, 2.763,  0.124,  12.0,   1.3084, 0.000,  5.106),
 "Ga3+3": (1.260, 109.4712, 4.383,  0.415,  11.0,   1.8206, 0.000,  2.999),
 "Ge3":   (1.197, 109.4712, 4.280,  0.379,  12.0,   2.7888, 0.701,  4.051),
@@ -135,21 +135,21 @@ UFF_atom_parameters = {
 "Md6+3": (1.689,  90.0000, 3.274,  0.011,  12.0,   3.8882, 0.000,  3.4700),
 "No6+3": (1.679,  90.0000, 3.248,  0.011,  12.0,   3.8882, 0.000,  3.4750),
 "Lr6+3": (1.698,  90.0000, 3.236,  0.011,  12.0,   3.8882, 0.000,  3.5000),
-   #  #   Special O-types for using alternate bond orders
-"O_2_M": (0.634, 120.0,    3.500,  0.060,  14.085, 2.2998, 2.000,  8.741),  #   carboxyllic oxygen bonded to metal
-"O_3_M": (0.658, 104.51,   3.500,  0.060,  14.085, 2.2998, 0.018,  8.741)  #   this should be used for O in coordinated solvent
+   # # Special O-types for using alternate bond orders
+"O_2_M": (0.634, 120.0,    3.500,  0.060,  14.085, 2.2998, 2.000,  8.741),  # carboxyllic oxygen bonded to metal
+"O_3_M": (0.658, 104.51,   3.500,  0.060,  14.085, 2.2998, 0.018,  8.741)  # this should be used for O in coordinated solvent
 }
 
-#   without MIL-53 type nodes
+# without MIL-53 type nodes
 UFF_bond_orders_0 = {
-    ("Cu4+1", "Cu4+1") : 0.25,
-    ("Cu4+1", "O_2_M") : 0.50,
-    ("Zn3+2", "O_2_M") : 0.50,
-    ("Zr3+4", "O_2_M") : 0.50,
-    ("Cr6f3", "O_2_M") : 0.50,
-    ("Zr3+4", "O_3_M") : 0.50,
-    ("Zn3+2", "O_3_M") : 0.50,
-    ("Cr6f3", "O_3_M") : 0.50,
+    ("Cu4+1", "Cu4+1"): 0.25,
+    ("Cu4+1", "O_2_M"): 0.50,
+    ("Zn3+2", "O_2_M"): 0.50,
+    ("Zr3+4", "O_2_M"): 0.50,
+    ("Cr6f3", "O_2_M"): 0.50,
+    ("Zr3+4", "O_3_M"): 0.50,
+    ("Zn3+2", "O_3_M"): 0.50,
+    ("Cr6f3", "O_3_M"): 0.50,
     'S': 1.00,
     'A': 1.50,
     'D': 2.00,
