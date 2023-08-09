@@ -88,7 +88,9 @@ def read_gaffdat(mode='gaff'):
         bond = tuple(sorted(bond.split('-')))
         gaff_bonds[bond] = (float(K), float(r0))
 
-    gaff_angle_list = [(''.join(LL[0:8].split()), ''.join(LL[8:20].split()), ''.join(LL[20:30].split())) for LL in gaff_angles.split('\n') if len(LL.split()) > 0]
+    gaff_angle_list = [(''.join(LL[0:8].split()), 
+                        ''.join(LL[8:20].split()), 
+                        ''.join(LL[20:30].split())) for LL in gaff_angles.split('\n') if len(LL.split()) > 0]
     gaff_angles = {}
     for LL in gaff_angle_list:
         angle, K, theta0 = LL
