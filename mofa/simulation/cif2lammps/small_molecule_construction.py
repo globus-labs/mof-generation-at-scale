@@ -156,17 +156,16 @@ def add_small_molecules(FF, ff_string):
     nbonds = len([i for i in FF.bond_data['params']])
     nangles = len([i for i in FF.angle_data['params']])
 
-    try:
-        ndihedrals = max([i for i in FF.dihedral_data['params']])
-    except ValueError:
-        # ndihedrals = 0
-        pass
-    try:
-        nimpropers = max([i for i in FF.improper_data['params']])
-    except ValueError:
-        # nimpropers = 0
-        pass
-    
+    # try:
+    #     ndihedrals = max([i for i in FF.dihedral_data['params']])
+    # except ValueError:
+    #     ndihedrals = 0
+    #     pass
+    # try:
+    #     nimpropers = max([i for i in FF.improper_data['params']])
+    # except ValueError:
+    #     nimpropers = 0
+    #     pass
     new_bond_types = {}
     new_angle_types = {}
     # new_dihedral_types = {}
