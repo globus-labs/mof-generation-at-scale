@@ -173,7 +173,7 @@ def cif_read_pymatgen(filename, charges=False, coplanarity_tolerance=0.1):
             if isym == 'C' and sorted(nonmetal_nbor_symbols) == ['C', 'O', 'O'] and nsym in metals:
                 G.remove_edge(i, n)
 
-      # # intial bond typing, guessed from rounding pymatgen bond orders
+    # intial bond typing, guessed from rounding pymatgen bond orders
     linkers = nx.connected_components(NMG)
     aromatic_atoms = []
     for linker in linkers:
