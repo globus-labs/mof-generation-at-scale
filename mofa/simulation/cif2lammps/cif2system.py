@@ -10,7 +10,7 @@ import functools
 from random import choice
 import warnings
 
-from numpy.linalg import norm, inv
+from numpy.linalg import norm
 
 metals = atomic_data.metals
 mass_key = atomic_data.mass_key
@@ -146,8 +146,8 @@ def cif_read(filename, charges=False, add_Zr_bonds=False):
 
     ccoords = []
 
-    for l in fcoords:
-        vec = l
+    for LL in fcoords:
+        vec = LL
         vec = np.dot(unit_cell, vec)
         ccoords.append(vec)
 
