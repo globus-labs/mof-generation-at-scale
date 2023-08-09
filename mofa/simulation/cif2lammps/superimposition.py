@@ -12,8 +12,8 @@ value decomposition, which is used in the algorithm.
 from __future__ import print_function
 
 try:
-    from numpy import dot, transpose, sqrt, array
-    from numpy.linalg import svd, det, norm
+    from numpy import dot, transpose  # , sqrt, array
+    from numpy.linalg import svd, det  # , norm
 except ImportError:
     from Bio import MissingPythonDependencyError
     raise MissingPythonDependencyError(
