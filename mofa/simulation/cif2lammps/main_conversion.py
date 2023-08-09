@@ -5,8 +5,6 @@ from multiprocessing import Pool
 import numpy as np
 import glob
 import os
-import re
-import sys
 import time
 from .write_lammps_data import lammps_inputs
 from .write_GULP_inputs import GULP_inputs

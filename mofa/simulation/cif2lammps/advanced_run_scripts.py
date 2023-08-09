@@ -74,4 +74,3 @@ if __name__ == '__main__':
 
     test_run()
     # multiple_sm_loadings('unopt_cifs')
-    pass

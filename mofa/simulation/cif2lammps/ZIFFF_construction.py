@@ -1,7 +1,6 @@
 from __future__ import print_function
 import itertools
 import warnings
-import math
 from . import atomic_data
 import networkx as nx
 import numpy as np

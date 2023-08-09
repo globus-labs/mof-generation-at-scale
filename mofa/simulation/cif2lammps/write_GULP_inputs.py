@@ -1,11 +1,9 @@
 from __future__ import print_function
 from .cif2system import initialize_system, duplicate_system, replication_determination, write_cif_from_system
 from . import atomic_data
-import sys
 import os
 import numpy as np
 import math
-import datetime
 
 from .UFF4MOF_construction import UFF4MOF
 from . import UFF4MOF_constants

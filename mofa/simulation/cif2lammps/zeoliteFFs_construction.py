@@ -1,6 +1,5 @@
 from __future__ import print_function
 import numpy as np
-import math
 import itertools
 from . import atomic_data
 from .force_field_construction import force_field
