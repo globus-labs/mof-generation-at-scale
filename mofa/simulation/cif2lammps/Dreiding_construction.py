@@ -332,7 +332,7 @@ class Dreiding(force_field):
     def enumerate_angles(self):
 
         SG = self.system['graph']
-        bonds = self.bond_data['all_bonds']
+        # bonds = self.bond_data['all_bonds']
         # inv_bonds = dict((b, bt) for bt in bonds for b in bonds[bt])
         angles = {}
 
