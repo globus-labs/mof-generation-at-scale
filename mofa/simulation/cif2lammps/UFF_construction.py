@@ -142,7 +142,7 @@ class UFF(force_field):
 
     def bond_parameters(self, bond, bond_order):
 
-        SG = self.system['graph']
+        # SG = self.system['graph']
         UFF_atom_parameters = self.args['FF_parameters']
 
         i, j = bond
@@ -342,7 +342,7 @@ class UFF(force_field):
             params[ID] = (style, D_i, x_i)
             comments[ID] = [a, a]
 
-        self.pair_data = {'params': params, 'style': style, 'special_bonds': sb, 'comments': comments}
+        self.pair_data = {'params': params, 'style': style, 'special_bonds': sb, 'comments': comments, 'cutoff': cutoff}
 
     def enumerate_bonds(self):
 
@@ -560,10 +560,10 @@ class UFF(force_field):
                 # force constant is much larger if j,k, or l is O_2
                 if 'O_2' in fft_nbors or 'O_2_M' in fft_nbors:
                     O_2_flag = True
-                j, k, l = nbors
+                j, k, LL = nbors
 
                 # only need to consider one combination
-                imps = [[i, j, k, l]]
+                imps = [[i, j, k, LL]]
 
                 try:
                     impropers[(fft_i, O_2_flag)].extend(imps)
