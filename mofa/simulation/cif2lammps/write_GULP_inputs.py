@@ -1,17 +1,17 @@
 from __future__ import print_function
-from .cif2system import initialize_system, duplicate_system, replication_determination, write_cif_from_system
+from .cif2system import initialize_system, replication_determination  # , duplicate_system, write_cif_from_system
 from . import atomic_data
 import os
 import numpy as np
 import math
 
-from .UFF4MOF_construction import UFF4MOF
+# from .UFF4MOF_construction import UFF4MOF
 from . import UFF4MOF_constants
 
-from .UFF_construction import UFF
+# from .UFF_construction import UFF
 from . import UFF_constants
 
-from .Dreiding_construction import Dreiding
+# from .Dreiding_construction import Dreiding
 from . import Dreiding_constants
 
 
@@ -86,7 +86,7 @@ def GULP_inputs(args):
 
         for a in SG.nodes(data=True):
             atom_data = a[1]
-            index = atom_data['index']
+            # index = atom_data['index']
             force_field_type = atom_data['force_field_type']
             gulp_type = FF.atom_types[force_field_type]
             elem = FF.atom_element_symbols[force_field_type]
