@@ -26,7 +26,7 @@ def M(vec1, vec2):
     """
     ax = np.cross(vec1, vec2)
     
-    if np.any(ax):  # need to check that the rotation axis has non-zero components
+    if np.any(ax): # need to check that the rotation axis has non-zero components
        
         ax_norm = ax/norm(np.cross(vec1, vec2))
         cos_ang = np.dot(vec1, vec2)/(norm(vec1) * norm(vec2))
@@ -36,12 +36,12 @@ def M(vec1, vec2):
     else:
         return eye(3)
 
-PT = ['H',  'He', 'Li', 'Be', 'B',  'C',  'N',  'O',  'F',  'Ne', 'Na', 'Mg', 'Al', 'Si', 'P',  'S',  'Cl', 'Ar',
-      'K',  'Ca', 'Sc', 'Ti', 'V',  'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn', 'Ga', 'Ge', 'As', 'Se', 'Br', 'Kr',
-      'Rb', 'Sr', 'Y',  'Zr', 'Nb', 'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 'Cd', 'In', 'Sn', 'Sb', 'Te', 'I',  'Xe',
-      'Cs', 'Ba', 'Hf', 'Ta', 'W',  'Re', 'Os', 'Ir', 'Pt', 'Au', 'Hg', 'Tl', 'Pb', 'Bi', 'Po', 'At', 'Rn', 'Fr', 
+PT = ['H' , 'He', 'Li', 'Be', 'B' , 'C' , 'N' , 'O' , 'F' , 'Ne', 'Na', 'Mg', 'Al', 'Si', 'P' , 'S' , 'Cl', 'Ar',
+      'K' , 'Ca', 'Sc', 'Ti', 'V' , 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn', 'Ga', 'Ge', 'As', 'Se', 'Br', 'Kr',
+      'Rb', 'Sr', 'Y' , 'Zr', 'Nb', 'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 'Cd', 'In', 'Sn', 'Sb', 'Te', 'I' , 'Xe',
+      'Cs', 'Ba', 'Hf', 'Ta', 'W' , 'Re', 'Os', 'Ir', 'Pt', 'Au', 'Hg', 'Tl', 'Pb', 'Bi', 'Po', 'At', 'Rn', 'Fr', 
       'Ra', 'La', 'Ce', 'Pr', 'Nd', 'Pm', 'Sm', 'Eu', 'Gd', 'Tb', 'Dy', 'Ho', 'Er', 'Tm', 'Yb', 'Lu', 'Ac', 'Th', 
-      'Pa', 'U',  'Np', 'Pu', 'Am', 'Cm', 'Bk', 'Cf', 'Es', 'Fm', 'Md', 'No', 'Lr', 'FG', 'X' ]
+      'Pa', 'U' , 'Np', 'Pu', 'Am', 'Cm', 'Bk', 'Cf', 'Es', 'Fm', 'Md', 'No', 'Lr', 'FG', 'X' ]
 
 def nl(string):
     return re.sub('[^0-9]', '', string)
@@ -167,7 +167,7 @@ def cif_read_pymatgen(filename, charges=False, coplanarity_tolerance=0.1):
             if isym == 'C' and sorted(nonmetal_nbor_symbols) == ['C', 'O', 'O'] and nsym in metals:
                 G.remove_edge(i,n)
 
-      # # intial bond typing, guessed from rounding pymatgen bond orders
+    ### intial bond typing, guessed from rounding pymatgen bond orders
     linkers = nx.connected_components(NMG)
     aromatic_atoms = []
     for linker in linkers:
@@ -240,7 +240,7 @@ def cif_read_pymatgen(filename, charges=False, coplanarity_tolerance=0.1):
         all_cycles = nx.simple_cycles(nx.to_directed(SG))
         all_cycles = set([tuple(sorted(cy)) for cy in all_cycles if len(cy) > 4])
 
-          # # assign aromatic bond orders as 1.5 (in most cases they will be already)
+        ### assign aromatic bond orders as 1.5 (in most cases they will be already)
         for cycle in all_cycles:
 
             # rotate the ring normal vec onto the z-axis to determine coplanarity

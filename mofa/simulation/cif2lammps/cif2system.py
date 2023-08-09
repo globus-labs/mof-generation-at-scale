@@ -15,12 +15,12 @@ from numpy.linalg import norm, inv
 metals = atomic_data.metals
 mass_key = atomic_data.mass_key
 
-PT = ['H',  'He', 'Li', 'Be', 'B',  'C',  'N',  'O',  'F',  'Ne', 'Na', 'Mg', 'Al', 'Si', 'P',  'S',  'Cl', 'Ar',
-      'K',  'Ca', 'Sc', 'Ti', 'V',  'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn', 'Ga', 'Ge', 'As', 'Se', 'Br', 'Kr',
-      'Rb', 'Sr', 'Y',  'Zr', 'Nb', 'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 'Cd', 'In', 'Sn', 'Sb', 'Te', 'I',  'Xe',
-      'Cs', 'Ba', 'Hf', 'Ta', 'W',  'Re', 'Os', 'Ir', 'Pt', 'Au', 'Hg', 'Tl', 'Pb', 'Bi', 'Po', 'At', 'Rn', 'Fr', 
+PT = ['H' , 'He', 'Li', 'Be', 'B' , 'C' , 'N' , 'O' , 'F' , 'Ne', 'Na', 'Mg', 'Al', 'Si', 'P' , 'S' , 'Cl', 'Ar',
+      'K' , 'Ca', 'Sc', 'Ti', 'V' , 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn', 'Ga', 'Ge', 'As', 'Se', 'Br', 'Kr',
+      'Rb', 'Sr', 'Y' , 'Zr', 'Nb', 'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 'Cd', 'In', 'Sn', 'Sb', 'Te', 'I' , 'Xe',
+      'Cs', 'Ba', 'Hf', 'Ta', 'W' , 'Re', 'Os', 'Ir', 'Pt', 'Au', 'Hg', 'Tl', 'Pb', 'Bi', 'Po', 'At', 'Rn', 'Fr', 
       'Ra', 'La', 'Ce', 'Pr', 'Nd', 'Pm', 'Sm', 'Eu', 'Gd', 'Tb', 'Dy', 'Ho', 'Er', 'Tm', 'Yb', 'Lu', 'Ac', 'Th', 
-      'Pa', 'U',  'Np', 'Pu', 'Am', 'Cm', 'Bk', 'Cf', 'Es', 'Fm', 'Md', 'No', 'Lr', 'FG', 'X' ]
+      'Pa', 'U' , 'Np', 'Pu', 'Am', 'Cm', 'Bk', 'Cf', 'Es', 'Fm', 'Md', 'No', 'Lr', 'FG', 'X' ]
 
 def GCD(a,b):
     a = abs(a)
@@ -257,7 +257,7 @@ def initialize_system(filename, charges=False, small_molecule_cutoff=5, read_pym
         formula = ''.join([str(x) for es in comp for x in es])
         components.append((len(elems), formula, S))
 
-    print('there are', len(components), 'components in the system with (  # atoms, formula unit):')
+    print('there are', len(components), 'components in the system with (#atoms, formula unit):')
     SM = nx.Graph()
     framework = nx.Graph()
     
@@ -463,7 +463,7 @@ def duplicate_system(system, replications, small_molecule_cutoff=10):
         formula = ''.join([str(x) for es in comp for x in es])
         components.append((len(elems), formula, S))
 
-    print('there are', len(components), 'components in the system with (  # atoms, formula unit):')
+    print('there are', len(components), 'components in the system with (#atoms, formula unit):')
     SM = nx.Graph()
     framework = nx.Graph()
     for component in components:
@@ -687,7 +687,7 @@ def write_cif_from_system(system, filename):
         out.write('_geom_bond_atom_site_label_1' + '\n')
         out.write('_geom_bond_atom_site_label_2' + '\n')
         out.write('_geom_bond_distance' + '\n')
-        # out.write('_geom_bond_site_symmetry_1' + '\n')
+        #out.write('_geom_bond_site_symmetry_1' + '\n')
         out.write('_ccdc_geom_bond_type' + '\n')
 
         for n0, n1, data in G.edges(data=True):

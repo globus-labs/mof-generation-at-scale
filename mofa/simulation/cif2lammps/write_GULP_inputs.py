@@ -31,8 +31,8 @@ mass_key = atomic_data.mass_key
 # add more force field classes here as they are made
 
 # this is a placeholder script for conversion to GULP, currently it is just used
- # for validating LAMMPS UFF4MOF calculations, it will be exanpded for more
- # general GULP usage
+# for validating LAMMPS UFF4MOF calculations, it will be exanpded for more
+# general GULP usage
 
 def isfloat(value):
     """
@@ -134,5 +134,5 @@ def GULP_inputs(args):
         gin.write('rspeed 0.1000\n')
         gin.write('temperature 300\n')
 
-# GULP_inputs(['unopt_cifs/pcu_v1-6c_Zn_1_Ch_1B_2thiophene_Ch.cif', UFF4MOF, 'GULP_inputs', False, '1x1x1'])
+#GULP_inputs(['unopt_cifs/pcu_v1-6c_Zn_1_Ch_1B_2thiophene_Ch.cif', UFF4MOF, 'GULP_inputs', False, '1x1x1'])
 

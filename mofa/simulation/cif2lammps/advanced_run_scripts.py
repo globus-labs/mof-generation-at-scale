@@ -18,24 +18,24 @@ def test_run():
                       'add_molecule':None,
                       'small_molecule_file':None}
 
-    # optional_arguments = {'force_field':UFF4MOF, 
-    # 'ff_string':'UFF4MOF', 
-    # 'small_molecule_force_field':'TIP4P', 
-    # 'charges':False,
-    # 'replication':'1x1x1', 
-    # 'read_cifs_pymatgen':False,
-    # 'add_molecule':('water','TIP3P_long',0)}
+    #optional_arguments = {'force_field':UFF4MOF, 
+    #                     'ff_string':'UFF4MOF', 
+    #                     'small_molecule_force_field':'TIP4P', 
+    #                     'charges':False,
+    #                     'replication':'1x1x1', 
+    #                     'read_cifs_pymatgen':False,
+    #                     'add_molecule':('water','TIP3P_long',0)}
 
-    # optional_arguments = {'force_field':UFF4MOF, 
-    # 'ff_string':'UFF4MOF', 
-    # 'small_molecule_force_field':'Ions', 
-    # 'charges':False,
-    # 'replication':'', 
-    # 'read_cifs_pymatgen':False,
-    # 'add_molecule':None}
+    #optional_arguments = {'force_field':UFF4MOF, 
+    #                 'ff_string':'UFF4MOF', 
+    #                 'small_molecule_force_field':'Ions', 
+    #                 'charges':False,
+    #                 'replication':'', 
+    #                 'read_cifs_pymatgen':False,
+    #                 'add_molecule':None}
 
     serial_conversion('unopt_cifs', **optional_arguments)
-    # serial_conversion('check_cifs', **optional_arguments)
+    #serial_conversion('check_cifs', **optional_arguments)
 
 def multiple_sm_loadings(direc):
 
@@ -70,5 +70,5 @@ def multiple_sm_loadings(direc):
 if __name__ == '__main__':
 
     test_run()
-    # multiple_sm_loadings('unopt_cifs')
+    #multiple_sm_loadings('unopt_cifs')
     pass

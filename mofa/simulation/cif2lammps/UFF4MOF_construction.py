@@ -717,7 +717,7 @@ class UFF4MOF(force_field):
                 angle = sorted((fft_i, fft_k))
                 sorted_rs = sorted((r_ij, r_jk))
 
-                # angle = (angle[0], fft_j, angle[1], r_ij, r_jk)
+                #angle = (angle[0], fft_j, angle[1], r_ij, r_jk)
                 angle = (angle[0], fft_j, angle[1], sorted_rs[0], sorted_rs[1])
 
                 # add to list if angle type already exists, else add a new type

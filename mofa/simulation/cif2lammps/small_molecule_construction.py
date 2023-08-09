@@ -44,13 +44,13 @@ def add_small_molecules(FF, ff_string):
         offset = min(SMG.nodes())
 
         for node,data in SMG.nodes(data=True):
-            # print(node, data)
+            #print(node, data)
             atoms.append(Atom(data['element_symbol'], data['cartesian_position']))
         
         atoms.set_cell(FF.system['box'])
         unit_cell = atoms.get_cell()
         cutoffs = neighborlist.natural_cutoffs(atoms)
-        NL = neighborlist.NewPrimitiveNeighborList(cutoffs, use_scaled_positions=False, self_interaction=False, skin=0.10)  # shorten the cutoff a bit
+        NL = neighborlist.NewPrimitiveNeighborList(cutoffs, use_scaled_positions=False, self_interaction=False, skin=0.10) # shorten the cutoff a bit
         NL.build([True, True, True], unit_cell, atoms.get_positions())
 
         for i in atoms:
@@ -315,7 +315,7 @@ def add_small_molecules(FF, ff_string):
 
 
         if 'long' in FF.pair_data['style']:
-            FF.pair_data['M_site_dist'] = 0.1546  # only TIP4P/2005 is implemented 
+            FF.pair_data['M_site_dist'] = 0.1546 # only TIP4P/2005 is implemented 
         elif 'cut' in FF.pair_data['style'] and ff_string == 'TIP4P_2005_cutoff':
             FF.pair_data['M_site_dist'] = 0.1546
         elif 'cut' in FF.pair_data['style'] and ff_string == 'TIP4P_cutoff':
@@ -433,4 +433,4 @@ def read_small_molecule_file(sm_file, system):
 
         ind += 1
 
-    system['SM_graph'] = nx.compose(SMG, system['SM_graph'])  # don't want to overwrite extra framework species already in the cif
+    system['SM_graph'] = nx.compose(SMG, system['SM_graph']) # don't want to overwrite extra framework species already in the cif

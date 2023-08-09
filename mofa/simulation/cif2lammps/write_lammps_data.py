@@ -84,7 +84,7 @@ def lammps_inputs(args):
         if len(FF.system['SM_graph'].nodes()) != 0:
             warnings.warn('extra-framework molecules detected, but no small molecule force field is specified!')
 
-    # write_cif_from_system(system, 'check.cif')
+    #write_cif_from_system(system, 'check.cif')
     first_line = "Created by Ryther's code on " + str(datetime.datetime.now())
 
     SG = FF.system['graph']
@@ -156,7 +156,7 @@ def lammps_inputs(args):
             mass = FF.atom_masses[fft]
             aty = FF.atom_types[fft]
             sym = FF.atom_element_symbols[fft]
-            data.write('{:>5} {:>10}  # {:>1}'.format(aty, mass, sym))
+            data.write('{:>5} {:>10} # {:>1}'.format(aty, mass, sym))
             data.write('\n')
         data.write('\n')
 
@@ -178,7 +178,7 @@ def lammps_inputs(args):
                 data.write('    {:<3}'.format(aty))
                 format_string = ' '.join(['{:{w}.{p}f}' if not np.issubdtype(x, np.integer) else '{:{w}}' for x in params[1:]])
                 data.write(format_string.format(*params[1:], w=12, p=5))
-                data.write(' '.join(['  # '] + comment))
+                data.write(' '.join([' #'] + comment))
                 data.write('\n')
 
         data.write('\n')
@@ -212,7 +212,7 @@ def lammps_inputs(args):
 
 
                 data.write(format_string.format(*params[1:], w=12, p=5))
-                data.write(' '.join(['  # '] + comment))
+                data.write(' '.join([' #'] + comment))
                 data.write('\n')
             else:
                 # type
@@ -224,7 +224,7 @@ def lammps_inputs(args):
                     format_string = ' '.join(['{:{w}}' for x in params[1:]])
 
                 data.write(format_string.format(*params[1:], w=12, p=5))
-                data.write(' '.join(['  # '] + comment))
+                data.write(' '.join([' #'] + comment))
                 data.write('\n')
 
         data.write('\n')
@@ -250,7 +250,7 @@ def lammps_inputs(args):
                     format_string = ' '.join(['{:{w}}' for x in params[1:]])
 
                 data.write(format_string.format(*params[1:], w=12, p=5))
-                data.write(' '.join(['  # '] + comment))
+                data.write(' '.join([' #'] + comment))
                 data.write('\n')
             else:
                 # type
@@ -262,7 +262,7 @@ def lammps_inputs(args):
                     format_string = ' '.join(['{:{w}}' for x in params[1:]])
 
                 data.write(format_string.format(*params[1:], w=12, p=5))
-                data.write(' '.join(['  # '] + comment))
+                data.write(' '.join([' #'] + comment))
                 data.write('\n')
 
         if N_dihedrals != 0:
@@ -284,14 +284,14 @@ def lammps_inputs(args):
                     data.write('{:<20}'.format(params[0]))
                     format_string = ' '.join(['{:{w}.{p}f}' if not np.issubdtype(x, np.integer) else '{:{w}}' for x in params[1:]])
                     data.write(format_string.format(*params[1:], w=12, p=5))
-                    data.write(' '.join(['  # '] + comment))
+                    data.write(' '.join([' #'] + comment))
                     data.write('\n')
                 else:
                     # type
                     data.write('    {:<3}'.format(dty))
                     format_string = ' '.join(['{:{w}.{p}f}' if not np.issubdtype(x, np.integer) else '{:{w}}' for x in params[1:]])
                     data.write(format_string.format(*params[1:], w=12, p=5))
-                    data.write(' '.join(['  # '] + comment))
+                    data.write(' '.join([' #'] + comment))
                     data.write('\n')
 
         if N_impropers != 0:
@@ -313,14 +313,14 @@ def lammps_inputs(args):
                     data.write('{:<20}'.format(params[0]))
                     format_string = ' '.join(['{:{w}.{p}f}' if not np.issubdtype(x, np.integer) else '{:{w}}' for x in params[1:]])
                     data.write(format_string.format(*params[1:], w=12, p=5))
-                    data.write(' '.join(['  # '] + comment))
+                    data.write(' '.join([' #'] + comment))
                     data.write('\n')
                 else:
                     # type
                     data.write('    {:<3}'.format(ity))
                     format_string = ' '.join(['{:{w}.{p}f}' if not np.issubdtype(x, np.integer) else '{:{w}}' for x in params[1:]])
                     data.write(format_string.format(*params[1:], w=12, p=5))
-                    data.write(' '.join(['  # '] + comment))
+                    data.write(' '.join([' #'] + comment))
                     data.write('\n')
 
         data.write('\n')
@@ -525,7 +525,7 @@ def lammps_inputs(args):
                 params0 = [np.round(x,6) if isfloat(x) else x for x in params0]
                 style0, eps0, sig0 = params0
 
-                comment = '  # ' + ' ' + ' '.join(FF.pair_data['comments'][aty0])
+                comment = '#' + ' ' + ' '.join(FF.pair_data['comments'][aty0])
     
                 line = ['pair_coeff',aty0, aty0, style0, eps0, sig0, comment]
                 infile.write('{:12} {:<3} {:<3} {:20} {:10.6f} {:10.6f} {:<20}'.format(*line))
@@ -545,7 +545,7 @@ def lammps_inputs(args):
                 style1, eps1, sig1 = params1
                 comment1 = FF.pair_data['comments'][aty1][0]
 
-                comments = '  # ' + ' ' + comment0 + ' ' + comment1
+                comments = '#' + ' ' + comment0 + ' ' + comment1
 
                 # current logic is to use the longer style, this actually works well when using lj/cut for 
                 # framework atoms and lj/cut + charge interactions for framework/molecule and molecule/molecule
