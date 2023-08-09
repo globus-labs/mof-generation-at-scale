@@ -81,15 +81,17 @@ def read_gaffdat(mode='gaff'):
     gaff_LJ_parameters = [LL.split() for LL in gaff_LJ_parameters.split('\n') if len(LL.split()) > 0]
     gaff_LJ_parameters = dict((LL[0], (float(LL[2]), float(LL[1]))) for LL in gaff_LJ_parameters)
 
-    gaff_bond_list = [(''.join(LL[0:5].split()), ''.join(LL[5:16].split()), ''.join(LL[16:26].split())) for LL in gaff_bonds.split('\n') if len(LL.split()) > 0]
+    gaff_bond_list = [(''.join(LL[0:5].split()),
+                       ''.join(LL[5:16].split()),
+                       ''.join(LL[16:26].split())) for LL in gaff_bonds.split('\n') if len(LL.split()) > 0]
     gaff_bonds = {}
     for LL in gaff_bond_list:
         bond, K, r0 = LL
         bond = tuple(sorted(bond.split('-')))
         gaff_bonds[bond] = (float(K), float(r0))
 
-    gaff_angle_list = [(''.join(LL[0:8].split()), 
-                        ''.join(LL[8:20].split()), 
+    gaff_angle_list = [(''.join(LL[0:8].split()),
+                        ''.join(LL[8:20].split()),
                         ''.join(LL[20:30].split())) for LL in gaff_angles.split('\n') if len(LL.split()) > 0]
     gaff_angles = {}
     for LL in gaff_angle_list:
