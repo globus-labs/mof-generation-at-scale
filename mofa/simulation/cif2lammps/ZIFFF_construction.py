@@ -75,42 +75,42 @@ def read_gaffdat(mode='gaff'):
     else:
         raise ValueError('mode must be gaff or gaff2')
 
-    gaff_atom_types = [l.split() for l in gaff_atom_types.split('\n') if len(l.split()) > 0]
-    gaff_atom_types = dict((l[0], (float(l[1]), float(l[2]))) for l in gaff_atom_types)
+    gaff_atom_types = [LL.split() for LL in gaff_atom_types.split('\n') if len(LL.split()) > 0]
+    gaff_atom_types = dict((LL[0], (float(LL[1]), float(LL[2]))) for LL in gaff_atom_types)
 
-    gaff_LJ_parameters = [l.split() for l in gaff_LJ_parameters.split('\n') if len(l.split()) > 0]
-    gaff_LJ_parameters = dict((l[0], (float(l[2]), float(l[1]))) for l in gaff_LJ_parameters)
+    gaff_LJ_parameters = [LL.split() for LL in gaff_LJ_parameters.split('\n') if len(LL.split()) > 0]
+    gaff_LJ_parameters = dict((LL[0], (float(LL[2]), float(LL[1]))) for LL in gaff_LJ_parameters)
 
-    gaff_bond_list = [(''.join(l[0:5].split()), ''.join(l[5:16].split()), ''.join(l[16:26].split())) for l in gaff_bonds.split('\n') if len(l.split()) > 0]
+    gaff_bond_list = [(''.join(LL[0:5].split()), ''.join(LL[5:16].split()), ''.join(LL[16:26].split())) for LL in gaff_bonds.split('\n') if len(LL.split()) > 0]
     gaff_bonds = {}
-    for l in gaff_bond_list:
-        bond, K, r0 = l
+    for LL in gaff_bond_list:
+        bond, K, r0 = LL
         bond = tuple(sorted(bond.split('-')))
         gaff_bonds[bond] = (float(K), float(r0))
 
-    gaff_angle_list = [(''.join(l[0:8].split()), ''.join(l[8:20].split()), ''.join(l[20:30].split())) for l in gaff_angles.split('\n') if len(l.split()) > 0]
+    gaff_angle_list = [(''.join(LL[0:8].split()), ''.join(LL[8:20].split()), ''.join(LL[20:30].split())) for LL in gaff_angles.split('\n') if len(LL.split()) > 0]
     gaff_angles = {}
-    for l in gaff_angle_list:
-        angle, K, theta0 = l
+    for LL in gaff_angle_list:
+        angle, K, theta0 = LL
         angle = tuple(angle.split('-'))
         gaff_angles[angle] = (float(K), float(r0))
 
-    gaff_dihedral_list = [(''.join(l[0:11].split()), ''.join(l[11:19].split()), ''.join(l[19:31].split()),
-                           ''.join(l[31:48].split()), ''.join(l[48:52].split())) for l in gaff_dihedrals.split('\n') if len(l.split()) > 0]
+    gaff_dihedral_list = [(''.join(LL[0:11].split()), ''.join(LL[11:19].split()), ''.join(LL[19:31].split()),
+                           ''.join(LL[31:48].split()), ''.join(LL[48:52].split())) for LL in gaff_dihedrals.split('\n') if len(LL.split()) > 0]
     gaff_dihedrals = {}
-    for l in gaff_dihedral_list:
-        dihedral, m, K, psi0, n = l
+    for LL in gaff_dihedral_list:
+        dihedral, m, K, psi0, n = LL
         dihedral = tuple(dihedral.split('-'))
         try:
             gaff_dihedrals[dihedral].extend([float(K) / int(float(m)), int(float(n)), float(psi0)])
         except KeyError:
             gaff_dihedrals[dihedral] = [float(K) / int(float(m)), int(float(n)), float(psi0)]
 
-    gaff_improper_list = [(''.join(l[0:11].split()), ''.join(l[11:33].split()), ''.join(l[33:47].split()),
-                           ''.join(l[47:50].split())) for l in gaff_impropers.split('\n') if len(l.split()) > 0]
+    gaff_improper_list = [(''.join(LL[0:11].split()), ''.join(LL[11:33].split()), ''.join(LL[33:47].split()),
+                           ''.join(LL[47:50].split())) for LL in gaff_impropers.split('\n') if len(LL.split()) > 0]
     gaff_impropers = {}
-    for l in gaff_improper_list:
-        improper, K, psi0, n = l
+    for LL in gaff_improper_list:
+        improper, K, psi0, n = LL
         improper = tuple(improper.split('-'))
         gaff_impropers[improper] = (float(K), int(float(n)), float(psi0))
 
@@ -542,9 +542,9 @@ class ZIFFF(force_field):
     def dihedral_parameters(self, dihedral):
 
         gaff_dihedrals = self.args['FF_parameters']['dihedrals']
-        i, j, k, l = dihedral
+        i, j, k, LL = dihedral
 
-        if all(t in self.ZIFFF_types for t in (i, j, k, l)):
+        if all(t in self.ZIFFF_types for t in (i, j, k, LL)):
 
             params = dihedral_parameter_loop([dihedral, dihedral[::-1]], ZIFFF_constants.ZIFFF_dihedrals)
 
@@ -572,18 +572,18 @@ class ZIFFF(force_field):
     def improper_parameters(self, improper):
 
         gaff_impropers = self.args['FF_parameters']['impropers']
-        i, j, k, l = improper
+        i, j, k, LL = improper
         params = None
 
-        if all(t in self.ZIFFF_types for t in (i, j, k, l)):
+        if all(t in self.ZIFFF_types for t in (i, j, k, LL)):
 
             # the ZIF-FF paper lists the central atom first
-            improper_combs = [(i, j, k, l),
-                              (i, j, l, k),
-                              (i, k, j, l),
-                              (i, k, l, j),
-                              (i, l, j, k),
-                              (i, l, j, k)]
+            improper_combs = [(i, j, k, LL),
+                              (i, j, LL, k),
+                              (i, k, j, LL),
+                              (i, k, LL, j),
+                              (i, LL, j, k),
+                              (i, LL, j, k)]
 
             for imp in improper_combs:
                 try:
@@ -595,12 +595,12 @@ class ZIFFF(force_field):
 
         else:
 
-            improper_combs = [(j, k, i, l),
-                              (j, l, i, k),
-                              (k, j, i, l),
-                              (k, l, i, j),
-                              (l, j, i, k),
-                              (l, j, i, k)]
+            improper_combs = [(j, k, i, LL),
+                              (j, LL, i, k),
+                              (k, j, i, LL),
+                              (k, LL, i, j),
+                              (LL, j, i, k),
+                              (LL, j, i, k)]
 
             for imp in improper_combs:
                 try:
@@ -612,25 +612,25 @@ class ZIFFF(force_field):
 
             if params is None:
 
-                i, j, k, l = tuple([self.imidazolate_gaff_types[ty] if ty in self.imidazolate_gaff_types else ty for ty in improper])
-                improper_combs = [(j, k, i, l),
-                                  (j, l, i, k),
-                                  (k, j, i, l),
-                                  (k, l, i, j),
-                                  (l, j, i, k),
-                                  (l, j, i, k)]
+                i, j, k, LL = tuple([self.imidazolate_gaff_types[ty] if ty in self.imidazolate_gaff_types else ty for ty in improper])
+                improper_combs = [(j, k, i, LL),
+                                  (j, LL, i, k),
+                                  (k, j, i, LL),
+                                  (k, LL, i, j),
+                                  (LL, j, i, k),
+                                  (LL, j, i, k)]
 
                 if i in ('c', 'ca', 'n', 'n2', 'na'):
 
-                    ximps = [('X', k, i, l),
-                             ('X', l, i, k),
-                             ('X', j, i, l),
-                             ('X', l, i, j),
+                    ximps = [('X', k, i, LL),
+                             ('X', LL, i, k),
+                             ('X', j, i, LL),
+                             ('X', LL, i, j),
                              ('X', j, i, k),
                              ('X', j, i, k),
-                             ('X', 'X', i, l),
+                             ('X', 'X', i, LL),
                              ('X', 'X', i, k),
-                             ('X', 'X', i, l),
+                             ('X', 'X', i, LL),
                              ('X', 'X', i, j),
                              ('X', 'X', i, k),
                              ('X', 'X', i, k)]
@@ -845,8 +845,8 @@ class ZIFFF(force_field):
                 nbors = [m[0] for m in nbors]
 
                 fft_i = data['force_field_type']
-                j, k, l = nbors
-                imp = [i, j, k, l]
+                j, k, LL = nbors
+                imp = [i, j, k, LL]
                 fft_j, fft_k, fft_l = fft_nbors
                 imp_type = (fft_i, fft_j, fft_k, fft_l)
 
