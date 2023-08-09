@@ -463,10 +463,10 @@ class Dreiding(force_field):
             if len(nbors) == 3:
 
                 fft_i = data['force_field_type']
-                j, k, L = nbors
+                j, k, LL = nbors
 
                 # only need to consider one combination
-                imps = [[i, j, k, L]]
+                imps = [[i, j, k, LL]]
 
                 try:
                     impropers[fft_i].extend(imps)
