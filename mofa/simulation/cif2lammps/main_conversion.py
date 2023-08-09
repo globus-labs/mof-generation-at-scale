@@ -61,7 +61,8 @@ def parallel_conversion(directory, force_field=UFF4MOF, ff_string='UFF4MOF', sma
     args = [[cif, force_field, ff_string, small_molecule_force_field, outdir, charges,
              replication, read_cifs_pymatgen, add_molecule, small_molecule_file] for cif in cifs]
     pool = Pool(multiprocessing.cpu_count())
-    results_par = pool.map_async(lammps_inputs, args)
+    pool.map_async(lammps_inputs, args)
+    # results_par = pool.map_async(lammps_inputs, args)
     pool.close()
     pool.join()
 
@@ -81,7 +82,8 @@ def parallel_GULP_conversion(directory, force_field=UFF4MOF, outdir='GULP_inputs
     cifs = sorted(glob.glob(directory + os.sep + '*.cif'))
     args = [[cif, force_field, outdir, charges, replication, noautobond] for cif in cifs]
     pool = Pool(multiprocessing.cpu_count())
-    results_par = pool.map_async(GULP_inputs, args)
+    pool.map_async(GULP_inputs, args)
+    # results_par = pool.map_async(GULP_inputs, args)
     pool.close()
     pool.join()
 
