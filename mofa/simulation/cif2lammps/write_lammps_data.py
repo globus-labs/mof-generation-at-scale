@@ -1,5 +1,5 @@
 from __future__ import print_function
-from .cif2system import initialize_system, replication_determination, write_cif_from_system
+from .cif2system import initialize_system, replication_determination  # , write_cif_from_system
 from .small_molecule_construction import add_small_molecules, include_molecule_file, read_small_molecule_file
 from . import atomic_data
 import os
@@ -8,8 +8,8 @@ import datetime
 import math
 import warnings
 import networkx as nx
-from ase import Atoms, Atom
-from ase.io import write
+# from ase import Atoms, Atom
+# from ase.io import write
 from itertools import combinations
 
 from . import UFF4MOF_constants
