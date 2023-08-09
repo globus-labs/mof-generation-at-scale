@@ -148,10 +148,10 @@ def add_small_molecules(FF, ff_string):
         SMG.add_edge(e0, e1, **data)
 
     ntypes = len([FF.atom_types[ty] for ty in FF.atom_types])
-    maxatomtype_wsm = len([FF.atom_types[ty] for ty in FF.atom_types])
+    # maxatomtype_wsm = len([FF.atom_types[ty] for ty in FF.atom_types])
 
-    maxbondtype_wsm = len([bty for bty in FF.bond_data['params']])
-    maxangletype_wsm = len([aty for aty in FF.angle_data['params']])
+    # maxbondtype_wsm = len([bty for bty in FF.bond_data['params']])
+    # maxangletype_wsm = len([aty for aty in FF.angle_data['params']])
 
     nbonds = len([i for i in FF.bond_data['params']])
     nangles = len([i for i in FF.angle_data['params']])
@@ -159,16 +159,18 @@ def add_small_molecules(FF, ff_string):
     try:
         ndihedrals = max([i for i in FF.dihedral_data['params']])
     except ValueError:
-        ndihedrals = 0
+        # ndihedrals = 0
+        pass
     try:
         nimpropers = max([i for i in FF.improper_data['params']])
     except ValueError:
-        nimpropers = 0
-
+        # nimpropers = 0
+        pass
+    
     new_bond_types = {}
     new_angle_types = {}
-    new_dihedral_types = {}
-    new_improper_types = {}
+    # new_dihedral_types = {}
+    # new_improper_types = {}
 
     for subG, ID_string in zip([SMG.subgraph(c).copy() for c in nx.connected_components(SMG)], comps):
 
