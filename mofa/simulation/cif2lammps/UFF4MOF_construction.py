@@ -43,9 +43,9 @@ def superimpose(a0, a1, count, max_permute=6):
     min_msd = (100.0, 'foo', 'bar')
     looper = list(permutations(a0))[0:max_permute]
 
-    for l in looper:
+    for LL in looper:
 
-        p = np.asarray(l)
+        p = np.asarray(LL)
         S.set(a1, p)
         S.run()
         msd = S.get_rms()
@@ -829,10 +829,10 @@ class UFF4MOF(force_field):
                 # force constant is much larger if j,k, or l is O_2
                 if 'O_2' in fft_nbors or 'O_2_M' in fft_nbors:
                     O_2_flag = True
-                j, k, l = nbors
+                j, k, LL = nbors
 
                 # only need to consider one combination
-                imps = [[i, j, k, l]]
+                imps = [[i, j, k, LL]]
 
                 try:
                     impropers[(fft_i, O_2_flag)].extend(imps)
