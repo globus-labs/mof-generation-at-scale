@@ -113,7 +113,6 @@ class Dreiding(force_field):
 
     def bond_parameters(self, bond, bond_order):
 
-        SG = self.system['graph']
         Dreiding_atom_parameters = self.args['FF_parameters']
 
         i, j = bond
@@ -277,7 +276,7 @@ class Dreiding(force_field):
             params[ID] = (style, eps_i, sig_i)
             comments[ID] = [a, a]
 
-        self.pair_data = {'params': params, 'style': style, 'special_bonds': sb, 'comments': comments}
+        self.pair_data = {'params': params, 'style': style, 'special_bonds': sb, 'comments': comments, 'cutoff': cutoff}
 
     def enumerate_bonds(self):
 
@@ -334,7 +333,7 @@ class Dreiding(force_field):
 
         SG = self.system['graph']
         bonds = self.bond_data['all_bonds']
-        inv_bonds = dict((b, bt) for bt in bonds for b in bonds[bt])
+        # inv_bonds = dict((b, bt) for bt in bonds for b in bonds[bt])
         angles = {}
 
         for n in SG.nodes(data=True):
@@ -464,10 +463,10 @@ class Dreiding(force_field):
             if len(nbors) == 3:
 
                 fft_i = data['force_field_type']
-                j, k, l = nbors
+                j, k, L = nbors
 
                 # only need to consider one combination
-                imps = [[i, j, k, l]]
+                imps = [[i, j, k, L]]
 
                 try:
                     impropers[fft_i].extend(imps)
