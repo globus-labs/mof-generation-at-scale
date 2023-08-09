@@ -19,7 +19,7 @@ def R(axis, theta):
     """
         returns a rotation matrix that rotates a vector around axis by angle theta
     """
-    return expm(cross(eye(3), axis/norm(axis)*theta))
+    return expm(cross(eye(3), axis / norm(axis) * theta))
 
 
 def M(vec1, vec2):
@@ -30,8 +30,8 @@ def M(vec1, vec2):
 
     if np.any(ax):  # need to check that the rotation axis has non-zero components
 
-        ax_norm = ax/norm(np.cross(vec1, vec2))
-        cos_ang = np.dot(vec1, vec2)/(norm(vec1) * norm(vec2))
+        ax_norm = ax / norm(np.cross(vec1, vec2))
+        cos_ang = np.dot(vec1, vec2) / (norm(vec1) * norm(vec2))
         ang = np.arccos(cos_ang)
         return R(ax_norm, ang)
 
@@ -39,12 +39,12 @@ def M(vec1, vec2):
         return eye(3)
 
 
-PT = ['H',  'He', 'Li', 'Be', 'B',  'C',  'N',  'O',  'F',  'Ne', 'Na', 'Mg', 'Al', 'Si', 'P',  'S',  'Cl', 'Ar',
-      'K',  'Ca', 'Sc', 'Ti', 'V',  'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn', 'Ga', 'Ge', 'As', 'Se', 'Br', 'Kr',
-      'Rb', 'Sr', 'Y',  'Zr', 'Nb', 'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 'Cd', 'In', 'Sn', 'Sb', 'Te', 'I',  'Xe',
-      'Cs', 'Ba', 'Hf', 'Ta', 'W',  'Re', 'Os', 'Ir', 'Pt', 'Au', 'Hg', 'Tl', 'Pb', 'Bi', 'Po', 'At', 'Rn', 'Fr',
+PT = ['H', 'He', 'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne', 'Na', 'Mg', 'Al', 'Si', 'P', 'S', 'Cl', 'Ar',
+      'K', 'Ca', 'Sc', 'Ti', 'V', 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn', 'Ga', 'Ge', 'As', 'Se', 'Br', 'Kr',
+      'Rb', 'Sr', 'Y', 'Zr', 'Nb', 'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 'Cd', 'In', 'Sn', 'Sb', 'Te', 'I', 'Xe',
+      'Cs', 'Ba', 'Hf', 'Ta', 'W', 'Re', 'Os', 'Ir', 'Pt', 'Au', 'Hg', 'Tl', 'Pb', 'Bi', 'Po', 'At', 'Rn', 'Fr',
       'Ra', 'La', 'Ce', 'Pr', 'Nd', 'Pm', 'Sm', 'Eu', 'Gd', 'Tb', 'Dy', 'Ho', 'Er', 'Tm', 'Yb', 'Lu', 'Ac', 'Th',
-      'Pa', 'U',  'Np', 'Pu', 'Am', 'Cm', 'Bk', 'Cf', 'Es', 'Fm', 'Md', 'No', 'Lr', 'FG', 'X']
+      'Pa', 'U', 'Np', 'Pu', 'Am', 'Cm', 'Bk', 'Cf', 'Es', 'Fm', 'Md', 'No', 'Lr', 'FG', 'X']
 
 
 def nl(string):
@@ -218,7 +218,7 @@ def cif_read_pymatgen(filename, charges=False, coplanarity_tolerance=0.1):
                     bond_order = round(bond_order)
 
                 # bonds between two disparate cycles or cycles and non-cycles should have order 1.0
-                if check_cycles and cyloc != None:
+                if check_cycles and cyloc is not None:
                     if n not in CB[cyloc]:
                         bond_order = 1.0
 

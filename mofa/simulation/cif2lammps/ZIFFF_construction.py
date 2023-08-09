@@ -28,7 +28,7 @@ def parameter_loop(options, type_dict):
         except KeyError:
             continue
 
-    if params != None:
+    if params is not None:
         return params
     else:
         raise(ValueError('No parameters found for', options))
@@ -45,7 +45,7 @@ def dihedral_parameter_loop(options, type_dict):
         except KeyError:
             continue
 
-    if params != None:
+    if params is not None:
         return params
     else:
         message = 'No parameters found for ' + ' '.join(option)
@@ -103,9 +103,9 @@ def read_gaffdat(mode='gaff'):
         dihedral, m, K, psi0, n = l
         dihedral = tuple(dihedral.split('-'))
         try:
-            gaff_dihedrals[dihedral].extend([float(K)/int(float(m)), int(float(n)), float(psi0)])
+            gaff_dihedrals[dihedral].extend([float(K) / int(float(m)), int(float(n)), float(psi0)])
         except KeyError:
-            gaff_dihedrals[dihedral] = [float(K)/int(float(m)), int(float(n)), float(psi0)]
+            gaff_dihedrals[dihedral] = [float(K) / int(float(m)), int(float(n)), float(psi0)]
 
     gaff_improper_list = [(''.join(l[0:11].split()), ''.join(l[11:33].split()), ''.join(l[33:47].split()),
                            ''.join(l[47:50].split())) for l in gaff_impropers.split('\n') if len(l.split()) > 0]
@@ -290,7 +290,7 @@ def GAFF_type(atom, data, SG, pure_aromatic_atoms, aromatic_atoms):
     elif sym == 'S':
         pass
 
-    if (ty == None or hyb == None) and sym != 'H':
+    if (ty is None or hyb is None) and sym != 'H':
         raise ValueError('No GAFF atom type identified for element', sym, 'with neighbors', nbor_symbols)
 
     return ty, hyb
@@ -483,7 +483,7 @@ class ZIFFF(force_field):
 
         types = set(types)
         Ntypes = len(types)
-        atom_types = dict((ty[0], i+1) for i, ty in zip(range(Ntypes), types))
+        atom_types = dict((ty[0], i + 1) for i, ty in zip(range(Ntypes), types))
         atom_element_symbols = dict((ty[0], ty[1]) for ty in types)
         atom_masses = dict((ty[0], ty[2]) for ty in types)
 
@@ -534,7 +534,7 @@ class ZIFFF(force_field):
 
             new_angle = tuple([self.imidazolate_gaff_types[ty] if ty in self.imidazolate_gaff_types else ty for ty in angle])
             K, theta0 = parameter_loop([angle, angle[::-1], new_angle, new_angle[::-1]], gaff_angles)
-            if K == None:
+            if K is None:
                 print(new_angle)
             params = ('harmonic', K, theta0)
 
@@ -549,7 +549,7 @@ class ZIFFF(force_field):
 
             params = dihedral_parameter_loop([dihedral, dihedral[::-1]], ZIFFF_constants.ZIFFF_dihedrals)
 
-            if params != None:
+            if params is not None:
 
                 K, n, d = params
                 params = ('fourier', 1, K, n, d)
@@ -563,7 +563,7 @@ class ZIFFF(force_field):
             options = [X_dihedral, X_dihedral[::-1], new_X_dihedral, new_X_dihedral[::-1], dihedral, dihedral[::-1], new_dihedral, new_dihedral[::-1]]
             params = dihedral_parameter_loop(options, gaff_dihedrals)
 
-            if params != None:
+            if params is not None:
 
                 Nterms = len(params) % 3
                 params = tuple(['fourier', Nterms] + params)
@@ -611,7 +611,7 @@ class ZIFFF(force_field):
                 except KeyError:
                     continue
 
-            if params == None:
+            if params is None:
 
                 i, j, k, l = tuple([self.imidazolate_gaff_types[ty] if ty in self.imidazolate_gaff_types else ty for ty in improper])
                 improper_combs = [(j, k, i, l),
@@ -646,7 +646,7 @@ class ZIFFF(force_field):
                     except KeyError:
                         continue
 
-        if params == None:
+        if params is None:
             message = 'No improper type identified for ' + ' '.join(list(imp))
             warnings.warn(message)
 
@@ -677,7 +677,7 @@ class ZIFFF(force_field):
 
             else:
                 eps, rmin = gaff_LJ_parameters[a]
-                params = (eps, 2 * rmin * (2**(-1.0/6.0)))
+                params = (eps, 2 * rmin * (2**(-1.0 / 6.0)))
                 all_params[a] = params
 
             comments[a] = [a, a]
@@ -803,7 +803,7 @@ class ZIFFF(force_field):
 
                 params = self.dihedral_parameters(dihedral)
 
-                if params != None:
+                if params is not None:
 
                     try:
                         dihedrals[dihedral].append(dihedral)
@@ -865,7 +865,7 @@ class ZIFFF(force_field):
 
             params = self.improper_parameters(i)
 
-            if params != None:
+            if params is not None:
                 ID += 1
                 improper_params[ID] = list(params)
                 improper_comments[ID] = list(i)

@@ -15,12 +15,12 @@ from numpy.linalg import norm, inv
 metals = atomic_data.metals
 mass_key = atomic_data.mass_key
 
-PT = ['H',  'He', 'Li', 'Be', 'B',  'C',  'N',  'O',  'F',  'Ne', 'Na', 'Mg', 'Al', 'Si', 'P',  'S',  'Cl', 'Ar',
-      'K',  'Ca', 'Sc', 'Ti', 'V',  'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn', 'Ga', 'Ge', 'As', 'Se', 'Br', 'Kr',
-      'Rb', 'Sr', 'Y',  'Zr', 'Nb', 'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 'Cd', 'In', 'Sn', 'Sb', 'Te', 'I',  'Xe',
-      'Cs', 'Ba', 'Hf', 'Ta', 'W',  'Re', 'Os', 'Ir', 'Pt', 'Au', 'Hg', 'Tl', 'Pb', 'Bi', 'Po', 'At', 'Rn', 'Fr',
+PT = ['H', 'He', 'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne', 'Na', 'Mg', 'Al', 'Si', 'P', 'S', 'Cl', 'Ar',
+      'K', 'Ca', 'Sc', 'Ti', 'V', 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn', 'Ga', 'Ge', 'As', 'Se', 'Br', 'Kr',
+      'Rb', 'Sr', 'Y', 'Zr', 'Nb', 'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 'Cd', 'In', 'Sn', 'Sb', 'Te', 'I', 'Xe',
+      'Cs', 'Ba', 'Hf', 'Ta', 'W', 'Re', 'Os', 'Ir', 'Pt', 'Au', 'Hg', 'Tl', 'Pb', 'Bi', 'Po', 'At', 'Rn', 'Fr',
       'Ra', 'La', 'Ce', 'Pr', 'Nd', 'Pm', 'Sm', 'Eu', 'Gd', 'Tb', 'Dy', 'Ho', 'Er', 'Tm', 'Yb', 'Lu', 'Ac', 'Th',
-      'Pa', 'U',  'Np', 'Pu', 'Am', 'Cm', 'Bk', 'Cf', 'Es', 'Fm', 'Md', 'No', 'Lr', 'FG', 'X']
+      'Pa', 'U', 'Np', 'Pu', 'Am', 'Cm', 'Bk', 'Cf', 'Es', 'Fm', 'Md', 'No', 'Lr', 'FG', 'X']
 
 
 def GCD(a, b):
@@ -262,7 +262,7 @@ def initialize_system(filename, charges=False, small_molecule_cutoff=5, read_pym
 
         counts = GCD_List([comp_dict[e] for e in comp_dict])
         for es in comp_dict:
-            comp_dict[es] = int(comp_dict[es]/float(counts))
+            comp_dict[es] = int(comp_dict[es] / float(counts))
 
         comp = tuple(sorted([(key, val) for key, val in comp_dict.items()], key=lambda x: x[0]))
         formula = ''.join([str(x) for es in comp for x in es])
@@ -328,7 +328,7 @@ def duplicate_system(system, replications, small_molecule_cutoff=10):
     box = system['box']
 
     replications = list(map(int, replications.split('x')))
-    replicated_box = (box[0]*replications[0], box[1]*replications[1], box[2]*replications[2], box[3], box[4], box[5])
+    replicated_box = (box[0] * replications[0], box[1] * replications[1], box[2] * replications[2], box[3], box[4], box[5])
 
     pi = np.pi
     a, b, c, alpha, beta, gamma = replicated_box
@@ -386,8 +386,8 @@ def duplicate_system(system, replications, small_molecule_cutoff=10):
             # update coordinates
             fvec = node_data['fractional_position']
             translated_fvec = fvec + trans_vec
-            fvec = np.array([c/d for c, d in zip(fvec, replications)])
-            translated_fvec = np.array([c/d for c, d in zip(translated_fvec, replications)])
+            fvec = np.array([c / d for c, d in zip(fvec, replications)])
+            translated_fvec = np.array([c / d for c, d in zip(translated_fvec, replications)])
             NG.nodes[node]['fractional_position'] = fvec
 
             equivalency[original_atom].append(new_index)
@@ -470,7 +470,7 @@ def duplicate_system(system, replications, small_molecule_cutoff=10):
 
         counts = GCD_List([comp_dict[e] for e in comp_dict])
         for es in comp_dict:
-            comp_dict[es] = int(comp_dict[es]/float(counts))
+            comp_dict[es] = int(comp_dict[es] / float(counts))
 
         comp = tuple(sorted([(key, val) for key, val in comp_dict.items()], key=lambda x: x[0]))
         formula = ''.join([str(x) for es in comp for x in es])
@@ -542,11 +542,11 @@ def replication_determination(system, replication, cutoff):
 
         G = system['graph']
         Natoms = float(len(G.nodes()))
-        dmin = int(math.ceil(min_atoms/Natoms))
+        dmin = int(math.ceil(min_atoms / Natoms))
 
-        dsep0 = int(math.ceil((2*cutoff)/dist0))
-        dsep1 = int(math.ceil((2*cutoff)/dist1))
-        dsep2 = int(math.ceil((2*cutoff)/dist2))
+        dsep0 = int(math.ceil((2 * cutoff) / dist0))
+        dsep1 = int(math.ceil((2 * cutoff) / dist1))
+        dsep2 = int(math.ceil((2 * cutoff) / dist2))
         dsep = dsep0 * dsep1 * dsep2
 
         duplications = max(dsep, dmin)
@@ -559,23 +559,27 @@ def replication_determination(system, replication, cutoff):
             rvals = range(duplications + 1)[1:]
             shapes = itertools.product(rvals, rvals, rvals)
             shapes = [s for s in shapes if functools.reduce((lambda x, y: x * y), s) == duplications]
-            useable_shapes = [s for s in shapes if min(dist0*s[0], dist1*s[1], dist2*s[2]) >= 2*cutoff]
-            useable_shapes = [s for s in useable_shapes if max(
-                [((a*s[0])/(b*s[1])), ((a*s[0])/(c*s[2])), ((b*s[1])/(c*s[2])), ((b*s[1])/(a*s[0])), ((c*s[2])/(a*s[0])), ((c*s[2])/(b*s[1]))]) <= 2.0]
+            useable_shapes = [s for s in shapes if min(dist0 * s[0], dist1 * s[1], dist2 * s[2]) >= 2 * cutoff]
+            useable_shapes = [s for s in useable_shapes if max([((a * s[0]) / (b * s[1])),
+                                                                ((a * s[0]) / (c * s[2])),
+                                                                ((b * s[1]) / (c * s[2])),
+                                                                ((b * s[1]) / (a * s[0])),
+                                                                ((c * s[2]) / (a * s[0])),
+                                                                ((c * s[2]) / (b * s[1]))]) <= 2.0]
             duplications += 1
 
         duplications -= 1
         print('final duplications:', duplications)
-        print('final number of atoms:', int(duplications*Natoms))
+        print('final number of atoms:', int(duplications * Natoms))
 
-        shape_deviations = [(i, np.std([useable_shapes[i][0]*a, useable_shapes[i][1]*b, useable_shapes[i][2]*c])) for i in range(len(useable_shapes))]
+        shape_deviations = [(i, np.std([useable_shapes[i][0] * a, useable_shapes[i][1] * b, useable_shapes[i][2] * c])) for i in range(len(useable_shapes))]
         shape_deviations.sort(key=lambda x: x[1])
         selected_shape = useable_shapes[shape_deviations[0][0]]
 
         replication = 'x'.join(map(str, selected_shape))
         print('replicating to a', replication, 'cell (' + str(duplications) + ' duplications)...')
         system = duplicate_system(system, replication)
-        print('the minimum boundary-boundary distance is', min([d*s for d, s in zip(selected_shape, (dist0, dist1, dist2))]))
+        print('the minimum boundary-boundary distance is', min([d * s for d, s in zip(selected_shape, (dist0, dist1, dist2))]))
         replication = 'ma' + str(min_atoms)
 
         a, b, c, alpha, beta, gamma = system['box']
@@ -583,7 +587,7 @@ def replication_determination(system, replication, cutoff):
         xy = np.round(b * np.cos(math.radians(gamma)), 8)
         xz = np.round(c * np.cos(math.radians(beta)), 8)
         ly = np.round(np.sqrt(b**2 - xy**2), 8)
-        yz = np.round((b * c*np.cos(math.radians(alpha)) - xy*xz)/ly, 8)
+        yz = np.round((b * c * np.cos(math.radians(alpha)) - xy * xz) / ly, 8)
         lz = np.round(np.sqrt(c**2 - xz**2 - yz**2), 8)
 
         print('lx =', np.round(lx, 3), '(dim 0 separation = ' + str(np.round(selected_shape[0] * dist0, 3)) + ')')
@@ -595,9 +599,9 @@ def replication_determination(system, replication, cutoff):
 
     elif 'cutoff' in replication:
 
-        dsep0 = int(math.ceil((2*cutoff)/dist0))
-        dsep1 = int(math.ceil((2*cutoff)/dist1))
-        dsep2 = int(math.ceil((2*cutoff)/dist2))
+        dsep0 = int(math.ceil((2 * cutoff) / dist0))
+        dsep1 = int(math.ceil((2 * cutoff) / dist1))
+        dsep2 = int(math.ceil((2 * cutoff) / dist2))
         dsep = dsep0 * dsep1 * dsep2
 
         duplications = dsep
@@ -610,27 +614,27 @@ def replication_determination(system, replication, cutoff):
             rvals = range(duplications + 1)[1:]
             shapes = itertools.product(rvals, rvals, rvals)
             shapes = [s for s in shapes if functools.reduce((lambda x, y: x * y), s) == duplications]
-            useable_shapes = [s for s in shapes if min(dist0*s[0], dist1*s[1], dist2*s[2]) >= 2*cutoff]
+            useable_shapes = [s for s in shapes if min(dist0 * s[0], dist1 * s[1], dist2 * s[2]) >= 2 * cutoff]
             duplications += 1
 
         duplications -= 1
         print('final duplications:', duplications)
 
-        shape_deviations = [(i, np.std([useable_shapes[i][0]*a, useable_shapes[i][1]*b, useable_shapes[i][2]*c])) for i in range(len(useable_shapes))]
+        shape_deviations = [(i, np.std([useable_shapes[i][0] * a, useable_shapes[i][1] * b, useable_shapes[i][2] * c])) for i in range(len(useable_shapes))]
         shape_deviations.sort(key=lambda x: x[1])
         selected_shape = useable_shapes[shape_deviations[0][0]]
 
         replication = 'x'.join(map(str, selected_shape))
         print('replicating to a', replication, 'cell (' + str(duplications) + ' duplications)...')
         system = duplicate_system(system, replication)
-        print('the minimum boundary-boundary distance is', min([d*s for d, s in zip(selected_shape, (dist0, dist1, dist2))]))
+        print('the minimum boundary-boundary distance is', min([d * s for d, s in zip(selected_shape, (dist0, dist1, dist2))]))
 
         a, b, c, alpha, beta, gamma = system['box']
         lx = np.round(a, 8)
         xy = np.round(b * np.cos(math.radians(gamma)), 8)
         xz = np.round(c * np.cos(math.radians(beta)), 8)
         ly = np.round(np.sqrt(b**2 - xy**2), 8)
-        yz = np.round((b * c*np.cos(math.radians(alpha)) - xy*xz)/ly, 8)
+        yz = np.round((b * c * np.cos(math.radians(alpha)) - xy * xz) / ly, 8)
         lz = np.round(np.sqrt(c**2 - xz**2 - yz**2), 8)
 
         print('lx =', np.round(lx, 3), '(dim 0 separation = ' + str(np.round(selected_shape[0] * dist0, 3)) + ')')

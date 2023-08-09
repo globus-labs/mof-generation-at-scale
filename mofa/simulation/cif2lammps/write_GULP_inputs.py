@@ -68,7 +68,7 @@ def GULP_inputs(args):
     xy = np.round(b * np.cos(math.radians(gamma)), 8)
     xz = np.round(c * np.cos(math.radians(beta)), 8)
     ly = np.round(np.sqrt(b**2 - xy**2), 8)
-    yz = np.round((b * c*np.cos(math.radians(alpha)) - xy*xz)/ly, 8)
+    yz = np.round((b * c * np.cos(math.radians(alpha)) - xy * xz) / ly, 8)
     lz = np.round(np.sqrt(c**2 - xz**2 - yz**2), 8)
 
     preffix = cifname.split('/')[-1].split('.')[0]

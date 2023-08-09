@@ -102,7 +102,7 @@ class Dreiding(force_field):
 
         types = set(types)
         Ntypes = len(types)
-        atom_types = dict((ty[0], i+1) for i, ty in zip(range(Ntypes), types))
+        atom_types = dict((ty[0], i + 1) for i, ty in zip(range(Ntypes), types))
         atom_element_symbols = dict((ty[0], ty[1]) for ty in types)
         atom_masses = dict((ty[0], ty[2]) for ty in types)
 
@@ -153,7 +153,7 @@ class Dreiding(force_field):
             return (angle_style, K, b, n)
 
         sinT0 = np.sin(math.radians(theta_j))
-        K = (0.5 * K)/(sinT0*sinT0)
+        K = (0.5 * K) / (sinT0 * sinT0)
 
         return (angle_style, K, theta0)
 
@@ -236,7 +236,7 @@ class Dreiding(force_field):
         # divide by multiplicity and halve to match UFF paper
         V /= mult
         V *= 0.5
-        d = (n*phi0) + 180.0
+        d = (n * phi0) + 180.0
         w = 0.0
 
         return ('charmm', V, int(n), int(d), w)
@@ -245,7 +245,7 @@ class Dreiding(force_field):
 
         if fft_i in ('N_R', 'C_R', 'C_2'):
 
-            K = 40.0/3.0
+            K = 40.0 / 3.0
             omega0 = 0.0
 
         else:
@@ -272,7 +272,7 @@ class Dreiding(force_field):
         for a in atom_types:
             ID = atom_types[a]
             data = Dreiding_atom_parameters[a]
-            sig_i = data[2] * (2**(-1.0/6.0))
+            sig_i = data[2] * (2**(-1.0 / 6.0))
             eps_i = data[3]
             params[ID] = (style, eps_i, sig_i)
             comments[ID] = [a, a]
@@ -485,7 +485,7 @@ class Dreiding(force_field):
 
             params = self.improper_parameters(fft_i)
 
-            if params != None:
+            if params is not None:
                 ID += 1
                 improper_params[ID] = list(params)
                 improper_comments[ID] = [i[0], 'X', 'X', 'X']

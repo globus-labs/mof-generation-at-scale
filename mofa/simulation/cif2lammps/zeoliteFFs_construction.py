@@ -42,7 +42,7 @@ class MZHB(force_field):
 
         types = set(types)
         Ntypes = len(types)
-        atom_types = dict((ty[0], i+1) for i, ty in zip(range(Ntypes), types))
+        atom_types = dict((ty[0], i + 1) for i, ty in zip(range(Ntypes), types))
         atom_element_symbols = dict((ty[0], ty[1]) for ty in types)
         atom_masses = dict((ty[0], ty[2]) for ty in types)
 
@@ -89,10 +89,10 @@ class MZHB(force_field):
 
         # divide by two in LAMMPS
         if i == 'Si' and j == 'O':
-            k_ij = 537.31/2.0
+            k_ij = 537.31 / 2.0
             r_ij = 1.620
         elif i == 'O' and j == 'Si':
-            k_ij = 537.31/2.0
+            k_ij = 537.31 / 2.0
             r_ij = 1.620
         else:
             raise ValueError('There is a non Si-O bond, which is not yet parametrized for Nicholas')
@@ -107,7 +107,7 @@ class MZHB(force_field):
         if j == 'Si' and i == 'O' and k == 'O':
 
             # divide by two in LAMMPS
-            K = 156.81169/2.0
+            K = 156.81169 / 2.0
             theta0 = 109.470
 
             return (style, K, theta0)
@@ -115,7 +115,7 @@ class MZHB(force_field):
         elif j == 'O':
 
             # divide by two in LAMMPS
-            K = 51.19440/2.0
+            K = 51.19440 / 2.0
             theta0 = 149.800
 
         return (style, K, theta0)

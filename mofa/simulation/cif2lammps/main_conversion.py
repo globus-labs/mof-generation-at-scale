@@ -70,7 +70,8 @@ def parallel_conversion(directory, force_field=UFF4MOF, ff_string='UFF4MOF', sma
     print('--- cifs in', directory, 'converted and placed in', outdir, '---')
 
 
-def parallel_GULP_conversion(directory, force_field=UFF4MOF, outdir='GULP_inputs', charges=False, parallel=True, replication='1x1x1', GULP=True, noautobond=True):
+def parallel_GULP_conversion(directory, force_field=UFF4MOF, outdir='GULP_inputs', charges=False,
+                             parallel=True, replication='1x1x1', GULP=True, noautobond=True):
 
     try:
         os.mkdir(outdir)
@@ -112,7 +113,7 @@ def run_conversion():
     args = parser.parse_args()
     print(args)
 
-    if args.add_molecule != None:
+    if args.add_molecule is not None:
         # should be name of molecule, model, number to add
         add_molecule = args.add_molecule.split(', ')
         add_molecule[2] = int(add_molecule[2])

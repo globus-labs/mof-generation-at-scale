@@ -377,13 +377,13 @@ def include_molecule_file(FF, maxIDs, add_molecule):
             FF.pair_data['params'][aty] = param
             FF.pair_data['comments'][aty] = LJ_params['comments'][aty]
 
-    if bond_params != None:
+    if bond_params is not None:
         update_potential(FF.bond_data, bond_params, 'bond_coeff      ')
-    if angle_params != None:
+    if angle_params is not None:
         update_potential(FF.angle_data, angle_params, 'angle_coeff     ')
-    if dihedral_params != None:
+    if dihedral_params is not None:
         update_potential(FF.dihedral_params, dihedral_params, 'dihedral_coeff  ')
-    if improper_params != None:
+    if improper_params is not None:
         update_potential(FF.improper_data, improper_params, 'improper_coeff  ')
 
     infile_add_lines = ['molecule        ' + ' '.join(molnames)]

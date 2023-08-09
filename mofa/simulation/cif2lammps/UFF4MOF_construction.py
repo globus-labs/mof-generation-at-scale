@@ -37,8 +37,8 @@ def superimpose(a0, a1, count, max_permute=6):
     a0 -= np.average(a0, axis=0)
     a1 -= np.average(a1, axis=0)
 
-    a0 = np.array([vec/norm(vec) if np.any(vec) else vec for vec in a0])
-    a1 = np.array([vec/norm(vec) if np.any(vec) else vec for vec in a1])
+    a0 = np.array([vec / norm(vec) if np.any(vec) else vec for vec in a0])
+    a1 = np.array([vec / norm(vec) if np.any(vec) else vec for vec in a1])
 
     min_msd = (100.0, 'foo', 'bar')
     looper = list(permutations(a0))[0:max_permute]
@@ -72,7 +72,7 @@ def typing_loop(options, add, atom_type_dict):
         except KeyError:
             continue
 
-    if ty != None:
+    if ty is not None:
         return add + option
     else:
         return None
@@ -152,7 +152,7 @@ class UFF4MOF(force_field):
                         elif cosine_angle < -1:
                             cosine_angle = -1
 
-                        ang = (180.0/np.pi) * np.arccos(cosine_angle)
+                        ang = (180.0 / np.pi) * np.arccos(cosine_angle)
 
                         angles.append(ang)
 
@@ -378,7 +378,7 @@ class UFF4MOF(force_field):
             SG.nodes[name]['force_field_type'] = ty
             SG.nodes[name]['hybridization'] = hyb
 
-            if ty == None:
+            if ty is None:
                 raise ValueError('No UFF4MOF type identified for atom ' + element_symbol + ' with neighbors ' + ' '.join(nbor_symbols))
             elif ty == 'C_R' and len(nbor_symbols) > 3:
                 raise ValueError('Too many neighbors for aromatic carbon ' + element_symbol + ' with neighbors ' + ' '.join(nbor_symbols))
@@ -386,7 +386,7 @@ class UFF4MOF(force_field):
         types = set(types)
         types = sorted(types, key=lambda x: x[0])
         Ntypes = len(types)
-        atom_types = dict((ty[0], i+1) for i, ty in zip(range(Ntypes), types))
+        atom_types = dict((ty[0], i + 1) for i, ty in zip(range(Ntypes), types))
         atom_element_symbols = dict((ty[0], ty[1]) for ty in types)
         atom_masses = dict((ty[0], ty[2]) for ty in types)
 
@@ -410,14 +410,14 @@ class UFF4MOF(force_field):
         r0_j, theta0_j, x1_j, D1_j, zeta_j, Z1_j, V_j, X_j = params_j
 
         # bond-order correction
-        rbo = -0.1332 * (r0_i+r0_j) * np.log(bond_order)
+        rbo = -0.1332 * (r0_i + r0_j) * np.log(bond_order)
         # electronegativity correction
-        ren = r0_i*r0_j * (((np.sqrt(X_i) - np.sqrt(X_j))**2)) / (X_i*r0_i + X_j*r0_j)
+        ren = r0_i * r0_j * (((np.sqrt(X_i) - np.sqrt(X_j))**2)) / (X_i * r0_i + X_j * r0_j)
         # equilibrium distance
         r_ij = r0_i + r0_j + rbo - ren
         r_ij3 = r_ij * r_ij * r_ij
         # force constant (1/2 factor should be included here for LAMMPS)
-        k_ij = 0.5 * 664.12 * ((Z1_i*Z1_j)/r_ij3)
+        k_ij = 0.5 * 664.12 * ((Z1_i * Z1_j) / r_ij3)
 
         return ('harmonic', k_ij, r_ij)
 
@@ -456,17 +456,17 @@ class UFF4MOF(force_field):
         cosT0 = np.cos(math.radians(theta0_j))
         sinT0 = np.sin(math.radians(theta0_j))
 
-        r_ik = np.sqrt(r_ij**2.0 + r_jk**2.0 - 2.0*r_ij*r_jk*cosT0)
+        r_ik = np.sqrt(r_ij**2.0 + r_jk**2.0 - 2.0 * r_ij * r_jk * cosT0)
         # force constant
-        K = ((664.12*Z1_i*Z1_k)/(r_ik**5.0)) * (3.0*r_ij*r_jk*(1.0-cosT0**2.0)-r_ik**2.0*cosT0)
+        K = ((664.12 * Z1_i * Z1_k) / (r_ik**5.0)) * (3.0 * r_ij * r_jk * (1.0 - cosT0**2.0) - r_ik**2.0 * cosT0)
 
         # general non-linear
         if theta0_j not in (90.0, 120.0, 180.0):
 
             angle_style = 'fourier'
-            C2 = 1.0/(4*sinT0**2)
-            C1 = -4*C2*cosT0
-            C0 = C2*(2*cosT0**2+1)
+            C2 = 1.0 / (4 * sinT0**2)
+            C1 = -4 * C2 * cosT0
+            C0 = C2 * (2 * cosT0**2 + 1)
 
             return (angle_style, K, C0, C1, C2)
 
@@ -504,7 +504,7 @@ class UFF4MOF(force_field):
             n = 3.0
             V_j = UFF4MOF_atom_parameters[fft_j][6]
             V_k = UFF4MOF_atom_parameters[fft_k][6]
-            V = np.sqrt(V_j*V_k)
+            V = np.sqrt(V_j * V_k)
             # case (h)
             if els_j == 'O' and els_k == 'O':
                 phi0 = 90.0
@@ -526,13 +526,13 @@ class UFF4MOF(force_field):
                 n = 2.0
                 U_j = UFF4MOF_atom_parameters[fft_j][6]
                 U_k = UFF4MOF_atom_parameters[fft_k][6]
-                V = 5 * np.sqrt(U_j*U_k) * (1.0 + 4.18 * np.log(bond_order))
+                V = 5 * np.sqrt(U_j * U_k) * (1.0 + 4.18 * np.log(bond_order))
             elif hyb_k == 'sp3' and els_k in ('O', 'S'):
                 phi0 = 180.0
                 n = 2.0
                 U_j = UFF4MOF_atom_parameters[fft_j][6]
                 U_k = UFF4MOF_atom_parameters[fft_k][6]
-                V = 5 * np.sqrt(U_j*U_k) * (1.0 + 4.18 * np.log(bond_order))
+                V = 5 * np.sqrt(U_j * U_k) * (1.0 + 4.18 * np.log(bond_order))
             # case (j) not needed for the current ToBaCCo MOFs
 
         # case (c, d, e, f)
@@ -541,7 +541,7 @@ class UFF4MOF(force_field):
             n = 2.0
             U_j = UFF4MOF_atom_parameters[fft_j][6]
             U_k = UFF4MOF_atom_parameters[fft_k][6]
-            V = 5 * np.sqrt(U_j*U_k) * (1.0 + 4.18 * np.log(bond_order))
+            V = 5 * np.sqrt(U_j * U_k) * (1.0 + 4.18 * np.log(bond_order))
 
         # case (g)
         elif hyb_j == 'sp1' or hyb_k == 'sp1':
@@ -553,7 +553,7 @@ class UFF4MOF(force_field):
         # divide by multiplicity and halve to match UFF paper
         V /= mult
         V *= 0.5
-        d = -1.0 * np.cos(math.radians(n*phi0))
+        d = -1.0 * np.cos(math.radians(n * phi0))
 
         return ('harmonic', V, int(d), int(n))
 
@@ -565,12 +565,12 @@ class UFF4MOF(force_field):
             C0 = 1.0
             C1 = -1.0
             C2 = 0.0
-            K = 6.0/3.0
+            K = 6.0 / 3.0
             al = 1
 
             # constants for bound O_2
             if O_2_flag:
-                K = 50.0/3.0
+                K = 50.0 / 3.0
 
         else:
             return None
@@ -595,7 +595,7 @@ class UFF4MOF(force_field):
         for a in atom_types:
             ID = atom_types[a]
             data = UFF4MOF_atom_parameters[a]
-            x_i = data[2] * (2**(-1.0/6.0))
+            x_i = data[2] * (2**(-1.0 / 6.0))
             D_i = data[3]
             params[ID] = (style, D_i, x_i)
             comments[ID] = [a, a]
@@ -850,7 +850,7 @@ class UFF4MOF(force_field):
 
             params = self.improper_parameters(fft_i, O_2_flag)
 
-            if params != None:
+            if params is not None:
                 ID += 1
                 improper_params[ID] = list(params)
                 improper_comments[ID] = [i[0], 'X', 'X', 'X', 'O_2 present=' + str(O_2_flag)]

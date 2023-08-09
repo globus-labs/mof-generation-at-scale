@@ -14,7 +14,7 @@ class force_field(object):
         Abstract class for a force field, each force field will have an atom typing method,
         methods for finding all defined bonds, angles, dihedrals, and impropers, and methods
         for parametrizing all these defined interactions. The natural "base" object is a molecular
-        graph of the system. The networkx graph is particularly convenient for this as all the 
+        graph of the system. The networkx graph is particularly convenient for this as all the
         needed information for each atom can be stored as node data.
     """
 

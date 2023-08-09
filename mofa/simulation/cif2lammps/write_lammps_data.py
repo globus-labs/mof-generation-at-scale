@@ -69,7 +69,7 @@ def lammps_inputs(args):
 
     system = initialize_system(cifname, charges=charges, read_pymatgen=read_pymatgen)
 
-    if sm_file != None:
+    if sm_file is not None:
         direc = cifname.split(os.sep)[0]
         read_small_molecule_file(direc + os.sep + sm_file, system)
 
@@ -80,7 +80,7 @@ def lammps_inputs(args):
     FF = force_field(system, cutoff, FF_args)
     FF.compile_force_field(charges=charges)
 
-    if sm_ff_string != None:
+    if sm_ff_string is not None:
         add_small_molecules(FF, sm_ff_string)
     else:
         if len(FF.system['SM_graph'].nodes()) != 0:
@@ -111,13 +111,13 @@ def lammps_inputs(args):
     else:
         suffix = ''.join(cifname.split('/')[-1].split('.')[0:-1])
 
-    if sm_file != None:
+    if sm_file is not None:
 
         NM = len(list(nx.connected_components(system['SM_graph'])))
         suffix += '_' + str(NM)
 
     maxIDs = (ty_atoms, ty_bonds, ty_angles, ty_dihedrals, ty_impropers)
-    if add_molecule != None:
+    if add_molecule is not None:
         molfile, infile_add_lines, extra_types = include_molecule_file(FF, maxIDs, add_molecule)
         with open(outdir + os.sep + 'mol.' + suffix, 'w') as MF:
             MF.write(molfile)
@@ -127,7 +127,7 @@ def lammps_inputs(args):
     xy = np.round(b * np.cos(math.radians(gamma)), 8)
     xz = np.round(c * np.cos(math.radians(beta)), 8)
     ly = np.round(np.sqrt(b**2 - xy**2), 8)
-    yz = np.round((b*c*np.cos(math.radians(alpha)) - xy*xz)/ly, 8)
+    yz = np.round((b * c * np.cos(math.radians(alpha)) - xy * xz) / ly, 8)
     lz = np.round(np.sqrt(c**2 - xz**2 - yz**2), 8)
 
     data_name = 'data.' + suffix
@@ -416,14 +416,14 @@ def lammps_inputs(args):
         infile.write('dielectric      1.0\n')
 
         read_data_append_string = ''
-        if add_molecule != None:
+        if add_molecule is not None:
             read_data_append_string = ' '
             et_strings = ['extra/atom/types', 'extra/bond/types', 'extra/angle/types', 'extra/dihedral/types', 'extra/improper/types']
             for st, et in zip(et_strings, extra_types):
-                if et != None:
+                if et is not None:
                     read_data_append_string += st + ' ' + str(et) + ' '
 
-        if add_molecule != None:
+        if add_molecule is not None:
 
             for line in infile_add_lines:
                 infile.write(line + '\n')
@@ -490,13 +490,13 @@ def lammps_inputs(args):
 
             infile.write('pair_style      ' + style_string + '\n')
 
-        if add_molecule != None:
+        if add_molecule is not None:
             if 'TIP' in add_molecule[1] and 'hybrid' not in FF.pair_data['style']:
                 mixing_rules = 'tail yes mix geometric'
             elif 'TIP' in add_molecule[1] and 'hybrid' in FF.pair_data['style']:
                 mixing_rules = 'tail yes'
         else:
-            if sm_ff_string != None:
+            if sm_ff_string is not None:
                 if 'TIP4P' in sm_ff_string and 'hybrid' not in FF.pair_data['style']:
                     mixing_rules = 'tail yes mix geometric'
                 elif 'TIP4P' in sm_ff_string and 'hybrid' in FF.pair_data['style']:
@@ -558,7 +558,7 @@ def lammps_inputs(args):
                     pair_sig = np.round(np.sqrt(sig0 * sig1), 6)
                 elif 'arithmetic' in mixing_rules:
                     pair_eps = np.round(np.sqrt(eps0 * eps1), 6)
-                    pair_sig = np.round((sig0 + sig1)/2.0, 6)
+                    pair_sig = np.round((sig0 + sig1) / 2.0, 6)
                 else:
                     pair_eps = np.round(np.sqrt(eps0 * eps1), 6)
                     pair_sig = np.round(np.sqrt(sig0 * sig1), 6)
@@ -573,7 +573,7 @@ def lammps_inputs(args):
         infile.write('box             tilt large\n')
         infile.write('read_data       ' + data_name + read_data_append_string + '\n\n')
 
-        if add_molecule != None:
+        if add_molecule is not None:
             if 'TIP4P' in add_molecule[1]:
                 group_line = 'group           H2O type ' + str(FF.pair_data['O_type']) + ' ' + str(FF.pair_data['H_type']) + '\n'
                 shake_line = 'fix             H2O_shake H2O shake 0.0001 50 0 b ' + \
@@ -581,7 +581,7 @@ def lammps_inputs(args):
                 infile.write(group_line)
                 infile.write(shake_line)
         else:
-            if sm_ff_string != None:
+            if sm_ff_string is not None:
                 if 'TIP4P' in sm_ff_string:
 
                     group_line = 'group           H2O type ' + str(FF.pair_data['O_type']) + ' ' + str(FF.pair_data['H_type']) + '\n'
