@@ -16,11 +16,12 @@ from . import ZIFFF_constants
 metals = atomic_data.metals
 mass_key = atomic_data.mass_key
 
+
 def parameter_loop(options, type_dict):
 
     params = None
     for option in options:
-        
+
         try:
             params = type_dict[option]
             break
@@ -31,6 +32,7 @@ def parameter_loop(options, type_dict):
         return params
     else:
         raise(ValueError('No parameters found for', options))
+
 
 def dihedral_parameter_loop(options, type_dict):
 
@@ -49,6 +51,7 @@ def dihedral_parameter_loop(options, type_dict):
         message = 'No parameters found for ' + ' '.join(option)
         warnings.warn(message)
         return None
+
 
 def read_gaffdat(mode='gaff'):
 
@@ -93,8 +96,8 @@ def read_gaffdat(mode='gaff'):
         angle = tuple(angle.split('-'))
         gaff_angles[angle] = (float(K), float(r0))
 
-    gaff_dihedral_list = [(''.join(l[0:11].split()), ''.join(l[11:19].split()), ''.join(l[19:31].split()), 
-        ''.join(l[31:48].split()), ''.join(l[48:52].split())) for l in gaff_dihedrals.split('\n') if len(l.split()) > 0]
+    gaff_dihedral_list = [(''.join(l[0:11].split()), ''.join(l[11:19].split()), ''.join(l[19:31].split()),
+                           ''.join(l[31:48].split()), ''.join(l[48:52].split())) for l in gaff_dihedrals.split('\n') if len(l.split()) > 0]
     gaff_dihedrals = {}
     for l in gaff_dihedral_list:
         dihedral, m, K, psi0, n = l
@@ -104,19 +107,20 @@ def read_gaffdat(mode='gaff'):
         except KeyError:
             gaff_dihedrals[dihedral] = [float(K)/int(float(m)), int(float(n)), float(psi0)]
 
-    gaff_improper_list = [(''.join(l[0:11].split()), ''.join(l[11:33].split()), ''.join(l[33:47].split()), 
-        ''.join(l[47:50].split())) for l in gaff_impropers.split('\n') if len(l.split()) > 0]
+    gaff_improper_list = [(''.join(l[0:11].split()), ''.join(l[11:33].split()), ''.join(l[33:47].split()),
+                           ''.join(l[47:50].split())) for l in gaff_impropers.split('\n') if len(l.split()) > 0]
     gaff_impropers = {}
     for l in gaff_improper_list:
         improper, K, psi0, n = l
         improper = tuple(improper.split('-'))
         gaff_impropers[improper] = (float(K), int(float(n)), float(psi0))
 
-    gaff_data = {'types':gaff_atom_types, 'bonds':gaff_bonds, 'angles':gaff_angles, 'dihedrals':gaff_dihedrals, 'impropers':gaff_impropers, 'LJ_parameters':gaff_LJ_parameters}
+    gaff_data = {'types': gaff_atom_types, 'bonds': gaff_bonds, 'angles': gaff_angles,
+                 'dihedrals': gaff_dihedrals, 'impropers': gaff_impropers, 'LJ_parameters': gaff_LJ_parameters}
     return gaff_data
 
-def GAFF_type(atom, data, SG, pure_aromatic_atoms, aromatic_atoms):
 
+def GAFF_type(atom, data, SG, pure_aromatic_atoms, aromatic_atoms):
     """
         returns GAFF atom types, this can be expanded to the full 97 types
         apply to atoms in this order:
@@ -160,7 +164,7 @@ def GAFF_type(atom, data, SG, pure_aromatic_atoms, aromatic_atoms):
                 # R-(C=O)-R
                 if doubleO and not doubleS:
                     ty = 'c'
-                # R-(C=S)-R 
+                # R-(C=S)-R
                 elif doubleS and not doubleO:
                     ty = 'cs'
                 # non-aromatic sp2 carbon
@@ -178,15 +182,15 @@ def GAFF_type(atom, data, SG, pure_aromatic_atoms, aromatic_atoms):
         # note that cp, cq, cd, ce, cf, cg, ch, cx, cy, cu, cv, cz are are probably not needed for ZIF-FF
 
     elif sym == 'H':
-        
+
         # make sure to apply this function to hydrogens after all other atoms have been typed
         if len(nbors) != 1:
             raise ValueError('H with more than one neighbor found')
-        
+
         nbor = nbors[0]
         nbor_sym = nbor_symbols[0]
         nbor_hyb = SG.nodes[nbor]['hybridization']
-        
+
         if nbor_sym == 'C':
             # bonded to aromatic atom
             if nbor in aromatic_atoms:
@@ -229,7 +233,7 @@ def GAFF_type(atom, data, SG, pure_aromatic_atoms, aromatic_atoms):
         # halogens are easy, only one type of each
         ty = 'i'
         hyb = 'sp1'
-    
+
     elif sym == 'N':
         if len(nbors) == 1:
             ty = 'n'
@@ -272,7 +276,7 @@ def GAFF_type(atom, data, SG, pure_aromatic_atoms, aromatic_atoms):
             ty = 'o'
             hyb = 'sp1'
         if len(nbors) == 2:
-            # R-OH 
+            # R-OH
             if Counter(nbor_symbols)['H'] == 1:
                 ty = 'oh'
                 hyb = 'sp2'
@@ -291,12 +295,13 @@ def GAFF_type(atom, data, SG, pure_aromatic_atoms, aromatic_atoms):
 
     return ty, hyb
 
+
 class ZIFFF(force_field):
 
     def __init__(self, system, cutoff, args):
 
         pi = np.pi
-        a,b,c,alpha,beta,gamma = system['box']
+        a, b, c, alpha, beta, gamma = system['box']
         ax = a
         ay = 0.0
         az = 0.0
@@ -304,20 +309,20 @@ class ZIFFF(force_field):
         by = b * np.sin(gamma * pi / 180.0)
         bz = 0.0
         cx = c * np.cos(beta * pi / 180.0)
-        cy = (c * b * np.cos(alpha * pi /180.0) - bx * cx) / by
+        cy = (c * b * np.cos(alpha * pi / 180.0) - bx * cx) / by
         cz = (c ** 2.0 - cx ** 2.0 - cy ** 2.0) ** 0.5
-        self.unit_cell = np.asarray([[ax,ay,az],[bx,by,bz],[cx,cy,cz]]).T
+        self.unit_cell = np.asarray([[ax, ay, az], [bx, by, bz], [cx, cy, cz]]).T
 
         NMG = system['graph'].copy()
         edge_list = list(NMG.edges())
-    
-        for e0,e1 in edge_list:
+
+        for e0, e1 in edge_list:
 
             sym0 = NMG.nodes[e0]['element_symbol']
             sym1 = NMG.nodes[e1]['element_symbol']
 
             if sym0 in metals or sym1 in metals:
-                NMG.remove_edge(e0,e1)
+                NMG.remove_edge(e0, e1)
 
         linkers = nx.connected_components(NMG)
         pure_aromatic_atoms = []
@@ -337,17 +342,17 @@ class ZIFFF(force_field):
                 anchor = fcoords[0]
                 fcoords = np.array([vec - PBC3DF_sym(anchor, vec)[1] for vec in fcoords])
                 coords = np.dot(self.unit_cell.T, fcoords.T).T
-    
+
                 coords -= np.average(coords, axis=0)
-                
+
                 vec0 = coords[0]
                 vec1 = coords[1]
-                
-                normal = np.cross(vec0,vec1)
-                RZ = M(normal, np.array([0.0,0.0,1.0]))
+
+                normal = np.cross(vec0, vec1)
+                RZ = M(normal, np.array([0.0, 0.0, 1.0]))
                 coords = np.dot(RZ, coords.T).T
-                maxZ = max([abs(z) for z in coords[:,-1]])
-    
+                maxZ = max([abs(z) for z in coords[:, -1]])
+
                 # if coplanar make all bond orders 1.5
                 if maxZ < 0.1:
                     aromatic_atoms.extend(list(cycle))
@@ -370,7 +375,7 @@ class ZIFFF(force_field):
         types = []
         imidazolate_ring_atoms = []
 
-        for atom,data in SG.nodes(data=True):
+        for atom, data in SG.nodes(data=True):
 
             element_symbol = data['element_symbol']
 
@@ -381,7 +386,7 @@ class ZIFFF(force_field):
         # assign Zn, N, and imidazolate ring types first
         imidazolate_gaff_types = {}
         for atom in SG.nodes(data=True):
-            
+
             hyb = None
             name, inf = atom
             element_symbol = inf['element_symbol']
@@ -411,7 +416,7 @@ class ZIFFF(force_field):
                     elif Counter(nbor_symbols)['N'] == 1:
                         ty = 'C2'
                         hyb = 'sp2'
-                
+
                 types.append((ty, element_symbol, mass))
                 SG.node[name]['force_field_type'] = ty
                 SG.node[name]['hybridization'] = hyb
@@ -420,7 +425,7 @@ class ZIFFF(force_field):
                     gaff_ty, gaff_hyb = GAFF_type(name, inf, SG, self.pure_aromatic_atoms, self.aromatic_atoms)
                     imidazolate_gaff_types[ty] = gaff_ty
 
-        # type non-imidazolate-ring atoms 
+        # type non-imidazolate-ring atoms
         for atom in SG.nodes(data=True):
 
             name, inf = atom
@@ -432,7 +437,7 @@ class ZIFFF(force_field):
                 nbor_symbols = [SG.nodes[n]['element_symbol'] for n in nbors]
                 nbor_types = [SG.nodes[n]['force_field_type'] for n in nbors]
                 mass = mass_key[element_symbol]
-    
+
                 # imidazolate ring atom adjacent that are not hydrogens
                 if element_symbol != 'H':
                     if name not in imidazolate_ring_atoms and any(n in imidazolate_ring_atoms for n in nbors):
@@ -445,7 +450,7 @@ class ZIFFF(force_field):
                             ty, hyb = GAFF_type(name, inf, SG, self.pure_aromatic_atoms, self.aromatic_atoms)
                     elif name not in imidazolate_ring_atoms and not any(n in imidazolate_ring_atoms for n in nbors):
                         ty, hyb = GAFF_type(name, inf, SG, self.pure_aromatic_atoms, self.aromatic_atoms)
-    
+
                 types.append((ty, element_symbol, mass))
                 SG.node[name]['force_field_type'] = ty
                 SG.node[name]['hybridization'] = hyb
@@ -478,18 +483,18 @@ class ZIFFF(force_field):
 
         types = set(types)
         Ntypes = len(types)
-        atom_types = dict((ty[0],i+1) for i,ty in zip(range(Ntypes), types))
+        atom_types = dict((ty[0], i+1) for i, ty in zip(range(Ntypes), types))
         atom_element_symbols = dict((ty[0], ty[1]) for ty in types)
-        atom_masses = dict((ty[0],ty[2]) for ty in types)
+        atom_masses = dict((ty[0], ty[2]) for ty in types)
 
-        #for n,data in SG.nodes(data=True):
+        # for n, data in SG.nodes(data=True):
         #
-        #   sym = data['element_symbol']
-        #   nbors = [a for a in SG.neighbors(name)]
-        #   nbor_symbols = [SG.nodes[n]['element_symbol'] for n in nbors]
+        # sym = data['element_symbol']
+        # nbors = [a for a in SG.neighbors(name)]
+        # nbor_symbols = [SG.nodes[n]['element_symbol'] for n in nbors]
         #
-        #   if n in self.pure_aromatic_atoms:
-        #       print(sym, nbor_symbols, data['force_field_type'])
+        # if n in self.pure_aromatic_atoms:
+        # print(sym, nbor_symbols, data['force_field_type'])
 
         self.system['graph'] = SG
         self.atom_types = atom_types
@@ -498,13 +503,13 @@ class ZIFFF(force_field):
         self.imidazolate_gaff_types = imidazolate_gaff_types
 
     def bond_parameters(self, bond):
-        
+
         gaff_bonds = self.args['FF_parameters']['bonds']
-        i,j = sorted(bond)
+        i, j = sorted(bond)
 
-        if all(t in self.ZIFFF_types for t in (i,j)):
+        if all(t in self.ZIFFF_types for t in (i, j)):
 
-            k_ij, r_ij = parameter_loop([bond, bond[::-1]], ZIFFF_constants.ZIFFF_bonds) 
+            k_ij, r_ij = parameter_loop([bond, bond[::-1]], ZIFFF_constants.ZIFFF_bonds)
             params = ('harmonic', k_ij, r_ij)
 
         else:
@@ -516,11 +521,11 @@ class ZIFFF(force_field):
         return params
 
     def angle_parameters(self, angle):
-        
-        gaff_angles = self.args['FF_parameters']['angles']
-        i,j,k = angle
 
-        if all(t in self.ZIFFF_types for t in (i,j,k)):
+        gaff_angles = self.args['FF_parameters']['angles']
+        i, j, k = angle
+
+        if all(t in self.ZIFFF_types for t in (i, j, k)):
 
             K, theta0 = parameter_loop([angle, angle[::-1]], ZIFFF_constants.ZIFFF_angles)
             params = ('harmonic', K, theta0)
@@ -540,12 +545,12 @@ class ZIFFF(force_field):
         gaff_dihedrals = self.args['FF_parameters']['dihedrals']
         i, j, k, l = dihedral
 
-        if all(t in self.ZIFFF_types for t in (i,j,k,l)):
+        if all(t in self.ZIFFF_types for t in (i, j, k, l)):
 
             params = dihedral_parameter_loop([dihedral, dihedral[::-1]], ZIFFF_constants.ZIFFF_dihedrals)
-            
+
             if params != None:
-                
+
                 K, n, d = params
                 params = ('fourier', 1, K, n, d)
 
@@ -554,36 +559,36 @@ class ZIFFF(force_field):
             X_dihedral = ('X', dihedral[1], dihedral[2], 'X')
             new_X_dihedral = tuple([self.imidazolate_gaff_types[ty] if ty in self.imidazolate_gaff_types else ty for ty in X_dihedral])
             new_dihedral = tuple([self.imidazolate_gaff_types[ty] if ty in self.imidazolate_gaff_types else ty for ty in dihedral])
-            
+
             options = [X_dihedral, X_dihedral[::-1], new_X_dihedral, new_X_dihedral[::-1], dihedral, dihedral[::-1], new_dihedral, new_dihedral[::-1]]
             params = dihedral_parameter_loop(options, gaff_dihedrals)
 
             if params != None:
 
-                Nterms = len(params)%3
+                Nterms = len(params) % 3
                 params = tuple(['fourier', Nterms] + params)
 
         return params
 
     def improper_parameters(self, improper):
-        
+
         gaff_impropers = self.args['FF_parameters']['impropers']
         i, j, k, l = improper
         params = None
 
-        if all(t in self.ZIFFF_types for t in (i,j,k,l)):
+        if all(t in self.ZIFFF_types for t in (i, j, k, l)):
 
             # the ZIF-FF paper lists the central atom first
-            improper_combs = [(i,j,k,l), 
-                              (i,j,l,k), 
-                              (i,k,j,l), 
-                              (i,k,l,j), 
-                              (i,l,j,k), 
-                              (i,l,j,k)]
+            improper_combs = [(i, j, k, l),
+                              (i, j, l, k),
+                              (i, k, j, l),
+                              (i, k, l, j),
+                              (i, l, j, k),
+                              (i, l, j, k)]
 
             for imp in improper_combs:
                 try:
-                    K,n,d = ZIFFF_constants.ZIFFF_impropers[imp]
+                    K, n, d = ZIFFF_constants.ZIFFF_impropers[imp]
                     params = ('cvff', K, -1, 2)
                     break
                 except KeyError:
@@ -591,51 +596,51 @@ class ZIFFF(force_field):
 
         else:
 
-            improper_combs = [(j,k,i,l), 
-                              (j,l,i,k), 
-                              (k,j,i,l), 
-                              (k,l,i,j), 
-                              (l,j,i,k), 
-                              (l,j,i,k)]
+            improper_combs = [(j, k, i, l),
+                              (j, l, i, k),
+                              (k, j, i, l),
+                              (k, l, i, j),
+                              (l, j, i, k),
+                              (l, j, i, k)]
 
             for imp in improper_combs:
                 try:
-                    K,psi0,n = gaff_impropers[imp]
+                    K, psi0, n = gaff_impropers[imp]
                     params = ('cvff', K, -1, 2)
                     break
                 except KeyError:
                     continue
-            
+
             if params == None:
 
-                i,j,k,l = tuple([self.imidazolate_gaff_types[ty] if ty in self.imidazolate_gaff_types else ty for ty in improper])
-                improper_combs = [(j,k,i,l), 
-                                  (j,l,i,k), 
-                                  (k,j,i,l), 
-                                  (k,l,i,j), 
-                                  (l,j,i,k), 
-                                  (l,j,i,k)]
+                i, j, k, l = tuple([self.imidazolate_gaff_types[ty] if ty in self.imidazolate_gaff_types else ty for ty in improper])
+                improper_combs = [(j, k, i, l),
+                                  (j, l, i, k),
+                                  (k, j, i, l),
+                                  (k, l, i, j),
+                                  (l, j, i, k),
+                                  (l, j, i, k)]
 
                 if i in ('c', 'ca', 'n', 'n2', 'na'):
-                    
-                    ximps = [('X',k,i,l),
-                             ('X',l,i,k),
-                             ('X',j,i,l),
-                             ('X',l,i,j),
-                             ('X',j,i,k),
-                             ('X',j,i,k),
-                             ('X', 'X',i,l),
-                             ('X', 'X',i,k),
-                             ('X', 'X',i,l),
-                             ('X', 'X',i,j),
-                             ('X', 'X',i,k),
-                             ('X', 'X',i,k)]
+
+                    ximps = [('X', k, i, l),
+                             ('X', l, i, k),
+                             ('X', j, i, l),
+                             ('X', l, i, j),
+                             ('X', j, i, k),
+                             ('X', j, i, k),
+                             ('X', 'X', i, l),
+                             ('X', 'X', i, k),
+                             ('X', 'X', i, l),
+                             ('X', 'X', i, j),
+                             ('X', 'X', i, k),
+                             ('X', 'X', i, k)]
 
                     improper_combs.extend(ximps)
 
                 for imp in improper_combs:
                     try:
-                        K,psi0,n = gaff_impropers[imp]
+                        K, psi0, n = gaff_impropers[imp]
                         params = ('cvff', K, -1, 2)
                         break
                     except KeyError:
@@ -648,7 +653,7 @@ class ZIFFF(force_field):
         return params
 
     def pair_parameters(self, charges=False):
-        
+
         gaff_LJ_parameters = self.args['FF_parameters']['LJ_parameters']
         atom_types = self.atom_types
         all_params = {}
@@ -666,18 +671,18 @@ class ZIFFF(force_field):
         for a in atom_types:
 
             if a in self.ZIFFF_types:
-                eps,sig,charge = ZIFFF_constants.ZIFFF_LJ_parameters[a]
+                eps, sig, charge = ZIFFF_constants.ZIFFF_LJ_parameters[a]
                 params = (eps, sig)
                 all_params[a] = params
 
             else:
-                eps,rmin = gaff_LJ_parameters[a]
+                eps, rmin = gaff_LJ_parameters[a]
                 params = (eps, 2 * rmin * (2**(-1.0/6.0)))
                 all_params[a] = params
 
-            comments[a] = [a,a]
+            comments[a] = [a, a]
 
-        self.pair_data = {'params':all_params, 'style':style, 'special_bonds':sb, 'comments':comments}
+        self.pair_data = {'params': all_params, 'style': style, 'special_bonds': sb, 'comments': comments}
 
     def enumerate_bonds(self):
 
@@ -686,16 +691,16 @@ class ZIFFF(force_field):
         bonds = {}
         for e in SG.edges(data=True):
 
-            i,j,data = e
+            i, j, data = e
             fft_i = SG.node[i]['force_field_type']
             fft_j = SG.node[j]['force_field_type']
             bond = tuple(sorted([fft_i, fft_j]))
 
             # add to list if bond type already exists, else add a new type
             try:
-                bonds[bond].append((i,j))
+                bonds[bond].append((i, j))
             except KeyError:
-                bonds[bond] = [(i,j)]
+                bonds[bond] = [(i, j)]
 
         bond_params = {}
         bond_comments = {}
@@ -713,10 +718,10 @@ class ZIFFF(force_field):
             all_bonds[ID] = bonds[b]
             count += len(bonds[b])
 
-        self.bond_data = {'all_bonds':all_bonds, 'params':bond_params, 'style':'harmonic', 'count':(count, len(all_bonds)), 'comments':bond_comments}
+        self.bond_data = {'all_bonds': all_bonds, 'params': bond_params, 'style': 'harmonic', 'count': (count, len(all_bonds)), 'comments': bond_comments}
 
     def enumerate_angles(self):
-        
+
         SG = self.system['graph']
         angles = {}
 
@@ -734,7 +739,7 @@ class ZIFFF(force_field):
                 fft_j = SG.node[j]['force_field_type']
                 fft_k = SG.node[k]['force_field_type']
 
-                sort_ik = sorted([(fft_i,i),(fft_k,k)], key=lambda x:x[0])
+                sort_ik = sorted([(fft_i, i), (fft_k, k)], key=lambda x: x[0])
                 fft_i, i = sort_ik[0]
                 fft_k, k = sort_ik[1]
 
@@ -743,9 +748,9 @@ class ZIFFF(force_field):
 
                 # add to list if angle type already exists, else add a new type
                 try:
-                    angles[angle].append((i,j,k))
+                    angles[angle].append((i, j, k))
                 except KeyError:
-                    angles[angle] = [(i,j,k)]
+                    angles[angle] = [(i, j, k)]
 
         angle_params = {}
         angle_comments = {}
@@ -766,17 +771,17 @@ class ZIFFF(force_field):
             angle_comments[ID] = list(angle)
             all_angles[ID] = angles[a]
             count += len(angles[a])
-        
+
         styles = set(styles)
         if len(styles) == 1:
             style = list(styles)[0]
         else:
             style = 'hybrid ' + ' '.join(styles)
 
-        self.angle_data = {'all_angles':all_angles, 'params':angle_params, 'style':style, 'count':(count, len(all_angles)), 'comments':angle_comments}
+        self.angle_data = {'all_angles': all_angles, 'params': angle_params, 'style': style, 'count': (count, len(all_angles)), 'comments': angle_comments}
 
     def enumerate_dihedrals(self):
-        
+
         SG = self.system['graph']
         dihedrals = {}
         dihedral_params = {}
@@ -792,7 +797,7 @@ class ZIFFF(force_field):
             nbors_k = [n for n in SG.neighbors(k) if n != j]
 
             il_pairs = list(itertools.product(nbors_j, nbors_k))
-            dihedral_list = [(SG.node[p[0]]['force_field_type'],fft_j,fft_k,SG.node[p[1]]['force_field_type']) for p in il_pairs]
+            dihedral_list = [(SG.node[p[0]]['force_field_type'], fft_j, fft_k, SG.node[p[1]]['force_field_type']) for p in il_pairs]
 
             for dihedral in dihedral_list:
 
@@ -821,26 +826,27 @@ class ZIFFF(force_field):
             dihedral_comments[ID] = list(d)
             count += len(dihedrals[d])
 
-        self.dihedral_data = {'all_dihedrals':all_dihedrals, 'params':indexed_dihedral_params, 'style':'harmonic', 'count':(count, len(all_dihedrals)), 'comments':dihedral_comments}
+        self.dihedral_data = {'all_dihedrals': all_dihedrals, 'params': indexed_dihedral_params,
+                              'style': 'harmonic', 'count': (count, len(all_dihedrals)), 'comments': dihedral_comments}
 
     def enumerate_impropers(self):
-        
+
         SG = self.system['graph']
         impropers = {}
 
         for n in SG.nodes(data=True):
-            
+
             i, data = n
             nbors = list(SG.neighbors(i))
 
             if len(nbors) == 3:
 
-                nbors = sorted([(m,SG.node[m]['force_field_type']) for m in nbors], key=lambda x:x[1])
+                nbors = sorted([(m, SG.node[m]['force_field_type']) for m in nbors], key=lambda x: x[1])
                 fft_nbors = [m[1] for m in nbors]
                 nbors = [m[0] for m in nbors]
 
                 fft_i = data['force_field_type']
-                j,k,l = nbors
+                j, k, l = nbors
                 imp = [i, j, k, l]
                 fft_j, fft_k, fft_l = fft_nbors
                 imp_type = (fft_i, fft_j, fft_k, fft_l)
@@ -865,8 +871,9 @@ class ZIFFF(force_field):
                 improper_comments[ID] = list(i)
                 all_impropers[ID] = impropers[i]
                 count += len(impropers[i])
-                
-        self.improper_data = {'all_impropers':all_impropers, 'params':improper_params, 'style':'fourier', 'count':(count, len(all_impropers)), 'comments':improper_comments}
+
+        self.improper_data = {'all_impropers': all_impropers, 'params': improper_params,
+                              'style': 'fourier', 'count': (count, len(all_impropers)), 'comments': improper_comments}
 
     def compile_force_field(self, charges=False):
 
@@ -875,4 +882,4 @@ class ZIFFF(force_field):
         self.enumerate_bonds()
         self.enumerate_angles()
         self.enumerate_dihedrals()
-        self.enumerate_impropers()      
+        self.enumerate_impropers()

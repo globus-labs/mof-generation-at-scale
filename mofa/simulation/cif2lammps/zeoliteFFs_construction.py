@@ -8,6 +8,7 @@ from .force_field_construction import force_field
 metals = atomic_data.metals
 mass_key = atomic_data.mass_key
 
+
 class MZHB(force_field):
 
     def __init__(self, system, cutoff, args):
@@ -35,15 +36,15 @@ class MZHB(force_field):
                 ty = 'O'
             else:
                 raise ValueError('No Nicholas type identified for ' + element_symbol + 'with neighbors ' + ' '.join(nbor_symbols))
-                
+
             types.append((ty, element_symbol, mass))
             SG.nodes[name]['force_field_type'] = ty
 
         types = set(types)
         Ntypes = len(types)
-        atom_types = dict((ty[0],i+1) for i,ty in zip(range(Ntypes), types))
+        atom_types = dict((ty[0], i+1) for i, ty in zip(range(Ntypes), types))
         atom_element_symbols = dict((ty[0], ty[1]) for ty in types)
-        atom_masses = dict((ty[0],ty[2]) for ty in types)
+        atom_masses = dict((ty[0], ty[2]) for ty in types)
 
         self.system['graph'] = SG
         self.atom_types = atom_types
@@ -69,7 +70,7 @@ class MZHB(force_field):
             elif a == 'Si':
                 params[ID] = (style, 0.19924, 1.95998)
 
-            comments[ID] = [a,a]
+            comments[ID] = [a, a]
 
         for name, data in SG.nodes(data=True):
 
@@ -80,11 +81,11 @@ class MZHB(force_field):
             else:
                 pass
 
-        self.pair_data = {'params':params, 'style':style, 'special_bonds':sb, 'comments':comments}
+        self.pair_data = {'params': params, 'style': style, 'special_bonds': sb, 'comments': comments}
 
     def bond_parameters(self, bond):
-        
-        i,j = bond
+
+        i, j = bond
 
         # divide by two in LAMMPS
         if i == 'Si' and j == 'O':
@@ -99,8 +100,8 @@ class MZHB(force_field):
         return ('harmonic', k_ij, r_ij)
 
     def angle_parameters(self, angle):
-        
-        i,j,k = angle
+
+        i, j, k = angle
         style = 'harmonic'
 
         if j == 'Si' and i == 'O' and k == 'O':
@@ -117,12 +118,12 @@ class MZHB(force_field):
             K = 51.19440/2.0
             theta0 = 149.800
 
-        return (style, K, theta0)   
+        return (style, K, theta0)
 
     def dihedral_parameters(self):
 
         # dihedrals are the same for everything
-        pass        
+        pass
 
     def improper_parameters(self, fft_i, O_2_flag):
 
@@ -137,7 +138,7 @@ class MZHB(force_field):
         bonds = {}
         for e in SG.edges(data=True):
 
-            i,j,data = e
+            i, j, data = e
             fft_i = SG.nodes[i]['force_field_type']
             fft_j = SG.nodes[j]['force_field_type']
 
@@ -145,9 +146,9 @@ class MZHB(force_field):
 
             # add to list if bond type already exists, else add a new type
             try:
-                bonds[bond].append((i,j))
+                bonds[bond].append((i, j))
             except KeyError:
-                bonds[bond] = [(i,j)]
+                bonds[bond] = [(i, j)]
 
         bond_params = {}
         bond_comments = {}
@@ -161,14 +162,14 @@ class MZHB(force_field):
             bond = (b[0], b[1])
             params = self.bond_parameters(bond)
             bond_params[ID] = list(params)
-            bond_comments[ID] = [b[0],b[1]]
+            bond_comments[ID] = [b[0], b[1]]
             all_bonds[ID] = bonds[b]
             count += len(bonds[b])
 
-        self.bond_data = {'all_bonds':all_bonds, 'params':bond_params, 'style':'harmonic', 'count':(count, len(all_bonds)), 'comments':bond_comments}
+        self.bond_data = {'all_bonds': all_bonds, 'params': bond_params, 'style': 'harmonic', 'count': (count, len(all_bonds)), 'comments': bond_comments}
 
     def enumerate_angles(self):
-        
+
         SG = self.system['graph']
         angles = {}
 
@@ -191,9 +192,9 @@ class MZHB(force_field):
 
                 # add to list if angle type already exists, else add a new type
                 try:
-                    angles[angle].append((i,j,k))
+                    angles[angle].append((i, j, k))
                 except KeyError:
-                    angles[angle] = [(i,j,k)]
+                    angles[angle] = [(i, j, k)]
 
         angle_params = {}
         angle_comments = {}
@@ -214,21 +215,21 @@ class MZHB(force_field):
             angle_comments[ID] = [fft_i, fft_j, fft_k]
             all_angles[ID] = angles[a]
             count += len(angles[a])
-        
+
         styles = set(styles)
         if len(styles) == 1:
             style = list(styles)[0]
         else:
             style = 'hybrid ' + ' '.join(styles)
 
-        self.angle_data = {'all_angles':all_angles, 'params':angle_params, 'style':style, 'count':(count, len(all_angles)), 'comments':angle_comments}
+        self.angle_data = {'all_angles': all_angles, 'params': angle_params, 'style': style, 'count': (count, len(all_angles)), 'comments': angle_comments}
 
     def enumerate_dihedrals(self):
-        
+
         pass
 
     def enumerate_impropers(self):
-        
+
         pass
 
     def compile_force_field(self, charges=False):
@@ -239,4 +240,3 @@ class MZHB(force_field):
         self.enumerate_angles()
         self.enumerate_dihedrals()
         self.enumerate_impropers()
-

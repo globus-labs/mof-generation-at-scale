@@ -1,11 +1,12 @@
 from __future__ import print_function
 from abc import abstractmethod
 
-#import UFF4MOF_constants
+# import UFF4MOF_constants
 from . import atomic_data
 
 metals = atomic_data.metals
 mass_key = atomic_data.mass_key
+
 
 class force_field(object):
 
@@ -16,7 +17,7 @@ class force_field(object):
         graph of the system. The networkx graph is particularly convenient for this as all the 
         needed information for each atom can be stored as node data.
     """
-    
+
     def __init__(self, system, cutoff, args):
 
         self.system = system

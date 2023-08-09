@@ -34,6 +34,7 @@ mass_key = atomic_data.mass_key
 # for validating LAMMPS UFF4MOF calculations, it will be exanpded for more
 # general GULP usage
 
+
 def isfloat(value):
     """
         determines if a value is a float
@@ -44,14 +45,16 @@ def isfloat(value):
     except ValueError:
         return False
 
+
 mass_key = atomic_data.mass_key
+
 
 def GULP_inputs(args):
 
-    gulp_bond_types = {0.25:'quarter', 0.5:'half', 1.0:'', 1.5:'resonant', 2.0:'', 3.0:''}
+    gulp_bond_types = {0.25: 'quarter', 0.5: 'half', 1.0: '', 1.5: 'resonant', 2.0: '', 3.0: ''}
 
     cifname, force_field, outdir, charges, replication, noautobond = args
-    FF_args = {'FF_parameters':UFF4MOF_atom_parameters, 'bond_orders':UFF4MOF_bond_orders_0}
+    FF_args = {'FF_parameters': UFF4MOF_atom_parameters, 'bond_orders': UFF4MOF_bond_orders_0}
     cutoff = 12.5
 
     system = initialize_system(cifname, charges=charges)
@@ -60,7 +63,7 @@ def GULP_inputs(args):
     FF.compile_force_field(charges=charges)
 
     SG = FF.system['graph']
-    a,b,c,alpha,beta,gamma = system['box']
+    a, b, c, alpha, beta, gamma = system['box']
     lx = np.round(a, 8)
     xy = np.round(b * np.cos(math.radians(gamma)), 8)
     xz = np.round(c * np.cos(math.radians(beta)), 8)
@@ -72,14 +75,14 @@ def GULP_inputs(args):
     name = preffix + '.gin'
 
     with open(outdir + os.sep + name, 'w') as gin:
-        
+
         if noautobond:
             gin.write('opti conp free zsisa noautobond cartesian\n')
         else:
             gin.write('opti conp free zsisa cartesian\n')
         gin.write('vectors\n')
         gin.write(str(lx) + ' 0.0 0.0' '\n')
-        gin.write('0.0 ' + str(ly) + ' 0.0'+ '\n')
+        gin.write('0.0 ' + str(ly) + ' 0.0' + '\n')
         gin.write('0.0 0.0 ' + str(lz) + '\n')
         gin.write('cartesian\n')
 
@@ -89,14 +92,14 @@ def GULP_inputs(args):
             force_field_type = atom_data['force_field_type']
             gulp_type = FF.atom_types[force_field_type]
             elem = FF.atom_element_symbols[force_field_type]
-            pos = [np.round(v,8) for v in atom_data['cartesian_position']]
+            pos = [np.round(v, 8) for v in atom_data['cartesian_position']]
             line = [elem + str(gulp_type), 'core', pos[0], pos[1], pos[2]]
             gin.write('{:5} {:<6} {:12.5f} {:12.5f} {:12.5f}'.format(*line))
             gin.write('\n')
         gin.write('\n')
 
-        bonds = [(b,ty) for ty in FF.bond_data['all_bonds'] for b in FF.bond_data['all_bonds'][ty]]
-        bonds.sort(key = lambda x:x[0][0])
+        bonds = [(b, ty) for ty in FF.bond_data['all_bonds'] for b in FF.bond_data['all_bonds'][ty]]
+        bonds.sort(key=lambda x: x[0][0])
 
         if noautobond:
             for bond in bonds:
@@ -116,7 +119,7 @@ def GULP_inputs(args):
 
             elem = FF.atom_element_symbols[fft]
             gulp_type = FF.atom_types[fft]
-            
+
             write_type = fft
             if fft == 'O_2_M':
                 write_type = 'O_2'
@@ -134,5 +137,4 @@ def GULP_inputs(args):
         gin.write('rspeed 0.1000\n')
         gin.write('temperature 300\n')
 
-#GULP_inputs(['unopt_cifs/pcu_v1-6c_Zn_1_Ch_1B_2thiophene_Ch.cif', UFF4MOF, 'GULP_inputs', False, '1x1x1'])
-
+# GULP_inputs(['unopt_cifs/pcu_v1-6c_Zn_1_Ch_1B_2thiophene_Ch.cif', UFF4MOF, 'GULP_inputs', False, '1x1x1'])

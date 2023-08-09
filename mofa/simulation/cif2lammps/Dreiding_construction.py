@@ -8,6 +8,7 @@ from .force_field_construction import force_field
 metals = atomic_data.metals
 mass_key = atomic_data.mass_key
 
+
 class Dreiding(force_field):
 
     def __init__(self, system, cutoff, args):
@@ -22,7 +23,7 @@ class Dreiding(force_field):
         types = []
 
         for atom in SG.nodes(data=True):
-            
+
             name, inf = atom
             element_symbol = inf['element_symbol']
             nbors = list(SG.neighbors(name))
@@ -69,11 +70,11 @@ class Dreiding(force_field):
                         elif len(nbors) == 2 and any(i in metals for i in nbor_symbols):
                             ty = 'O_2_M'
                             hyb = 'sp2'
-                        # central 3-connected oxygen 
+                        # central 3-connected oxygen
                         elif len(nbors) == 3 and all(i in metals for i in nbor_symbols):
                             ty = 'O_2_M'
                             hyb = 'sp2'
-                        # node oxygens bound to metals 
+                        # node oxygens bound to metals
                         elif len(nbors) >= 3 and any(i in metals for i in nbor_symbols):
                             ty = 'O_3_M'
                             hyb = 'sp2'
@@ -94,16 +95,16 @@ class Dreiding(force_field):
                 # if no type can be identified
                 else:
                     raise ValueError('No Dreiding type identified for ' + element_symbol + 'with neighbors ' + ' '.join(nbor_symbols))
-                    
+
             types.append((ty, element_symbol, mass))
             SG.nodes[name]['force_field_type'] = ty
             SG.nodes[name]['hybridization'] = hyb
 
         types = set(types)
         Ntypes = len(types)
-        atom_types = dict((ty[0],i+1) for i,ty in zip(range(Ntypes), types))
+        atom_types = dict((ty[0], i+1) for i, ty in zip(range(Ntypes), types))
         atom_element_symbols = dict((ty[0], ty[1]) for ty in types)
-        atom_masses = dict((ty[0],ty[2]) for ty in types)
+        atom_masses = dict((ty[0], ty[2]) for ty in types)
 
         self.system['graph'] = SG
         self.atom_types = atom_types
@@ -115,7 +116,7 @@ class Dreiding(force_field):
         SG = self.system['graph']
         Dreiding_atom_parameters = self.args['FF_parameters']
 
-        i,j = bond
+        i, j = bond
         params_i = Dreiding_atom_parameters[i]
         params_j = Dreiding_atom_parameters[j]
 
@@ -131,7 +132,7 @@ class Dreiding(force_field):
 
         Dreiding_atom_parameters = self.args['FF_parameters']
 
-        fft_i,fft_j,fft_k = angle
+        fft_i, fft_j, fft_k = angle
         R1_j, theta_j, R0_j, D0_j, phi_j, S_j = Dreiding_atom_parameters[fft_j]
 
         K = 100.0
@@ -161,7 +162,7 @@ class Dreiding(force_field):
         fft_j, fft_k, bond_order = bond
         hyb_j, hyb_k = hybridization
         els_j, els_k = element_symbols
-        node_j, node_k = nodes 
+        node_j, node_k = nodes
 
         SG = self.system['graph']
 
@@ -231,7 +232,7 @@ class Dreiding(force_field):
 
         elif hyb_j == 'NA' or hyb_k == 'NA':
             return 'NA'
-        
+
         # divide by multiplicity and halve to match UFF paper
         V /= mult
         V *= 0.5
@@ -241,7 +242,7 @@ class Dreiding(force_field):
         return ('charmm', V, int(n), int(d), w)
 
     def improper_parameters(self, fft_i):
-        
+
         if fft_i in ('N_R', 'C_R', 'C_2'):
 
             K = 40.0/3.0
@@ -253,7 +254,7 @@ class Dreiding(force_field):
         return ('fourier', K, omega0)
 
     def pair_parameters(self, charges=False):
-        
+
         Dreiding_atom_parameters = self.args['FF_parameters']
         atom_types = self.atom_types
         params = {}
@@ -274,29 +275,29 @@ class Dreiding(force_field):
             sig_i = data[2] * (2**(-1.0/6.0))
             eps_i = data[3]
             params[ID] = (style, eps_i, sig_i)
-            comments[ID] = [a,a]
+            comments[ID] = [a, a]
 
-        self.pair_data = {'params':params, 'style':style, 'special_bonds':sb, 'comments':comments}
+        self.pair_data = {'params': params, 'style': style, 'special_bonds': sb, 'comments': comments}
 
     def enumerate_bonds(self):
-        
+
         SG = self.system['graph']
         bond_order_dict = self.args['bond_orders']
 
         bonds = {}
         for e in SG.edges(data=True):
 
-            i,j,data = e
+            i, j, data = e
             fft_i = SG.nodes[i]['force_field_type']
             fft_j = SG.nodes[j]['force_field_type']
             bond_type = data['bond_type']
 
             # look for the bond order, otherwise use the convention based on the bond type
             try:
-                bond_order = bond_order_dict[(fft_i,fft_j)]
+                bond_order = bond_order_dict[(fft_i, fft_j)]
             except KeyError:
                 try:
-                    bond_order = bond_order_dict[(fft_j,fft_i)]
+                    bond_order = bond_order_dict[(fft_j, fft_i)]
                 except KeyError:
                     bond_order = bond_order_dict[bond_type]
 
@@ -304,9 +305,9 @@ class Dreiding(force_field):
 
             # add to list if bond type already exists, else add a new type
             try:
-                bonds[bond].append((i,j))
+                bonds[bond].append((i, j))
             except KeyError:
-                bonds[bond] = [(i,j)]
+                bonds[bond] = [(i, j)]
 
             data['bond_order'] = bond_order
 
@@ -327,13 +328,13 @@ class Dreiding(force_field):
             all_bonds[ID] = bonds[b]
             count += len(bonds[b])
 
-        self.bond_data = {'all_bonds':all_bonds, 'params':bond_params, 'style':'harmonic', 'count':(count, len(all_bonds)), 'comments':bond_comments}
-        
+        self.bond_data = {'all_bonds': all_bonds, 'params': bond_params, 'style': 'harmonic', 'count': (count, len(all_bonds)), 'comments': bond_comments}
+
     def enumerate_angles(self):
-        
+
         SG = self.system['graph']
         bonds = self.bond_data['all_bonds']
-        inv_bonds = dict((b,bt) for bt in bonds for b in bonds[bt])
+        inv_bonds = dict((b, bt) for bt in bonds for b in bonds[bt])
         angles = {}
 
         for n in SG.nodes(data=True):
@@ -350,7 +351,7 @@ class Dreiding(force_field):
                 fft_j = SG.nodes[j]['force_field_type']
                 fft_k = SG.nodes[k]['force_field_type']
 
-                sort_ik = sorted([(fft_i,i),(fft_k,k)], key=lambda x:x[0])
+                sort_ik = sorted([(fft_i, i), (fft_k, k)], key=lambda x: x[0])
                 fft_i, i = sort_ik[0]
                 fft_k, k = sort_ik[1]
 
@@ -360,9 +361,9 @@ class Dreiding(force_field):
 
                 # add to list if angle type already exists, else add a new type
                 try:
-                    angles[angle].append((i,j,k))
+                    angles[angle].append((i, j, k))
                 except KeyError:
-                    angles[angle] = [(i,j,k)]
+                    angles[angle] = [(i, j, k)]
 
         angle_params = {}
         angle_comments = {}
@@ -383,24 +384,24 @@ class Dreiding(force_field):
             angle_comments[ID] = list(angle)
             all_angles[ID] = angles[a]
             count += len(angles[a])
-        
+
         styles = set(styles)
         if len(styles) == 1:
             style = list(styles)[0]
         else:
             style = 'hybrid ' + ' '.join(styles)
 
-        self.angle_data = {'all_angles':all_angles, 'params':angle_params, 'style':style, 'count':(count, len(all_angles)), 'comments':angle_comments}
+        self.angle_data = {'all_angles': all_angles, 'params': angle_params, 'style': style, 'count': (count, len(all_angles)), 'comments': angle_comments}
 
     def enumerate_dihedrals(self):
-        
+
         SG = self.system['graph']
         dihedrals = {}
         dihedral_params = {}
 
         for e in SG.edges(data=True):
 
-            j,k = e[0:2]
+            j, k = e[0:2]
             fft_j = SG.nodes[j]['force_field_type']
             fft_k = SG.nodes[k]['force_field_type']
             hyb_j = SG.nodes[j]['hybridization']
@@ -408,13 +409,13 @@ class Dreiding(force_field):
             els_j = SG.nodes[j]['element_symbol']
             els_k = SG.nodes[k]['element_symbol']
             bond_order = e[2]['bond_order']
-            nodes = (j,k)
+            nodes = (j, k)
 
             nbors_j = [n for n in SG.neighbors(j) if n != k]
             nbors_k = [n for n in SG.neighbors(k) if n != j]
 
             il_pairs = list(itertools.product(nbors_j, nbors_k))
-            dihedral_list = [(p[0],j,k,p[1]) for p in il_pairs]
+            dihedral_list = [(p[0], j, k, p[1]) for p in il_pairs]
 
             bond = sorted([fft_j, fft_k])
             bond = (bond[0], bond[1], bond_order)
@@ -424,7 +425,7 @@ class Dreiding(force_field):
             # here I calculate  parameters for each dihedral (I know) but I prefer identifying
             # those dihedrals before passing to the final dihedral data construction.
             params = self.dihedral_parameters(bond, hybridization, element_symbols, nodes)
-            
+
             if params != 'NA':
                 try:
                     dihedrals[bond].extend(dihedral_list)
@@ -447,22 +448,23 @@ class Dreiding(force_field):
             dihedral_comments[ID] = list(dihedral) + ['bond order=' + str(d[2])]
             count += len(dihedrals[d])
 
-        self.dihedral_data = {'all_dihedrals':all_dihedrals, 'params':indexed_dihedral_params, 'style':'charmm', 'count':(count, len(all_dihedrals)), 'comments':dihedral_comments}
+        self.dihedral_data = {'all_dihedrals': all_dihedrals, 'params': indexed_dihedral_params,
+                              'style': 'charmm', 'count': (count, len(all_dihedrals)), 'comments': dihedral_comments}
 
     def enumerate_impropers(self):
-        
+
         SG = self.system['graph']
         impropers = {}
 
         for n in SG.nodes(data=True):
-            
+
             i, data = n
             nbors = list(SG.neighbors(i))
 
             if len(nbors) == 3:
-                
+
                 fft_i = data['force_field_type']
-                j,k,l = nbors
+                j, k, l = nbors
 
                 # only need to consider one combination
                 imps = [[i, j, k, l]]
@@ -478,8 +480,8 @@ class Dreiding(force_field):
         ID = 0
         count = 0
         for i in impropers:
-        
-            fft_i = i   
+
+            fft_i = i
 
             params = self.improper_parameters(fft_i)
 
@@ -489,11 +491,12 @@ class Dreiding(force_field):
                 improper_comments[ID] = [i[0], 'X', 'X', 'X']
                 all_impropers[ID] = impropers[i]
                 count += len(impropers[i])
-                
-        self.improper_data = {'all_impropers':all_impropers, 'params':improper_params, 'style':'umbrella', 'count':(count, len(all_impropers)), 'comments':improper_comments}
+
+        self.improper_data = {'all_impropers': all_impropers, 'params': improper_params,
+                              'style': 'umbrella', 'count': (count, len(all_impropers)), 'comments': improper_comments}
 
     def compile_force_field(self, charges):
-        
+
         self.type_atoms()
         self.pair_parameters(charges)
         self.enumerate_bonds()

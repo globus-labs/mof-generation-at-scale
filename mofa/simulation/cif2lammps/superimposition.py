@@ -19,6 +19,7 @@ except ImportError:
     raise MissingPythonDependencyError(
         "Install NumPy if you want to use Bio.SVDSuperimposer.")
 
+
 class SVDSuperimposer(object):
     """Class to run SVD alignment.
     SVDSuperimposer finds the best rotation and translation to put
@@ -108,7 +109,7 @@ class SVDSuperimposer(object):
         self.coords = coords
         n = reference_coords.shape
         m = coords.shape
-        if n != m or not(n[1] == m[1] == 3):
+        if n != m or not (n[1] == m[1] == 3):
             raise Exception("Coordinate number/dimension mismatch.")
         self.n = n[0]
 

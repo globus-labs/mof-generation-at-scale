@@ -1,6 +1,6 @@
 from textwrap import dedent
 
-#AMBER General Force Field for organic molecules (Version 1.4, March 2010) add. info. at the end
+# AMBER General Force Field for organic molecules (Version 1.4, March 2010) add. info. at the end
 gaff_atom_types = dedent("""
 c  12.01         0.616               Sp2 C carbonyl group 
 c1 12.01         0.360               Sp C
@@ -4719,7 +4719,7 @@ sh-s6-ss   60.490     102.640	SOURCE3            1
 s -s6-s    60.770     109.340	SOURCE3            1	0.0000
 ss-s6-ss   60.590     101.820	SOURCE3            1	0.0000
 br-sh-hs   27.240      95.640	SOURCE3            1	0.0000
-c1-sh-hs   30.170      95.990	calculated_based_on_C#C-SH       0	
+c1-sh-hs   30.170      95.990	calculated_based_on_C  # C-SH       0	
 c2-sh-hs   28.660      97.080	SOURCE4            5	0.3132
 c3-sh-hs   28.120      96.600	SOURCE3           12	0.8009
 ca-sh-hs   28.980      94.840	SOURCE4           13	0.4130
@@ -5701,9 +5701,9 @@ n2-ca-ca-n2         1.1          180.          2.           dac guess, 9/94
 na-n2-ca-n2         1.1          180.          2.           dac, 10/94
 """)
 
-#  hw  ow  0000.     0000.                                4.  flag for fast water
+# hw  ow  0000.     0000.                                4.  flag for fast water
 
-#MOD4      RE
+# MOD4      RE
 gaff_LJ_params = dedent("""
   h1          1.3870  0.0157             Veenstra et al JCC,8,(1992),963 
   h2          1.2870  0.0157             Veenstra et al JCC,8,(1992),963 
@@ -5774,77 +5774,77 @@ gaff_LJ_params = dedent("""
   i           2.15    0.50               Junmei, 2010
  """)
 
-#END
+# END
 
-#---------------------------------------------------------------------------------------------------------------------------
-#This is an improved version of gaff 1.0. We have modified some parameters 
-#according to users' feedback. We would like to thank users who provide    
-#nice feedback/suggestion, especially David Mobley and Gabriel Rocklin. We 
-#are in a process of developing a new generation of general amber force    
-#field (gaff2). This version is a meta-version between gaff1 and gaff2.    
-#!!!Suggestions/criticisms/comments are always welcome !!! 
-#---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------------------------------------
+# This is an improved version of gaff 1.0. We have modified some parameters
+# according to users' feedback. We would like to thank users who provide
+# nice feedback/suggestion, especially David Mobley and Gabriel Rocklin. We
+# are in a process of developing a new generation of general amber force
+# field (gaff2). This version is a meta-version between gaff1 and gaff2.
+# !!!Suggestions/criticisms/comments are always welcome !!!
+# ---------------------------------------------------------------------------
 #
-#Equilibrium  Sources
-#SOURCE1
-#Authors: Frank H. Allen, Olga Kennard and David G. Watson
-#Title : Tables of Bond lengths determined by X-ray and neutron
-#diffraction. Part 1. Bond lengths in organic compounds
-#Journal: J. Chem. Soc. Perkin Trans. II 1987, S1-S19
+# Equilibrium  Sources
+# SOURCE1
+# Authors: Frank H. Allen, Olga Kennard and David G. Watson
+# Title: Tables of Bond lengths determined by X-ray and neutron
+# diffraction. Part 1. Bond lengths in organic compounds
+# Journal: J. Chem. Soc. Perkin Trans. II 1987, S1-S19
 #
-#SOURCE2
-#Authors: Harmony, M. D.; Laurie, V. W.; Kuczkowski, R. L.; Schwendeman,
-#R. H.; Ramsay, D. A.; Lovas, F. J.; Lafferty, W. J.; Maki, A. G.
-#Title : Molecular structures of gas-phase polyatomic molecules determined
-#by spectroscopic methods
-#Journal: J. Phys. Chem. Ref. Data, Vol 8, 1979, 619
+# SOURCE2
+# Authors: Harmony, M. D.; Laurie, V. W.; Kuczkowski, R. L.; Schwendeman,
+# R. H.; Ramsay, D. A.; Lovas, F. J.; Lafferty, W. J.; Maki, A. G.
+# Title: Molecular structures of gas-phase polyatomic molecules determined
+# by spectroscopic methods
+# Journal: J. Phys. Chem. Ref. Data, Vol 8, 1979, 619
 #
-#SOURCE3
-#Optimized geometries at MP2/6-31G* level
+# SOURCE3
+# Optimized geometries at MP2/6-31G* level
 #
-#SOURCE4
-#Optimized geometries at B3LYP/6-31G* level
+# SOURCE4
+# Optimized geometries at B3LYP/6-31G* level
 #
-#Bond stretching parameter format
-#atom_type  force_constant   equ. length  source_ID occurrence rmsd
-#xx-yy          581.1           1.288      SOURCE1     103    0.0100
+# Bond stretching parameter format
+# atom_type  force_constant   equ. length  source_ID occurrence rmsd
+# xx-yy          581.1           1.288      SOURCE1     103    0.0100
 #
-#atom_type  force_constant   equ. angle   source_ID   occurrence   rmsd
-#xx-yy-zz      35.450          103.620     SOURCE3         3      0.7078
+# atom_type  force_constant   equ. angle   source_ID   occurrence   rmsd
+# xx-yy-zz      35.450          103.620     SOURCE3         3      0.7078
 #
-#---------------------------------------------------------------------------
-#Major changes from gaff.dat version 1.0
+# ---------------------------------------------------------------------------
+# Major changes from gaff.dat version 1.0
 #
-#1. All the sp2 carbon in a AR2 ring (such as pyrrole, furan, pyrazole)
-#only have cc or cd atom types (no c2). This is suggested by Gabriel
-#Rocklin from UCSF. This modification improves the planarity of
-#multiple-ring systems
+# 1. All the sp2 carbon in a AR2 ring (such as pyrrole, furan, pyrazole)
+# only have cc or cd atom types (no c2). This is suggested by Gabriel
+# Rocklin from UCSF. This modification improves the planarity of
+# multiple-ring systems
 #
-#2. New van der Waals parameters have been developed for br and i atom
-#types. The current parameters can well reproduce the experimental density
-#data of CH3Br (1.6755, 20 degree) and CH3I (2.2789, 20 degree): 1.642 for
-#CH3Br and 2.25 for CH3I, in contrast, the old parameters give 1.31 and
-#1.84, respectively. (Junmei, unpublished result)
+# 2. New van der Waals parameters have been developed for br and i atom
+# types. The current parameters can well reproduce the experimental density
+# data of CH3Br (1.6755, 20 degree) and CH3I (2.2789, 20 degree): 1.642 for
+# CH3Br and 2.25 for CH3I, in contrast, the old parameters give 1.31 and
+# 1.84, respectively. (Junmei, unpublished result)
 #
-#3. New van der Waals parameters have been suggested by David Mobley for
-#c1, cg and ch atom types. The justification of the changes is discussed at
-#https://doi.org/10.1021/ct800409d
+# 3. New van der Waals parameters have been suggested by David Mobley for
+# c1, cg and ch atom types. The justification of the changes is discussed at
+# https://doi.org/10.1021/ct800409d
 #
-#4. We have performed B3LYP/6-31G* optimization for 15 thousands marketed
-#or experimental drugs/bio-actives. Reliable bond length and bond angle
-#equilibrium parameters were obtained by statistics: each bond length
-#parameter must show up in at least five times and has a rmsd smaller than
-#0.02 angstroms; each bond angle parameter must show up at least five times
-#and has a rmsd smaller than 2.5 degrees. Those new parameters not showing
-#up in old gaff were directly added into gaff 1.x; and some low-quality
-#gaff parameters which show up less than five times or have large rmsd
-#values (>0.02 angstroms for bond length and >5 degrees for bond angles)
-#were replaced with those newly generated. Here are the numbers:
+# 4. We have performed B3LYP/6-31G* optimization for 15 thousands marketed
+# or experimental drugs/bio-actives. Reliable bond length and bond angle
+# equilibrium parameters were obtained by statistics: each bond length
+# parameter must show up in at least five times and has a rmsd smaller than
+# 0.02 angstroms; each bond angle parameter must show up at least five times
+# and has a rmsd smaller than 2.5 degrees. Those new parameters not showing
+# up in old gaff were directly added into gaff 1.x; and some low-quality
+# gaff parameters which show up less than five times or have large rmsd
+# values (>0.02 angstroms for bond length and >5 degrees for bond angles)
+# were replaced with those newly generated. Here are the numbers:
 #
-#Bond length: 59 low quality parameters were replaced and 56 new parameters
-#were introduced.
+# Bond length: 59 low quality parameters were replaced and 56 new parameters
+# were introduced.
 #
-#Bond angle:  437 low quality parameters were replaced and 618 new
-#parameters were introduced.
+# Bond angle:  437 low quality parameters were replaced and 618 new
+# parameters were introduced.
 #
-#---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
