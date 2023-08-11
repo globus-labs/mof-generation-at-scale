@@ -6,7 +6,7 @@ class NodeDescription:
     """The inorganic components of a MOF"""
 
     name: str = ...
-    """Human-readable name of the node (e.g., a composition string)"""
+    """Human-readable name of the node (e.g., "Cu paddlewheel")"""
     xyz: str | None = None
     """XYZ coordinates of each atom in the node
     
