@@ -1,7 +1,8 @@
 """Simulation operations that involve LAMMPS"""
 import ase
-import io
+import io, os
 from cif2lammps.main_conversion import single_conversion
+from cif2lammps.UFF4MOF_construction import UFF4MOF
 
 
 class LAMMPSRunner:
