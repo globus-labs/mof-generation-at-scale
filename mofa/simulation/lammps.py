@@ -1,9 +1,12 @@
 """Simulation operations that involve LAMMPS"""
 import ase
-import io, os, shutil
+import io
+import os
+import shutil
 import pandas as pd
 from cif2lammps.main_conversion import single_conversion
 from cif2lammps.UFF4MOF_construction import UFF4MOF
+
 
 class LAMMPSRunner:
     """Interface for running pre-defined LAMMPS workflows
@@ -40,16 +43,16 @@ class LAMMPSRunner:
         os.makedirs(lmp_path, exist_ok=True)
         try:
             single_conversion(cif_path,
-                force_field=UFF4MOF,
-                ff_string='UFF4MOF',
-                small_molecule_force_field=None,
-                outdir=lmp_path,
-                charges=False,
-                parallel=False,
-                replication='2x2x2',
-                read_cifs_pymatgen=True,
-                add_molecule=None,
-                small_molecule_file=None)
+                              force_field=UFF4MOF,
+                              ff_string='UFF4MOF',
+                              small_molecule_force_field=None,
+                              outdir=lmp_path,
+                              charges=False,
+                              parallel=False,
+                              replication='2x2x2',
+                              read_cifs_pymatgen=True,
+                              add_molecule=None,
+                              small_molecule_file=None)
             in_file_name = [x for x in os.listdir(lmp_path) if x.startswith("in.") and not x.startswith("in.lmp")][0]
             data_file_name = [x for x in os.listdir(lmp_path) if x.startswith("data.") and not x.startswith("data.lmp")][0]
             in_file_rename = "in.lmp"
@@ -108,6 +111,7 @@ write_data          relaxing.*.data
         """
 
         raise NotImplementedError()
+
 
 if __name__ == "__main__":
     LMPrunner = LAMMPSRunner(lammps_command="npt_tri", lmp_sims_root_path="lmp_sims", cif_files_root_path="cif_files")
