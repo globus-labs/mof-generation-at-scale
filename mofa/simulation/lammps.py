@@ -29,7 +29,7 @@ class LAMMPSRunner:
         self.cif_files_paths = [os.path.join(self.cif_files_root_path, x) for x in os.listdir(self.cif_files_root_path) if x.endswith(".cif")]
         print("Found " + "%d" % len(self.cif_files_paths) + " files with .cif extension! \n")
 
-    def prep_molecular_dynamics_single(self, cif_path: str, timesteps: int, report_frequency: int, stepsize_fs: float = 0.5) -> str:
+    def prep_molecular_dynamics_single(self, cif_path: str, timesteps: int, report_frequency: int, stepsize_fs: float = 0.5) -> str, int:
         """Run a molecular dynamics trajectory
         Args:
             cif_path: starting structure's cif file path
@@ -92,12 +92,15 @@ write_data          relaxing.*.data
             os.remove(os.path.join(lmp_path, in_file_name))
             shutil.move(os.path.join(lmp_path, data_file_name), os.path.join(lmp_path, data_file_rename))
             print("Success!!\n\n")
+            return_code = 0
 
         except Exception as e:
             print(e)
             print("Failed!! Removing files...\n\n")
             shutil.rmtree(lmp_path)
-        return lmp_path
+            return_code = -1
+
+        return lmp_path, return_code
 
     def run_molecular_dynamics(self, mof: ase.Atoms, timesteps: int, report_frequency: int) -> list[ase.Atoms]:
         """Run a molecular dynamics trajectory
