@@ -1,4 +1,12 @@
+"""Data models for a MOF class"""
 from dataclasses import dataclass, field
+from functools import cached_property
+from pathlib import Path
+from io import StringIO
+
+from ase.io.cif import read_cif
+
+import ase
 
 
 @dataclass
@@ -46,13 +54,13 @@ class MOFRecord:
     # Data describing what the MOF is
     identifiers: dict[str, str] = field(default_factory=dict)
     """Names of this MOFs is registries (e.g., hMOF)"""
-    topology: str = ...
+    topology: str | None = None
     """Description of the 3D network structure (e.g., pcu) as the topology"""
-    catenation: int = ...
+    catenation: int | None = None
     """Degree of catenation. 0 corresponds to no interpenetrating lattices"""
-    nodes: tuple[NodeDescription] = ...
+    nodes: tuple[NodeDescription] = field(default_factory=tuple)
     """Description of the nodes within the structure"""
-    ligands: tuple[LigandDescription] = ...
+    ligands: tuple[LigandDescription] = field(default_factory=tuple)
     """Description of each linker within the structure"""
 
     # Information about the 3D structure of the MOF
@@ -66,3 +74,23 @@ class MOFRecord:
     """How likely the structure is to be stable according to different assays
     
     A score of 1 equates to most likely to be stable, 0 as least likely."""
+
+    @classmethod
+    def from_file(cls, cif_path: Path | str, **kwargs) -> 'MOFRecord':
+        """Create a MOF description from a CIF file on disk
+
+        Keyword arguments can include identifiers of the MOF and
+        should be passed to the constructor.
+
+        Args:
+            cif_path: Path to the CIF file
+        Returns:
+            A MOF record before fragmentation
+        """
+
+        return MOFRecord(structure=Path(cif_path).read_text(), **kwargs)
+
+    @cached_property
+    def atoms(self) -> ase.Atoms:
+        """The structure as an ASE Atoms object"""
+        return next(read_cif(StringIO(self.structure), index=slice(None)))
