@@ -3,10 +3,12 @@ from pathlib import Path
 
 import ase
 
+from mofa.model import MOFRecord
+
 
 def train_generator(
         starting_model: str | Path,
-        examples: list[object],
+        examples: list[MOFRecord],
         num_epochs: int
 ) -> Path:
     """Retrain a generative model for MOFs
