@@ -14,18 +14,17 @@ class LAMMPSRunner:
     lammps_command = "npt_tri"
     lmp_sims_root_path = "lmp_sims"
     cif_files_root_path = "cif_files"
-    cif_files_names = []
-    
+    cif_files_paths = []
+
     def __init__(self, lammps_command: str = "npt_tri", lmp_sims_root_path: str = "lmp_sims", cif_files_root_path: str = "cif_files"):
         self.lammps_command = lammps_command
         self.lmp_sims_root_path = lmp_sims_root_path
         print("Making LAMMPS simulation root path at: " + os.path.join(os.getcwd(), self.lmp_sims_root_path))
         os.makedirs(self.lmp_sims_root_path, exist_ok=True)
-        print("Scanning cif files at: " + os.getcwd(cif_files_root_path)
+        print("Scanning cif files at: " + os.path.join(os.getcwd(), self.cif_files_root_path))
         self.cif_files_root_path = cif_files_root_path
-        print("")
-        self.cif_files_names = os.listdir(self.cif_files_root_path)
-        print("")
+        self.cif_files_paths = [os.path.join(self.cif_files_root_path, x) for x in os.listdir(self.cif_files_root_path) if x.endswith(".cif")]
+        print("Found " + "%d" % len(self.cif_files_paths) + " files with .cif extension! \n")
 
     def prep_molecular_dynamics_single(self, cif_path: str, timesteps: int, report_frequency: int, stepsize_fs: float = 0.5) -> str:
         """Run a molecular dynamics trajectory
