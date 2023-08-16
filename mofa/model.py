@@ -17,7 +17,7 @@ class NodeDescription:
     """Human-readable name of the node (e.g., "Cu paddlewheel")"""
     xyz: str | None = None
     """XYZ coordinates of each atom in the node
-    
+
     Uses At or Fr as an identifier of the the anchor points
     where the linkers attach to the node
     - At designates a carbon-carbon bond anchor
@@ -38,8 +38,8 @@ class LigandDescription:
 
     fragment_atoms: list[list[int]] | None = None
     """Groups of atoms which attach to the nodes
-    
-    There are typically two groups of fragment atoms, and these are 
+
+    There are typically two groups of fragment atoms, and these are
     never altered during MOF generation."""
 
     @property
@@ -72,7 +72,7 @@ class MOFRecord:
     """Storage capacity of the MOF for different gases and pressures"""
     structure_stability: dict[str, float] = field(default_factory=dict)
     """How likely the structure is to be stable according to different assays
-    
+
     A score of 1 equates to most likely to be stable, 0 as least likely."""
 
     @classmethod

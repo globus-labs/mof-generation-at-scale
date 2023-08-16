@@ -2,10 +2,10 @@
 import numpy as np
 import ase
 
-from mofa.scoring.base import LinkerScorer
+from mofa.scoring.base import MOFScorer
 
 
-class MinimumDistance(LinkerScorer):
+class MinimumDistance(MOFScorer):
     """Rate molecules based on the closest distance between atoms"""
 
     def __call__(self, linker: ase.Atoms) -> float:
