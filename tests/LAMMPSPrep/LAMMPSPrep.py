@@ -9,4 +9,4 @@ def test_LMPRunner():
     for test_file in LMPrunner.cif_file_names:
         lmp_path = LMPrunner.prep_molecular_dynamics_single(os.path.join(LMPrunner.cif_files_root_path,
                                                                          test_file),
-                                                            timesteps=200000, report_frequency=1000, stepsize_fs=0.5)
+                                                            timesteps=1000, report_frequency=100, stepsize_fs=0.5)
