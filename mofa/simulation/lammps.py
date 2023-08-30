@@ -18,8 +18,16 @@ class LAMMPSRunner:
     lmp_sims_root_path = "lmp_sims"
     cif_files_root_path = "cif_files"
     cif_files_paths = []
-
     def __init__(self, lammps_command: str = "npt_tri", lmp_sims_root_path: str = "lmp_sims", cif_files_root_path: str = "cif_files"):
+        """Read cif files from input directory, make directory for lammps simulation input files
+
+        Args:
+            lammps_command: lammps simulation type, default: "npt_tri"
+            lmp_sims_root_path: output directory, default: "lmp_sims"
+            cif_files_root_path: input directory to look for cif files: "cif_files"
+        Returns:
+            None
+        """
         self.lammps_command = lammps_command
         self.lmp_sims_root_path = lmp_sims_root_path
         print("Making LAMMPS simulation root path at: " + os.path.join(os.getcwd(), self.lmp_sims_root_path))
@@ -30,13 +38,14 @@ class LAMMPSRunner:
         print("Found " + "%d" % len(self.cif_files_paths) + " files with .cif extension! \n")
 
     def prep_molecular_dynamics_single(self, cif_path: str, timesteps: int, report_frequency: int, stepsize_fs: float = 0.5) -> (str, int):
-        """Run a molecular dynamics trajectory
+        """Use cif2lammps to assign force field to a single MOF and generate input files for lammps simulation
         Args:
             cif_path: starting structure's cif file path
             timesteps: Number of timesteps to run
             report_frequency: How often to report structures
         Returns:
-            Structures produced at specified intervals
+            lmp_path: a directory with the lammps simulation input files
+            return_code: cif2lammps running status, 0 means success (directory lmp_path will be kept), -1 means failure (directory lmp_path will be destroyed)
         """
         cif_name = os.path.split(cif_path)[-1]
         lmp_path = os.path.join(self.lmp_sims_root_path, cif_name.replace(".cif", ""))
