@@ -7,7 +7,7 @@ import torch
 from rdkit import Chem
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
-from src import const
+from utils.src import const
 
 
 from pdb import set_trace
