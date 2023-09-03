@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 
 from torch.distributions.categorical import Categorical
-from src.egnn import GCL
+from utils.src.egnn import GCL
 
 
 class DistributionNodes:
