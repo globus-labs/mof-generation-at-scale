@@ -133,6 +133,8 @@ def main(input_path, model, output_dir, n_samples, n_steps, linker_size, anchors
         name = '.'.join(input_path.split('/')[-1].split('.')[:-1])
     except Exception as e:
         return f'Could not read the molecule: {e}'
+    print("here2")
+
     for n_mol,molecule in enumerate(molecules):
 
         positions, one_hot, charges = parse_molecule(molecule, is_geom=ddpm.is_geom)
