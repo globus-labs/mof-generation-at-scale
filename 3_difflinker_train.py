@@ -8,7 +8,7 @@ from datetime import datetime
 from pytorch_lightning import Trainer, callbacks, loggers
 
 from utils.src.const import NUMBER_OF_ATOM_TYPES, GEOM_NUMBER_OF_ATOM_TYPES
-from utils.src.difflinker_lightning import DDPM
+from utils.src.lightning import DDPM
 from utils.src.utils import disable_rdkit_logging, Logger
 
 
