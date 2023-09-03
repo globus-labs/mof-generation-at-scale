@@ -345,7 +345,8 @@ def collate(batch):
         if key in const.DATA_ATTRS_TO_PAD:
             out[key] = torch.nn.utils.rnn.pad_sequence(value, batch_first=True, padding_value=0)
             continue
-        raise Exception(f'Unknown batch key: {key}')
+        # raise Exception(f'Unknown batch key: {key}')
+        print(f"Passing {key}")
 
     atom_mask = (out['fragment_mask'].bool() | out['linker_mask'].bool()).to(const.TORCH_INT)
     out['atom_mask'] = atom_mask[:, :, None]
