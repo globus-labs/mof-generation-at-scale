@@ -7,8 +7,8 @@ import glob
 import random
 
 from sklearn.decomposition import PCA
-from src import const
-from src.molecule_builder import get_bond_order
+from utils.src import const
+from utils.src.molecule_builder import get_bond_order
 
 
 def save_xyz_file(path, one_hot, positions, node_mask, names, is_geom, suffix=''):
