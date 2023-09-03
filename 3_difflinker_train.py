@@ -7,9 +7,9 @@ import yaml
 from datetime import datetime
 from pytorch_lightning import Trainer, callbacks, loggers
 
-from src.const import NUMBER_OF_ATOM_TYPES, GEOM_NUMBER_OF_ATOM_TYPES
-from src.difflinker_lightning import DDPM
-from src.utils import disable_rdkit_logging, Logger
+from utils.src.const import NUMBER_OF_ATOM_TYPES, GEOM_NUMBER_OF_ATOM_TYPES
+from utils.src.difflinker_lightning import DDPM
+from utils.src.utils import disable_rdkit_logging, Logger
 
 
 def find_last_checkpoint(checkpoints_dir):
