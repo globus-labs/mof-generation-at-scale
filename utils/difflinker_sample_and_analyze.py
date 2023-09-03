@@ -133,11 +133,12 @@ def main(input_path, model, output_dir, n_samples, n_steps, linker_size, anchors
     except Exception as e:
         return f'Could not read the molecule: {e}'
     for n_mol,molecule in enumerate(molecules):
+        print("here")
+
         positions, one_hot, charges = parse_molecule(molecule, is_geom=ddpm.is_geom)
         fragment_mask = np.ones_like(charges)
         linker_mask = np.zeros_like(charges)
         anchor_flags = np.zeros_like(charges)
-        print("here")
         if anchors is not None:
             for anchor in anchors.split(','):
                 anchor_flags[int(anchor) - 1] = 1
