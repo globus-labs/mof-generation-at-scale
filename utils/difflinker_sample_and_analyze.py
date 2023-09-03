@@ -127,13 +127,13 @@ def main(input_path, model, output_dir, n_samples, n_steps, linker_size, anchors
         return
 
     try:
+        print("here")
         molecules = read_molecules(input_path)
         molecules = [Chem.RemoveAllHs(i) for i in molecules]
         name = '.'.join(input_path.split('/')[-1].split('.')[:-1])
     except Exception as e:
         return f'Could not read the molecule: {e}'
     for n_mol,molecule in enumerate(molecules):
-        print("here")
 
         positions, one_hot, charges = parse_molecule(molecule, is_geom=ddpm.is_geom)
         fragment_mask = np.ones_like(charges)
