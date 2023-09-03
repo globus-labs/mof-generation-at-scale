@@ -137,6 +137,7 @@ def main(input_path, model, output_dir, n_samples, n_steps, linker_size, anchors
         fragment_mask = np.ones_like(charges)
         linker_mask = np.zeros_like(charges)
         anchor_flags = np.zeros_like(charges)
+        print("here")
         if anchors is not None:
             for anchor in anchors.split(','):
                 anchor_flags[int(anchor) - 1] = 1
