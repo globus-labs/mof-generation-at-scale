@@ -1,5 +1,5 @@
 exp_name: 'geom_difflinker'
-data: ../argonne_gnn_gitlab/DiffLinker/data/hmof/datasets
+data: ../argonne_gnn_gitlab/DiffLinker/data/geom/datasets
 train_data_prefix: geom_multifrag_train
 val_data_prefix: geom_multifrag_val
 checkpoints: models
