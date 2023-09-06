@@ -10,7 +10,7 @@ dependencies:
 
   # Standard data analysis tools
   - pandas==1.*
-  - scipy==1.11.*
+  - scipy==1.10.*
   - jupyterlab
   - matplotlib
   - pytest
@@ -18,7 +18,7 @@ dependencies:
   # Tools to work with crystalline and molecular data
   - openbabel==3.1.*
   - rdkit==2023.03.2
-  - pymatgen==2023.9.2
+  - pymatgen
 
   # Use Conda PyTorch to avoid OpenMP disagreement with other libraries
   - pytorch==1.13.*
