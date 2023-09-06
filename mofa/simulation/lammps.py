@@ -4,8 +4,8 @@ import io
 import os
 import shutil
 import pandas as pd
-from cif2lammps.main_conversion import single_conversion
-from cif2lammps.UFF4MOF_construction import UFF4MOF
+from .cif2lammps.main_conversion import single_conversion
+from .cif2lammps.UFF4MOF_construction import UFF4MOF
 
 
 class LAMMPSRunner:
