@@ -1,7 +1,6 @@
 """Simulation operations that involve LAMMPS"""
 import ase
 import io
-import os
 import shutil
 import pandas as pd
 from .cif2lammps.main_conversion import single_conversion
