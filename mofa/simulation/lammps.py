@@ -128,6 +128,5 @@ write_data          relaxing.*.data
 if __name__ == "__main__":
     LMPrunner = LAMMPSRunner(lammps_command="npt_tri", lmp_sims_root_path="lmp_sims", cif_files_root_path="cif_files")
     test_file_index = 0
-    lmp_path = LMPrunner.prep_molecular_dynamics_single(os.path.join(LMPrunner.cif_files_root_path,
-                                                                     LMPrunner.cif_file_names[test_file_index]),
+    lmp_path = LMPrunner.prep_molecular_dynamics_single(LMPrunner.cif_file_names[test_file_index],
                                                         timesteps=200000, report_frequency=1000, stepsize_fs=0.5)
