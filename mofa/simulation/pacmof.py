@@ -7,31 +7,31 @@ import warnings
 import pandas as pd
 import numpy as np
 from pymatgen.analysis.local_env import CrystalNN
-from pymatgen.io import ase
-from ase.data import covalent_radii
+from pymatgen.io import ase as pmgase
 from ase.data import covalent_radii
 from ase.io import read
 from ase.utils import basestring
-os.environ["OMP_NUM_THREADS"] = "1" # export OMP_NUM_THREADS=1
-os.environ["OPENBLAS_NUM_THREADS"] = "1" # export OPENBLAS_NUM_THREADS=1
-os.environ["MKL_NUM_THREADS"] = "1" # export MKL_NUM_THREADS=1
-os.environ["BLIS_NUM_THREADS"] = "1" # export MKL_NUM_THREADS=1
-os.environ["VECLIB_MAXIMUM_THREADS"] = "1" # export VECLIB_MAXIMUM_THREADS=1
-os.environ["NUMEXPR_NUM_THREADS"] = "1" # export NUMEXPR_NUM_THREADS=1
+os.environ["OMP_NUM_THREADS"] = "1"  # export OMP_NUM_THREADS=1
+os.environ["OPENBLAS_NUM_THREADS"] = "1"  # export OPENBLAS_NUM_THREADS=1
+os.environ["MKL_NUM_THREADS"] = "1"  # export MKL_NUM_THREADS=1
+os.environ["BLIS_NUM_THREADS"] = "1"  # export MKL_NUM_THREADS=1
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"  # export VECLIB_MAXIMUM_THREADS=1
+os.environ["NUMEXPR_NUM_THREADS"] = "1"  # export NUMEXPR_NUM_THREADS=1
+
 
 def get_features_from_cif_serial(path_to_cif):
     """ Description
 
-	Computes the features for any given CIF file. The resultant features are updated in the output ASE atoms object
-	under atoms.info['features']. Feature calculation is done in serial, hence, use this function only for small CIF files (<2000 atoms) if at all 
-	one chooses to use it.
+        Computes the features for any given CIF file. The resultant features are updated in the output ASE atoms object
+        under atoms.info['features']. Feature calculation is done in serial, hence, use this function only for small CIF files (<2000 atoms) if at all
+        one chooses to use it.
 
-	:type path_to_cif: string
-	:param path_to_cif: path to the cif file as input`
-	:raises: None
+        :type path_to_cif: string
+        :param path_to_cif: path to the cif file as input`
+        :raises: None
 
-	:rtype: ASE atoms object with feature array of shape (number_of_atoms, 6) updated under atoms.info['features']
-	"""
+        :rtype: ASE atoms object with feature array of shape (number_of_atoms, 6) updated under atoms.info['features']
+        """
     def find_nearest2(i, atoms):
         distances = atoms.get_distances(i, slice(None), mic=True)
         distances = np.sort(distances)
@@ -39,6 +39,7 @@ def get_features_from_cif_serial(path_to_cif):
         indices = indices[indices != i]  # * Remove self
         return indices.tolist(), np.mean(distances[indices])
     # * Small Z
+
     def find_neighbors_smallZ(i, atoms):
         cov_radii = covalent_radii[atoms.get_atomic_numbers()]
         distances = atoms.get_distances(i, slice(None), mic=True)
@@ -47,15 +48,18 @@ def get_features_from_cif_serial(path_to_cif):
         indices = indices[indices != i]  # * Remove self
         return indices.tolist(), np.mean(distances[indices])
     # * Large Z
+
     def find_neighbors_largeZ(i, atoms):
         distances = atoms.get_distances(i, slice(None), mic=True)
-        mof = ase.AseAtomsAdaptor.get_structure(atoms=atoms)
+        mof = pmgase.AseAtomsAdaptor.get_structure(atoms=atoms)
         warnings.filterwarnings("ignore")
         nn_object = CrystalNN(x_diff_weight=0, distance_cutoffs=(0.3, 0.5))
         local_env = nn_object.get_nn_info(mof, i)
-        indices = [local_env[index]['site_index'] for index in range(len(local_env))]
+        indices = [local_env[index]['site_index']
+                   for index in range(len(local_env))]
         return indices, np.mean(distances[indices])
     # * Oxygens and nitrogen
+
     def find_neighbors_oxynitro(i, atoms):
         cov_radii = covalent_radii[atoms.get_atomic_numbers()]
         distances = atoms.get_distances(i, slice(None), mic=True)
@@ -88,7 +92,9 @@ def get_features_from_cif_serial(path_to_cif):
               'At': 1.50, 'Rn': 1.50, 'Fr': 2.60, 'Ra': 2.21,
               'Ac': 2.15, 'Th': 2.06, 'Pa': 2.00, 'U': 1.96,
               'Np': 1.90, 'Pu': 1.87, 'Am': 1.80, 'Cm': 1.69}
-    # electronegativity in pauling scale from CRC Handbook of Chemistry and Physics (For elements not having pauling electronegativity, Allred Rochow electronegativity is taken)
+    # electronegativity in pauling scale from CRC Handbook of Chemistry and
+    # Physics (For elements not having pauling electronegativity, Allred
+    # Rochow electronegativity is taken)
     electronegativity = {'H': 2.20, 'He': 0.00, 'Li': 0.98, 'Be': 1.57,
                          'B': 2.04, 'C': 2.55, 'N': 3.04, 'O': 3.44,
                          'F': 3.98, 'Ne': 0.00, 'Na': 0.93, 'Mg': 1.31,
@@ -143,24 +149,29 @@ def get_features_from_cif_serial(path_to_cif):
     data = read(path_to_cif)
     number_of_atoms = data.get_global_number_of_atoms()
     cov_radii = np.array([radius[s] for s in data.get_chemical_symbols()])
-    en_pauling = np.array([electronegativity[s] for s in data.get_chemical_symbols()])
-    ionization_energy = np.array([first_ip[s] for s in data.get_chemical_symbols()])
+    en_pauling = np.array([electronegativity[s]
+                          for s in data.get_chemical_symbols()])
+    ionization_energy = np.array([first_ip[s]
+                                 for s in data.get_chemical_symbols()])
     # * Divide the atoms into different groups based on atomic number (Z) for finding the coordination shell.
     atomic_numbers = data.get_atomic_numbers()
     # * Create a dictionary of functions for the different atomic number ranges
     bins = [0, 7, 9, 120]
     flags = list(map(str, np.digitize(atomic_numbers, bins)))
     # print("Computing features for {}...".format(path_to_cif))
-    func_dict = {'1': find_neighbors_smallZ, '2': find_neighbors_oxynitro, '3': find_neighbors_largeZ}
+    func_dict = {
+        '1': find_neighbors_smallZ,
+        '2': find_neighbors_oxynitro,
+        '3': find_neighbors_largeZ}
     neighbor_list = []
     avg_neighbor_dist = []
 
     for i in range(number_of_atoms):
-        if flags[i]=="1":
+        if flags[i] == "1":
             neigh, ave_neigh = find_neighbors_smallZ(i, data)
-        elif flags[i]=="2":
+        elif flags[i] == "2":
             neigh, ave_neigh = find_neighbors_oxynitro(i, data)
-        elif flags[i]=="3":
+        elif flags[i] == "3":
             neigh, ave_neigh = find_neighbors_largeZ(i, data)
         neighbor_list.append(neigh)
         avg_neighbor_dist.append(ave_neigh)
@@ -176,25 +187,44 @@ def get_features_from_cif_serial(path_to_cif):
     enSeries = pd.Series(electronegativity)
     ipSeries = pd.Series(first_ip)
     # * Symbols for the neighbors
-    neighbor_symbols = [np.array(data.get_chemical_symbols())[nl] for nl in neighbor_list]
-    average_en_shell = [np.mean(enSeries[ns].values) for ns in neighbor_symbols]
-    average_ip_shell = [np.mean(ipSeries[ns].values) for ns in neighbor_symbols]
-    #%% Section added after manuscript revision
+    neighbor_symbols = [np.array(data.get_chemical_symbols())[
+        nl] for nl in neighbor_list]
+    average_en_shell = [np.mean(enSeries[ns].values)
+                        for ns in neighbor_symbols]
+    average_ip_shell = [np.mean(ipSeries[ns].values)
+                        for ns in neighbor_symbols]
+    # %% Section added after manuscript revision
     # Second shell neighbors including central atom
-    temp = [np.hstack(([neighbor_list[i] for i in neighbor_list[index]])) for index in range(data.get_global_number_of_atoms())]
+    temp = [np.hstack(([neighbor_list[i] for i in neighbor_list[index]]))
+            for index in range(data.get_global_number_of_atoms())]
     # Exclude the central atom
-    neighbor_list_2 = [arr[arr != index] for index, arr in enumerate(temp)]  # Exclude the central atom
+    neighbor_list_2 = [arr[arr != index]
+                       for index, arr in enumerate(temp)]  # Exclude the central atom
     # Symbols for the second shell neighbors
-    neighbor_symbols_2 = [np.array(data.get_chemical_symbols())[nl] for nl in neighbor_list_2]
+    neighbor_symbols_2 = [np.array(data.get_chemical_symbols())[
+        nl] for nl in neighbor_list_2]
     # Electronegativity of the second shell neighbors
-    average_en_shell_2 = [np.mean(enSeries[ns].values) for ns in neighbor_symbols_2]
+    average_en_shell_2 = [np.mean(enSeries[ns].values)
+                          for ns in neighbor_symbols_2]
     features = np.vstack(
-        (en_pauling, ionization_energy, nl_length, avg_neighbor_dist, average_en_shell, average_ip_shell, average_en_shell_2)).T
+        (en_pauling,
+         ionization_energy,
+         nl_length,
+         avg_neighbor_dist,
+         average_en_shell,
+         average_ip_shell,
+         average_en_shell_2)).T
     data.info['features'] = features
     data.info['neighbors'] = neighbor_list
     return data  # * Returns the ASE atoms object and the features array.
 
-def get_charges_single_serial(path_to_cif, create_cif=False, path_to_output_dir='.', add_string='_charged', path_to_pickle_obj="Model_RF_DDEC.pkl"):
+
+def get_charges_single_serial(
+        path_to_cif,
+        create_cif=False,
+        path_to_output_dir='.',
+        add_string='_charged',
+        path_to_pickle_obj="Model_RF_DDEC.pkl"):
     # print("Loading the model...")
     model = None
     with io.open(path_to_pickle_obj, "rb") as rf:
@@ -204,7 +234,8 @@ def get_charges_single_serial(path_to_cif, create_cif=False, path_to_output_dir=
     features = data.info['features']
     # print("Estimating charges for {}...".format(path_to_cif))
     charges = model.predict(features)
-    charges_adj = charges - np.sum(charges) * np.abs(charges) / np.sum(np.abs(charges))
+    charges_adj = charges - np.sum(charges) * \
+        np.abs(charges) / np.sum(np.abs(charges))
     data.info['_atom_site_charge'] = charges_adj.tolist()
     # if np.any(np.abs(charges - charges_adj) > 0.2):
     #     print("WARNING: Some charges were adjusted by more than 0.2 to maintain neutrality!")
@@ -221,24 +252,25 @@ def get_charges_single_serial(path_to_cif, create_cif=False, path_to_output_dir=
 
     return data, model
 
+
 def write_cif(fileobj, images, format='default'):
     """ Description
-	This is a clone of the ASE's write_cif funtion from the ase.io.cif module. It is modified so as to write the '_atom_site_charge' also
-	while writing the CIF file.
+        This is a clone of the ASE's write_cif funtion from the ase.io.cif module. It is modified so as to write the '_atom_site_charge' also
+        while writing the CIF file.
 
-	:type fileobj: string/file handle
-	:param fileobj:path string or file handle to the output CIF
+        :type fileobj: string/file handle
+        :param fileobj:path string or file handle to the output CIF
 
-	:type images: ASE atoms object
-	:param images: the atoms object you want to write to CIF format.
+        :type images: ASE atoms object
+        :param images: the atoms object you want to write to CIF format.
 
-	:type format: string
-	:param format: Some option found within the original function. Refer to ASE's documentation for more info.
+        :type format: string
+        :param format: Some option found within the original function. Refer to ASE's documentation for more info.
 
-	:raises:
+        :raises:
 
-	:rtype: None. Just writs the file.
-	"""
+        :rtype: None. Just writs the file.
+        """
     def write_enc(fileobj, s):
         """Write string in latin-1 encoding."""
         fileobj.write(s.encode("latin-1"))
@@ -323,7 +355,8 @@ def write_cif(fileobj, images, format='default'):
         except KeyError:
             pass
         no = {}
-        for symbol, pos, occ, charge in zip(symbols, coords, occupancies, charges):
+        for symbol, pos, occ, charge in zip(
+                symbols, coords, occupancies, charges):
             if symbol in no:
                 no[symbol] += 1
             else:
@@ -334,14 +367,18 @@ def write_cif(fileobj, images, format='default'):
                           (symbol, symbol + str(no[symbol]), 1,
                            pos[0], pos[1], pos[2], occ, charge))
             else:
-                write_enc(fileobj,
-                          '  %-8s %6.4f %7.5f  %7.5f  %7.5f  %4s  %6.3f  %s  %6.16f\n'
-                          % ('%s%d' % (symbol, no[symbol]),
-                             occ,
-                             pos[0],
-                             pos[1],
-                             pos[2],
-                             'Biso',
-                             1.0,
-                             symbol, charge))
+                write_enc(
+                    fileobj,
+                    '  %-8s %6.4f %7.5f  %7.5f  %7.5f  %4s  %6.3f  %s  %6.16f\n' %
+                    ('%s%d' %
+                     (symbol,
+                      no[symbol]),
+                        occ,
+                        pos[0],
+                        pos[1],
+                        pos[2],
+                        'Biso',
+                        1.0,
+                        symbol,
+                        charge))
     return None
