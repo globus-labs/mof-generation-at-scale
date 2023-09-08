@@ -12,7 +12,12 @@ from ase.data import covalent_radii
 from ase.data import covalent_radii
 from ase.io import read
 from ase.utils import basestring
-from sklearn.metrics import pairwise_distances
+os.environ["OMP_NUM_THREADS"] = "1" # export OMP_NUM_THREADS=1
+os.environ["OPENBLAS_NUM_THREADS"] = "1" # export OPENBLAS_NUM_THREADS=1
+os.environ["MKL_NUM_THREADS"] = "1" # export MKL_NUM_THREADS=1
+os.environ["BLIS_NUM_THREADS"] = "1" # export MKL_NUM_THREADS=1
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1" # export VECLIB_MAXIMUM_THREADS=1
+os.environ["NUMEXPR_NUM_THREADS"] = "1" # export NUMEXPR_NUM_THREADS=1
 
 def get_features_from_cif_serial(path_to_cif):
     """ Description
