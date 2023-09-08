@@ -1,5 +1,4 @@
 # forked from pacmof: https://github.com/arung-northwestern/pacmof
-import ase
 import io
 import os
 import pickle
@@ -148,7 +147,7 @@ def get_features_from_cif_serial(path_to_cif):
     # print("Reading  CIF file {}...".format(path_to_cif))
     data = read(path_to_cif)
     number_of_atoms = data.get_global_number_of_atoms()
-    cov_radii = np.array([radius[s] for s in data.get_chemical_symbols()])
+    # cov_radii = np.array([radius[s] for s in data.get_chemical_symbols()])
     en_pauling = np.array([electronegativity[s]
                           for s in data.get_chemical_symbols()])
     ionization_energy = np.array([first_ip[s]
@@ -163,20 +162,21 @@ def get_features_from_cif_serial(path_to_cif):
         '1': find_neighbors_smallZ,
         '2': find_neighbors_oxynitro,
         '3': find_neighbors_largeZ}
-    neighbor_list = []
-    avg_neighbor_dist = []
-
-    for i in range(number_of_atoms):
-        if flags[i] == "1":
-            neigh, ave_neigh = find_neighbors_smallZ(i, data)
-        elif flags[i] == "2":
-            neigh, ave_neigh = find_neighbors_oxynitro(i, data)
-        elif flags[i] == "3":
-            neigh, ave_neigh = find_neighbors_largeZ(i, data)
-        neighbor_list.append(neigh)
-        avg_neighbor_dist.append(ave_neigh)
-    # neighbor_list, avg_neighbor_dist = zip(*Parallel(n_jobs=1)(delayed(func_dict[flags[i]])(i, data) for i in range(number_of_atoms)))
-    # neighbor_list, avg_neighbor_dist = list(neighbor_list), list(avg_neighbor_dist)
+    # neighbor_list = []
+    # avg_neighbor_dist = []
+    # for i in range(number_of_atoms):
+    #     if flags[i] == "1":
+    #         neigh, ave_neigh = find_neighbors_smallZ(i, data)
+    #     elif flags[i] == "2":
+    #         neigh, ave_neigh = find_neighbors_oxynitro(i, data)
+    #     elif flags[i] == "3":
+    #         neigh, ave_neigh = find_neighbors_largeZ(i, data)
+    #     neighbor_list.append(neigh)
+    #     avg_neighbor_dist.append(ave_neigh)
+    neighbor_list, avg_neighbor_dist = zip(
+        *Parallel(n_jobs=1)(delayed(func_dict[flags[i]])(i, data) for i in range(number_of_atoms)))
+    neighbor_list, avg_neighbor_dist = list(
+        neighbor_list), list(avg_neighbor_dist)
     # * Find all the atoms with no neighbors, hopefully there aren't any such atoms.
     # * We have to use a for loop since Python's fancy indexing doesn't work so well on lists.
     nl_length = [len(nl) for nl in neighbor_list]
@@ -274,6 +274,13 @@ def write_cif(fileobj, images, format='default'):
     def write_enc(fileobj, s):
         """Write string in latin-1 encoding."""
         fileobj.write(s.encode("latin-1"))
+
+    def split_chem_form(comp_name):
+        """Returns e.g. AB2  as ['A', '1', 'B', '2']"""
+        split_form = re.findall(r'[A-Z][a-z]*|\d+',
+                                re.sub(r'[A-Z][a-z]*(?![\da-z])',
+                                       r'\g<0>1', comp_name))
+        return split_form
 
     """Write *images* to CIF file."""
     if isinstance(fileobj, basestring):
