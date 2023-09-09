@@ -314,7 +314,7 @@ def initialize_system(filename, charges=False, small_molecule_cutoff=5, read_pym
         data['index'] = index
     SM = nx.relabel_nodes(SM, sm_remap)
 
-    return {'box': (A, B, C, alpha, beta, gamma), 'graph': framework, 'SM_graph': SM, 'max_ind': index}
+    return {'box': (A, B, C, alpha, beta, gamma), 'graph': framework, 'SM_graph': SM, 'max_ind': index, 'names': names}
 
 
 def duplicate_system(system, replications, small_molecule_cutoff=10):
