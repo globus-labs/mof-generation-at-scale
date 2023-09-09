@@ -158,7 +158,7 @@ def lammps_inputs(args):
             mass = FF.atom_masses[fft]
             aty = FF.atom_types[fft]
             sym = FF.atom_element_symbols[fft]
-            data.write('{:>5} {:>10}  # {:>1}'.format(aty, mass, sym))
+            data.write('{:>5} {:>10}  # {:>3}'.format(aty, mass, sym))
             data.write('\n')
         data.write('\n')
 
@@ -328,7 +328,7 @@ def lammps_inputs(args):
         data.write('Atoms\n')
         data.write('\n')
         total_charge = 0.0
-
+        print(system["names"])
         for a in SG.nodes(data=True):
 
             atom_data = a[1]
