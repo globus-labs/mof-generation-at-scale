@@ -204,7 +204,7 @@ def initialize_system(filename, charges=False, small_molecule_cutoff=5, read_pym
     for e, n, cc, fc, charge in zip(elems, names, ccoords, fcoords, charge_list):
         index += 1
         G.add_node(index, element_symbol=e, mol_flag='1', index=index, force_field_type='', cartesian_position=cc,
-                   fractional_position=fc, charge=charge, replication=np.array([0.0, 0.0, 0.0]), duplicated_version_of=None)
+                   fractional_position=fc, charge=charge, replication=np.array([0.0, 0.0, 0.0]), duplicated_version_of=None, cif_label=n)
         index_key[n] = index
 
     for b in bonds:
@@ -314,7 +314,7 @@ def initialize_system(filename, charges=False, small_molecule_cutoff=5, read_pym
         data['index'] = index
     SM = nx.relabel_nodes(SM, sm_remap)
 
-    return {'box': (A, B, C, alpha, beta, gamma), 'graph': framework, 'SM_graph': SM, 'max_ind': index, 'names': names}
+    return {'box': (A, B, C, alpha, beta, gamma), 'graph': framework, 'SM_graph': SM, 'max_ind': index}
 
 
 def duplicate_system(system, replications, small_molecule_cutoff=10):
