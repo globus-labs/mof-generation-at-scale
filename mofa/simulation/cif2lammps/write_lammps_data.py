@@ -344,7 +344,14 @@ def lammps_inputs(args):
             total_charge += charge
             pos = [np.round(v, 8) for v in atom_data['cartesian_position']]
 
-            data.write('{:>5} {:<5} {:<5} {:8.5f} {:12.5f} {:12.5f} {:12.5f}   # {:>5}'.format(index, atom_data['mol_flag'], lammps_type, charge, pos[0], pos[1], pos[2], cif_label))
+            data.write('{:>5} {:<5} {:<5} {:8.5f} {:12.5f} {:12.5f} {:12.5f}   # {:>5}'.format(index, 
+                                                                                               atom_data['mol_flag'], 
+                                                                                               lammps_type, 
+                                                                                               charge, 
+                                                                                               pos[0], 
+                                                                                               pos[1], 
+                                                                                               pos[2], 
+                                                                                               cif_label))
             data.write('\n')
 
         id2label = dict(zip(atom_ids, atom_cif_labels))
@@ -359,7 +366,12 @@ def lammps_inputs(args):
         for bond_type in FF.bond_data['all_bonds']:
             for bond in FF.bond_data['all_bonds'][bond_type]:
                 bond_index += 1
-                data.write('{:>5} {:<5} {:<6} {:<6}   # {:>6} {:>6}'.format(bond_index, bond_type, bond[0], bond[1], id2label[bond[0]], id2label[bond[1]]))
+                data.write('{:>5} {:<5} {:<6} {:<6}   # {:>6} {:>6}'.format(bond_index, 
+                                                                            bond_type, 
+                                                                            bond[0], 
+                                                                            bond[1], 
+                                                                            id2label[bond[0]], 
+                                                                            id2label[bond[1]]))
                 data.write('\n')
 
         data.write('\n')
@@ -370,7 +382,14 @@ def lammps_inputs(args):
         for angle_type in FF.angle_data['all_angles']:
             for angle in FF.angle_data['all_angles'][angle_type]:
                 angle_index += 1
-                data.write('{:>5} {:<5} {:<6} {:<6} {:<6}   # {:>6} {:>6} {:>6}'.format(angle_index, angle_type, angle[0], angle[1], angle[2], id2label[angle[0]], id2label[angle[1]], id2label[angle[2]]))
+                data.write('{:>5} {:<5} {:<6} {:<6} {:<6}   # {:>6} {:>6} {:>6}'.format(angle_index, 
+                                                                                        angle_type, 
+                                                                                        angle[0], 
+                                                                                        angle[1], 
+                                                                                        angle[2], 
+                                                                                        id2label[angle[0]], 
+                                                                                        id2label[angle[1]], 
+                                                                                        id2label[angle[2]]))
                 data.write('\n')
 
         if N_dihedrals != 0:
@@ -383,7 +402,16 @@ def lammps_inputs(args):
             for dihedral_type in FF.dihedral_data['all_dihedrals']:
                 for dihedral in FF.dihedral_data['all_dihedrals'][dihedral_type]:
                     dihedral_index += 1
-                    data.write('{:>5} {:<5} {:<6} {:<6} {:<6} {:<6}   # {:>6} {:>6} {:>6} {:>6}'.format(dihedral_index, dihedral_type, dihedral[0], dihedral[1], dihedral[2], dihedral[3], id2label[dihedral[0]], id2label[dihedral[1]], id2label[dihedral[2]], id2label[dihedral[3]]))
+                    data.write('{:>5} {:<5} {:<6} {:<6} {:<6} {:<6}   # {:>6} {:>6} {:>6} {:>6}'.format(dihedral_index, 
+                                                                                                        dihedral_type, 
+                                                                                                        dihedral[0], 
+                                                                                                        dihedral[1], 
+                                                                                                        dihedral[2], 
+                                                                                                        dihedral[3], 
+                                                                                                        id2label[dihedral[0]], 
+                                                                                                        id2label[dihedral[1]], 
+                                                                                                        id2label[dihedral[2]], 
+                                                                                                        id2label[dihedral[3]]))
                     data.write('\n')
 
         if N_impropers != 0:
@@ -396,7 +424,16 @@ def lammps_inputs(args):
             for improper_type in FF.improper_data['all_impropers']:
                 for improper in FF.improper_data['all_impropers'][improper_type]:
                     improper_index += 1
-                    data.write('{:>5} {:<5} {:<6} {:<6} {:<6} {:<6}   # {:>6} {:>6} {:>6} {:>6}'.format(improper_index, improper_type, improper[0], improper[1], improper[2], improper[3], id2label[improper[0]], id2label[improper[1]], id2label[improper[2]], id2label[improper[3]]))
+                    data.write('{:>5} {:<5} {:<6} {:<6} {:<6} {:<6}   # {:>6} {:>6} {:>6} {:>6}'.format(improper_index, 
+                                                                                                        improper_type, 
+                                                                                                        improper[0], 
+                                                                                                        improper[1], 
+                                                                                                        improper[2], 
+                                                                                                        improper[3], 
+                                                                                                        id2label[improper[0]], 
+                                                                                                        id2label[improper[1]], 
+                                                                                                        id2label[improper[2]], 
+                                                                                                        id2label[improper[3]]))
                     data.write('\n')
 
     with open(outdir + os.sep + 'in.' + suffix, 'w') as infile:
