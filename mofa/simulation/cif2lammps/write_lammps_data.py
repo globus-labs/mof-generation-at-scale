@@ -328,7 +328,7 @@ def lammps_inputs(args):
         data.write('Atoms\n')
         data.write('\n')
         total_charge = 0.0
-        print(system["names"])
+
         for a in SG.nodes(data=True):
 
             atom_data = a[1]
@@ -336,10 +336,11 @@ def lammps_inputs(args):
             force_field_type = atom_data['force_field_type']
             lammps_type = FF.atom_types[force_field_type]
             charge = atom_data['charge']
+            cif_label = atom_data['cif_label']
             total_charge += charge
             pos = [np.round(v, 8) for v in atom_data['cartesian_position']]
 
-            data.write('{:>5} {:<5} {:<5} {:8.5f} {:12.5f} {:12.5f} {:12.5f}'.format(index, atom_data['mol_flag'], lammps_type, charge, pos[0], pos[1], pos[2]))
+            data.write('{:>5} {:<5} {:<5} {:8.5f} {:12.5f} {:12.5f} {:12.5f}   # {:>5}'.format(index, atom_data['mol_flag'], lammps_type, charge, pos[0], pos[1], pos[2], cif_label))
             data.write('\n')
 
         if charges and abs(total_charge) > 0.001:
