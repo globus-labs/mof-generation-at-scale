@@ -329,14 +329,18 @@ def lammps_inputs(args):
         data.write('\n')
         total_charge = 0.0
 
+        atom_ids = []
+        atom_cif_labels = []
         for a in SG.nodes(data=True):
 
             atom_data = a[1]
             index = a[0]
+            atom_ids.append(index)
             force_field_type = atom_data['force_field_type']
             lammps_type = FF.atom_types[force_field_type]
             charge = atom_data['charge']
             cif_label = atom_data['cif_label']
+            atom_cif_labels.append(cif_label)
             total_charge += charge
             pos = [np.round(v, 8) for v in atom_data['cartesian_position']]
 
