@@ -315,9 +315,14 @@ def initialize_system(
     G = nx.Graph()
     index = 0
     index_key = {}
+    element_index_dict = {}
     for e, n, cc, fc, charge in zip(
             elems, names, ccoords, fcoords, charge_list):
         index += 1
+        if e in element_index_dict.keys():
+            element_index_dict[e] = element_index_dict[e] + 1
+        else:
+            element_index_dict[e] = 1
         G.add_node(index,
                    element_symbol=e,
                    mol_flag='1',
@@ -330,7 +335,7 @@ def initialize_system(
                                          0.0,
                                          0.0]),
                    duplicated_version_of=None,
-                   cif_label=e + ("%d" % index))
+                   cif_label=e + ("%d" % element_index_dict[e]))
         index_key[n] = index
 
     for b in bonds:
