@@ -7,7 +7,6 @@ import pandas as pd
 import numpy as np
 from cif2lammps.main_conversion import single_conversion
 from cif2lammps.UFF4MOF_construction import UFF4MOF
-from pacmof import get_charges_single_serial
 
 
 def read_lmp_sec_str2df(df_str, comment_char="#"):
