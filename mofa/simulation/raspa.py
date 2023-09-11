@@ -472,7 +472,7 @@ yes
         """
         atom_df["element"] = [re.sub("[0-9]+", "", x)
                               for x in atom_df["comment"]]
-        atom_str = atom_df[["comment", "element", "fx", "fy", "fz"]].to_string(
+        atom_str = atom_df[["comment", "element", "fx", "fy", "fz", "q"]].to_string(
             header=None, index=None, col_space=[10, 8, 20, 20, 20], justify="left")
         a, b, c, alpha, beta, gamma = [
             float(x) for x in cifbox.split(":")[1].strip().split(",")]
@@ -508,6 +508,7 @@ _atom_site_type_symbol
 _atom_site_fract_x
 _atom_site_fract_y
 _atom_site_fract_z
+_atom_site_charge
 """ + atom_str
         new_cif_name = "mof.cif"
         with io.open(os.path.join(raspa_path, new_cif_name), "w", newline="\n") as wf:
