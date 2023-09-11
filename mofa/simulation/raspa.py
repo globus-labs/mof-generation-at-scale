@@ -477,7 +477,7 @@ yes
         atom_df["element"] = [re.sub("[0-9]+", "", x)
                               for x in atom_df["comment"]]
         atom_str = atom_df[["comment", "element", "fx", "fy", "fz", "q"]].to_string(
-            header=None, index=None, col_space=[10, 8, 20, 20, 20], justify="left")
+            header=None, index=None, col_space=[10, 8, 20, 20, 20, 10], justify="left")
         a, b, c, alpha, beta, gamma = [
             float(x) for x in cifbox.split(":")[1].strip().split(",")]
         cosa = np.cos(np.deg2rad(alpha))
