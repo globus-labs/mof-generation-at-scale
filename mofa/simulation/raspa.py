@@ -88,19 +88,19 @@ class RASPARunner:
         atom_df["element"] = atom_df["type"].map(
             dict(zip(mass_df["type"].to_list(), mass_df["comment"].to_list())))
         _pseudo_atoms_df = pd.read_csv(
-            io.StringIO("""He         yes     He    He    0           4.002602    0.0      0.0          1.0      1.0    0            0           relative           0
-C_co2      yes     C     C     0           12.0        0.6512   0.0          1.0      0.720  0            0           relative           0
-O_co2      yes     O     O     0           15.9994    -0.3256   0.0          1.0      0.68   0            0           relative           0
-O_o2       yes     O     O     0           15.9994    -0.112    0.0          1.0      0.7    0            0           relative           0
-O_com      no      O     -     0           0.0         0.224    0.0          1.0      0.7    0            0           relative           0
-N_n2       yes     N     N     0           14.00674   -0.405    0.0          1.0      0.7    0            0           relative           0
-N_com      no      N     -     0           0.0         0.810    0.0          1.0      0.7    0            0           relative           0
-Ar         yes     Ar    Ar    0           39.948      0.0      0.0          1.0      0.7    0            0           relative           0
-CH4        yes     C     C     0           16.04246    0.0      0.0          1.0      1.00   0            0           relative           0
-CH3        yes     C     C     0           15.03452    0.0      0.0          1.0      1.00   0            0           relative           0
-CH2        yes     C     C     0           14.02658    0.0      0.0          1.0      1.00   0            0           relative           0
-CH         yes     C     C     0           13.01864    0.0      0.0          1.0      1.00   0            0           relative           0
-C          yes     C     C     0           12.0        0.0      0.0          1.0      1.00   0            0           relative           0
+            io.StringIO("""He     yes  He He 0  4.002602    0.0      0.0    1.0   1.0    0     0   relative    0
+C_co2  yes  C  C  0  12.0        0.6512   0.0    1.0   0.720  0     0   relative    0
+O_co2  yes  O  O  0  15.9994    -0.3256   0.0    1.0   0.68   0     0   relative    0
+O_o2   yes  O  O  0  15.9994    -0.112    0.0    1.0   0.7    0     0   relative    0
+O_com  no   O  -  0  0.0         0.224    0.0    1.0   0.7    0     0   relative    0
+N_n2   yes  N  N  0  14.00674   -0.405    0.0    1.0   0.7    0     0   relative    0
+N_com  no   N  -  0  0.0         0.810    0.0    1.0   0.7    0     0   relative    0
+Ar     yes  Ar Ar 0  39.948      0.0      0.0    1.0   0.7    0     0   relative    0
+CH4    yes  C  C  0  16.04246    0.0      0.0    1.0   1.00   0     0   relative    0
+CH3    yes  C  C  0  15.03452    0.0      0.0    1.0   1.00   0     0   relative    0
+CH2    yes  C  C  0  14.02658    0.0      0.0    1.0   1.00   0     0   relative    0
+CH     yes  C  C  0  13.01864    0.0      0.0    1.0   1.00   0     0   relative    0
+C      yes  C  C  0  12.0        0.0      0.0    1.0   1.00   0     0   relative    0
 """),
             sep=r"\s+",
             header=None,
@@ -119,7 +119,8 @@ C          yes     C     C     0           12.0        0.0      0.0          1.0
                 "anisotropic",
                 "anisotropic-type",
                 "tinker-type"])
-        pseudo_atoms_df_header_str = "#type      print   as    chem  oxidation   mass        charge   polarization B-factor radii  connectivity anisotropic anisotropic-type   tinker-type"
+        pseudo_atoms_df_header_str = "#type      print   as    chem  oxidation   mass" + "        " + \
+            "charge   polarization B-factor radii  connectivity anisotropic anisotropic-type   tinker-type"
         pseudo_atoms_df = atom_df[["comment", "element", "element", "mass", "q"]].copy(
             deep=True).reset_index(drop=True)
         pseudo_atoms_df.columns = ["#type", "as", "chem", "mass", "charge"]
@@ -178,7 +179,8 @@ C          yes     C     C     0           12.0        0.0      0.0          1.0
         kCal2Joule = 4184
         lammps2raspa_energy = kCal2Joule / (NAvogadro * kB)
         _mixing_df = read_lmp_sec_str2df(
-            """He             lennard-jones    10.9      2.64         // J.O. Hirschfelder et al., Molecular Theory of Gases and Liquids, Wiley, New York, 1954, p. 1114.
+            """He             lennard-jones    10.9      2.64""" +
+            "         " + """// J.O. Hirschfelder et al., Molecular Theory of Gases and Liquids, Wiley, New York, 1954, p. 1114.
 O_co2          lennard-jones    85.671    3.017        // A. Garcia-Sanchez et al., J. Phys. Chem. C 2009, 113, 8814-8820.
 C_co2          lennard-jones    29.933    2.745        // idem
 N_n2           lennard-jones    38.298    3.306        // A. Martin-Calvo et al. , Phys. Chem. Chem. Phys. 2011, 13, 11165-11174.
@@ -424,7 +426,9 @@ yes
 
         header_df = pd.read_csv(
             io.StringIO(
-                """#CoreShells bond  BondDipoles UreyBradley bend  inv  tors improper-torsion bond/bond bond/bend bend/bend stretch/torsion bend/torsion
+                """#CoreShells bond  BondDipoles UreyBradley bend  inv  tors""" +
+                " " +
+                """improper-torsion bond/bond bond/bend bend/bend stretch/torsion bend/torsion
 0  """ +
                 "%d" %
                 len(bond_df) +
@@ -749,8 +753,10 @@ flexible
 1
 # atomic positions
 0 He
-# Chiral centers Bond  BondDipoles Bend  UrayBradley InvBend  Torsion Imp. Torsion Bond/Bond Stretch/Bend Bend/Bend Stretch/Torsion Bend/Torsion IntraVDW IntraCoulomb
-               0    0            0    0            0       0        0            0         0            0         0               0            0        0            0
+# Chiral centers Bond  BondDipoles Bend  UrayBradley InvBend  Torsion Imp. Torsion""" + " " + \
+            """Bond/Bond Stretch/Bend Bend/Bend Stretch/Torsion Bend/Torsion IntraVDW IntraCoulomb
+               0    0            0    0            0       0        0            0""" + "         " + \
+            """0            0         0               0            0        0            0
 # Number of config moves
 0
 """
@@ -846,8 +852,10 @@ rigid
 0 O_co2     0.0           0.0           1.149
 1 C_co2     0.0           0.0           0.0
 2 O_co2     0.0           0.0          -1.149
-# Chiral centers Bond  BondDipoles Bend  UrayBradley InvBend  Torsion Imp. Torsion Bond/Bond Stretch/Bend Bend/Bend Stretch/Torsion Bend/Torsion IntraVDW IntraCoulomb
-               0    2            0    0            0       0        0            0         0            0         0               0            0        0            0
+# Chiral centers Bond  BondDipoles Bend  UrayBradley InvBend  Torsion Imp. Torsion Bond/Bond""" + " " + \
+            """Stretch/Bend Bend/Bend Stretch/Torsion Bend/Torsion IntraVDW IntraCoulomb
+               0    2            0    0            0       0        0            0         0""" + "            " + \
+            """0         0               0            0        0            0
 # Bond stretch: atom n1-n2, type, parameters
 0 1 RIGID_BOND
 1 2 RIGID_BOND
@@ -966,8 +974,10 @@ rigid
 0 O_co2     0.0           0.0           1.149
 1 C_co2     0.0           0.0           0.0
 2 O_co2     0.0           0.0          -1.149
-# Chiral centers Bond  BondDipoles Bend  UrayBradley InvBend  Torsion Imp. Torsion Bond/Bond Stretch/Bend Bend/Bend Stretch/Torsion Bend/Torsion IntraVDW IntraCoulomb
-               0    2            0    0            0       0        0            0         0            0         0               0            0        0            0
+# Chiral centers Bond  BondDipoles Bend  UrayBradley InvBend  Torsion Imp. Torsion Bond/Bond""" + " " + \
+            """Stretch/Bend Bend/Bend Stretch/Torsion Bend/Torsion IntraVDW IntraCoulomb
+               0    2            0    0            0       0        0            0         0""" + "            " + \
+            """0         0               0            0        0            0
 # Bond stretch: atom n1-n2, type, parameters
 0 1 RIGID_BOND
 1 2 RIGID_BOND
