@@ -34,9 +34,9 @@ def get_features_from_cif_serial(path_to_cif):
         """
     def find_nearest2(i, atoms):
         distances = atoms.get_distances(i, slice(None), mic=True)
+        indices = indices[indices != i]  # * Remove self
         distances = np.sort(distances)
         indices = np.where(distances < distances[2])[0]
-        indices = indices[indices != i]  # * Remove self
         return indices.tolist(), np.mean(distances[indices])
     # * Small Z
 
