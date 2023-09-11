@@ -15,12 +15,112 @@ from numpy.linalg import norm
 metals = atomic_data.metals
 mass_key = atomic_data.mass_key
 
-PT = ['H', 'He', 'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne', 'Na', 'Mg', 'Al', 'Si', 'P', 'S', 'Cl', 'Ar',
-      'K', 'Ca', 'Sc', 'Ti', 'V', 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn', 'Ga', 'Ge', 'As', 'Se', 'Br', 'Kr',
-      'Rb', 'Sr', 'Y', 'Zr', 'Nb', 'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 'Cd', 'In', 'Sn', 'Sb', 'Te', 'I', 'Xe',
-      'Cs', 'Ba', 'Hf', 'Ta', 'W', 'Re', 'Os', 'Ir', 'Pt', 'Au', 'Hg', 'Tl', 'Pb', 'Bi', 'Po', 'At', 'Rn', 'Fr',
-      'Ra', 'La', 'Ce', 'Pr', 'Nd', 'Pm', 'Sm', 'Eu', 'Gd', 'Tb', 'Dy', 'Ho', 'Er', 'Tm', 'Yb', 'Lu', 'Ac', 'Th',
-      'Pa', 'U', 'Np', 'Pu', 'Am', 'Cm', 'Bk', 'Cf', 'Es', 'Fm', 'Md', 'No', 'Lr', 'FG', 'X']
+PT = [
+    'H',
+    'He',
+    'Li',
+    'Be',
+    'B',
+    'C',
+    'N',
+    'O',
+    'F',
+    'Ne',
+    'Na',
+    'Mg',
+    'Al',
+    'Si',
+    'P',
+    'S',
+    'Cl',
+    'Ar',
+    'K',
+    'Ca',
+    'Sc',
+    'Ti',
+    'V',
+    'Cr',
+    'Mn',
+    'Fe',
+    'Co',
+    'Ni',
+    'Cu',
+    'Zn',
+    'Ga',
+    'Ge',
+    'As',
+    'Se',
+    'Br',
+    'Kr',
+    'Rb',
+    'Sr',
+    'Y',
+    'Zr',
+    'Nb',
+    'Mo',
+    'Tc',
+    'Ru',
+    'Rh',
+    'Pd',
+    'Ag',
+    'Cd',
+    'In',
+    'Sn',
+    'Sb',
+    'Te',
+    'I',
+    'Xe',
+    'Cs',
+    'Ba',
+    'Hf',
+    'Ta',
+    'W',
+    'Re',
+    'Os',
+    'Ir',
+    'Pt',
+    'Au',
+    'Hg',
+    'Tl',
+    'Pb',
+    'Bi',
+    'Po',
+    'At',
+    'Rn',
+    'Fr',
+    'Ra',
+    'La',
+    'Ce',
+    'Pr',
+    'Nd',
+    'Pm',
+    'Sm',
+    'Eu',
+    'Gd',
+    'Tb',
+    'Dy',
+    'Ho',
+    'Er',
+    'Tm',
+    'Yb',
+    'Lu',
+    'Ac',
+    'Th',
+    'Pa',
+    'U',
+    'Np',
+    'Pu',
+    'Am',
+    'Cm',
+    'Bk',
+    'Cf',
+    'Es',
+    'Fm',
+    'Md',
+    'No',
+    'Lr',
+    'FG',
+    'X']
 
 
 def GCD(a, b):
@@ -58,7 +158,8 @@ def iscoord(line):
     """
         identifies coordinates in CIFs
     """
-    if nn(line[0]) in PT and line[1] in PT and False not in map(isfloat, line[2:5]):
+    if nn(line[0]) in PT and line[1] in PT and False not in map(
+            isfloat, line[2:5]):
         return True
     else:
         return False
@@ -68,7 +169,8 @@ def isbond(line):
     """
         identifies bonding in cifs
     """
-    if nn(line[0]) in PT and nn(line[1]) in PT and isfloat(line[2]) and line[-1] in ('S', 'D', 'T', 'A'):
+    if nn(line[0]) in PT and nn(line[1]) in PT and isfloat(
+            line[2]) and line[-1] in ('S', 'D', 'T', 'A'):
         return True
     else:
         return False
@@ -79,7 +181,8 @@ def PBC3DF_sym(vec1, vec2):
         applies periodic boundary to distance between vec1 and vec2 (fractional coordinates)
     """
     dist = vec1 - vec2
-    sym_dist = [(-1.0, dim - 1.0) if dim > 0.5 else (1.0, dim + 1.0) if dim < -0.5 else (0, dim) for dim in dist]
+    sym_dist = [(-1.0, dim - 1.0) if dim > 0.5 else (1.0, dim + 1.0)
+                if dim < -0.5 else (0, dim) for dim in dist]
     sym = np.array([s[0] for s in sym_dist])
     ndist = np.array([s[1] for s in sym_dist])
 
@@ -157,7 +260,10 @@ def cif_read(filename, charges=False, add_Zr_bonds=False):
     net_charge = np.round(np.sum(charge_list), 3)
 
     if net_charge > 0.1 and charges:
-        warnings.warn('A potentially significant net charge of ' + str(net_charge) + ' is being removed')
+        warnings.warn(
+            'A potentially significant net charge of ' +
+            str(net_charge) +
+            ' is being removed')
 
     if len(charge_list) > 0:
         remove_net = choice(range(len(charge_list)))
@@ -181,35 +287,56 @@ def cif_read(filename, charges=False, add_Zr_bonds=False):
 
                     if dist < 4.5:
                         count += 1
-                        bonds.append([names[i], names[j], '.', 'S', np.round(dist, 3)])
+                        bonds.append(
+                            [names[i], names[j], '.', 'S', np.round(dist, 3)])
 
         print(count, 'Zr-Zr bonds added...')
 
-    return elems, names, ccoords, fcoords, charge_list, bonds, (a, b, c, alpha, beta, gamma), unit_cell
+    return elems, names, ccoords, fcoords, charge_list, bonds, (
+        a, b, c, alpha, beta, gamma), unit_cell
 
 
-def initialize_system(filename, charges=False, small_molecule_cutoff=5, read_pymatgen=False):
+def initialize_system(
+        filename,
+        charges=False,
+        small_molecule_cutoff=5,
+        read_pymatgen=False):
 
     if not read_pymatgen:
-        elems, names, ccoords, fcoords, charge_list, bonds, uc_params, unit_cell = cif_read(filename, charges=charges)
+        elems, names, ccoords, fcoords, charge_list, bonds, uc_params, unit_cell = cif_read(
+            filename, charges=charges)
     else:
         from .pymatgen_cif2system import cif_read_pymatgen
-        elems, names, ccoords, fcoords, charge_list, bonds, uc_params, unit_cell = cif_read_pymatgen(filename, charges=charges)
+        elems, names, ccoords, fcoords, charge_list, bonds, uc_params, unit_cell = cif_read_pymatgen(
+            filename, charges=charges)
 
     A, B, C, alpha, beta, gamma = uc_params
 
     G = nx.Graph()
     index = 0
     index_key = {}
-    for e, n, cc, fc, charge in zip(elems, names, ccoords, fcoords, charge_list):
+    for e, n, cc, fc, charge in zip(
+            elems, names, ccoords, fcoords, charge_list):
         index += 1
-        G.add_node(index, element_symbol=e, mol_flag='1', index=index, force_field_type='', cartesian_position=cc,
-                   fractional_position=fc, charge=charge, replication=np.array([0.0, 0.0, 0.0]), duplicated_version_of=None, cif_label=n)
+        G.add_node(index,
+                   element_symbol=e,
+                   mol_flag='1',
+                   index=index,
+                   force_field_type='',
+                   cartesian_position=cc,
+                   fractional_position=fc,
+                   charge=charge,
+                   replication=np.array([0.0,
+                                         0.0,
+                                         0.0]),
+                   duplicated_version_of=None,
+                   cif_label=e + ("%d" % index))
         index_key[n] = index
 
     for b in bonds:
 
-        dist, sym = PBC3DF_sym(G.nodes[index_key[b[0]]]['fractional_position'], G.nodes[index_key[b[1]]]['fractional_position'])
+        dist, sym = PBC3DF_sym(G.nodes[index_key[b[0]]]['fractional_position'],
+                               G.nodes[index_key[b[1]]]['fractional_position'])
 
         if np.any(sym):
             sym_code = '1_' + ''.join(map(str, map(int, sym + 5)))
@@ -218,7 +345,11 @@ def initialize_system(filename, charges=False, small_molecule_cutoff=5, read_pym
 
         dist = np.linalg.norm(np.dot(unit_cell, dist))
 
-        G.add_edge(index_key[b[0]], index_key[b[1]], sym_code=sym_code, bond_type=b[3], length=float(b[-1]))
+        G.add_edge(index_key[b[0]],
+                   index_key[b[1]],
+                   sym_code=sym_code,
+                   bond_type=b[3],
+                   length=float(b[-1]))
 
     print_flag = False
     for e in G.edges(data=True):
@@ -233,18 +364,22 @@ def initialize_system(filename, charges=False, small_molecule_cutoff=5, read_pym
         bond_type = data['bond_type']
 
         # carboxylate oxygens should have aromatic bonds with C
-        if len(nbors0_symbols) == 2 and es0 == 'O' and es1 == 'C' and any(i in metals for i in nbors0_symbols) and bond_type != 'A':
+        if len(nbors0_symbols) == 2 and es0 == 'O' and es1 == 'C' and any(
+                i in metals for i in nbors0_symbols) and bond_type != 'A':
             print_flag = True
             data['bond_type'] = 'A'
-        if len(nbors1_symbols) == 2 and es1 == 'O' and es0 == 'C' and any(i in metals for i in nbors1_symbols) and bond_type != 'A':
+        if len(nbors1_symbols) == 2 and es1 == 'O' and es0 == 'C' and any(
+                i in metals for i in nbors1_symbols) and bond_type != 'A':
             print_flag = True
             data['bond_type'] = 'A'
 
         # nitro nitrogens should have aromatic bonds with O
-        if es0 == 'N' and es1 == 'O' and sorted(nbors0_symbols) == ['C', 'O', 'O']:
+        if es0 == 'N' and es1 == 'O' and sorted(
+                nbors0_symbols) == ['C', 'O', 'O']:
             print_flag = True
             data['bond_type'] = 'A'
-        if es1 == 'N' and es0 == 'O' and sorted(nbors1_symbols) == ['C', 'O', 'O']:
+        if es1 == 'N' and es0 == 'O' and sorted(
+                nbors1_symbols) == ['C', 'O', 'O']:
             print_flag = True
             data['bond_type'] = 'A'
 
@@ -264,11 +399,15 @@ def initialize_system(filename, charges=False, small_molecule_cutoff=5, read_pym
         for es in comp_dict:
             comp_dict[es] = int(comp_dict[es] / float(counts))
 
-        comp = tuple(sorted([(key, val) for key, val in comp_dict.items()], key=lambda x: x[0]))
+        comp = tuple(
+            sorted([(key, val) for key, val in comp_dict.items()], key=lambda x: x[0]))
         formula = ''.join([str(x) for es in comp for x in es])
         components.append((len(elems), formula, S))
 
-    print('there are', len(components), 'components in the system with (  # atoms, formula unit):')
+    print(
+        'there are',
+        len(components),
+        'components in the system with (  # atoms, formula unit):')
     SM = nx.Graph()
     framework = nx.Graph()
 
@@ -282,10 +421,12 @@ def initialize_system(filename, charges=False, small_molecule_cutoff=5, read_pym
 
         if len(S.nodes()) < small_molecule_cutoff:
 
-            node_elems = [(n, data['element_symbol']) for n, data in S.nodes(data=True)]
+            node_elems = [(n, data['element_symbol'])
+                          for n, data in S.nodes(data=True)]
             sort_elems = sorted(node_elems, key=lambda x: x[1], reverse=True)
             sort_index = sorted(node_elems, key=lambda x: x[0], reverse=False)
-            sort_key = dict((i[0], j[0]) for i, j in zip(sort_index, sort_elems))
+            sort_key = dict((i[0], j[0])
+                            for i, j in zip(sort_index, sort_elems))
             add_graph = nx.Graph()
 
             for node, elem in sort_elems:
@@ -314,7 +455,17 @@ def initialize_system(filename, charges=False, small_molecule_cutoff=5, read_pym
         data['index'] = index
     SM = nx.relabel_nodes(SM, sm_remap)
 
-    return {'box': (A, B, C, alpha, beta, gamma), 'graph': framework, 'SM_graph': SM, 'max_ind': index}
+    return {
+        'box': (
+            A,
+            B,
+            C,
+            alpha,
+            beta,
+            gamma),
+        'graph': framework,
+        'SM_graph': SM,
+        'max_ind': index}
 
 
 def duplicate_system(system, replications, small_molecule_cutoff=10):
@@ -328,7 +479,16 @@ def duplicate_system(system, replications, small_molecule_cutoff=10):
     box = system['box']
 
     replications = list(map(int, replications.split('x')))
-    replicated_box = (box[0] * replications[0], box[1] * replications[1], box[2] * replications[2], box[3], box[4], box[5])
+    replicated_box = (
+        box[0] *
+        replications[0],
+        box[1] *
+        replications[1],
+        box[2] *
+        replications[2],
+        box[3],
+        box[4],
+        box[5])
 
     pi = np.pi
     a, b, c, alpha, beta, gamma = replicated_box
@@ -343,16 +503,21 @@ def duplicate_system(system, replications, small_molecule_cutoff=10):
     cz = (c ** 2.0 - cx ** 2.0 - cy ** 2.0) ** 0.5
     unit_cell = np.asarray([[ax, ay, az], [bx, by, bz], [cx, cy, cz]]).T
 
-    basis_vecs = [np.array([1, 0, 0]), np.array([0, 1, 0]), np.array([0, 0, 1])]
-    dim0 = [[np.array([0, 0, 0])]] + [[np.array([0, 0, 0])] + [basis_vecs[0] for i in range(r + 1)] for r in range(replications[0] - 1)]
-    dim1 = [[np.array([0, 0, 0])]] + [[np.array([0, 0, 0])] + [basis_vecs[1] for i in range(r + 1)] for r in range(replications[1] - 1)]
-    dim2 = [[np.array([0, 0, 0])]] + [[np.array([0, 0, 0])] + [basis_vecs[2] for i in range(r + 1)] for r in range(replications[2] - 1)]
+    basis_vecs = [np.array([1, 0, 0]), np.array(
+        [0, 1, 0]), np.array([0, 0, 1])]
+    dim0 = [[np.array([0, 0, 0])]] + [[np.array([0, 0, 0])] + [basis_vecs[0]
+                                                               for i in range(r + 1)] for r in range(replications[0] - 1)]
+    dim1 = [[np.array([0, 0, 0])]] + [[np.array([0, 0, 0])] + [basis_vecs[1]
+                                                               for i in range(r + 1)] for r in range(replications[1] - 1)]
+    dim2 = [[np.array([0, 0, 0])]] + [[np.array([0, 0, 0])] + [basis_vecs[2]
+                                                               for i in range(r + 1)] for r in range(replications[2] - 1)]
 
     dim0 = [np.sum([v for v in comb], axis=0) for comb in dim0]
     dim1 = [np.sum([v for v in comb], axis=0) for comb in dim1]
     dim2 = [np.sum([v for v in comb], axis=0) for comb in dim2]
 
-    trans_vecs = [np.sum(comb, axis=0) for comb in itertools.product(dim0, dim1, dim2)]
+    trans_vecs = [np.sum(comb, axis=0)
+                  for comb in itertools.product(dim0, dim1, dim2)]
     trans_vecs = [v for v in trans_vecs if np.any(v)]
 
     print('The transformation vectors for the replication are:')
@@ -360,8 +525,10 @@ def duplicate_system(system, replications, small_molecule_cutoff=10):
         print(vec)
     print('...')
 
-    if len(trans_vecs) != replications[0] * replications[1] * replications[2] - 1:
-        raise ValueError('The number of transformation vectors in the replication is wrong somehow')
+    if len(trans_vecs) != replications[0] * \
+            replications[1] * replications[2] - 1:
+        raise ValueError(
+            'The number of transformation vectors in the replication is wrong somehow')
 
     NG = G.copy()
     edge_remove_list = []
@@ -387,16 +554,27 @@ def duplicate_system(system, replications, small_molecule_cutoff=10):
             fvec = node_data['fractional_position']
             translated_fvec = fvec + trans_vec
             fvec = np.array([c / d for c, d in zip(fvec, replications)])
-            translated_fvec = np.array([c / d for c, d in zip(translated_fvec, replications)])
+            translated_fvec = np.array(
+                [c / d for c, d in zip(translated_fvec, replications)])
             NG.nodes[node]['fractional_position'] = fvec
 
             equivalency[original_atom].append(new_index)
-            NG.add_node(new_index, element_symbol=element_symbol, mol_flag=1, index=new_index, force_field_type='', cartesian_position=np.array(
-                [0.0, 0.0, 0.0]), fractional_position=translated_fvec, charge=charge, duplicated_version_of=original_atom)
+            NG.add_node(new_index,
+                        element_symbol=element_symbol,
+                        mol_flag=1,
+                        index=new_index,
+                        force_field_type='',
+                        cartesian_position=np.array([0.0,
+                                                     0.0,
+                                                     0.0]),
+                        fractional_position=translated_fvec,
+                        charge=charge,
+                        duplicated_version_of=original_atom)
 
     for node, data in NG.nodes(data=True):
 
-        data['cartesian_position'] = np.dot(unit_cell, data['fractional_position'])
+        data['cartesian_position'] = np.dot(
+            unit_cell, data['fractional_position'])
 
     for n0, n1, edge_data in G.edges(data=True):
 
@@ -428,29 +606,47 @@ def duplicate_system(system, replications, small_molecule_cutoff=10):
                 if abs(dist_e0e1 - length) < 0.075:
 
                     if np.any(sym_e0e1):
-                        sym_code = '1_' + ''.join(map(str, map(int, sym_e0e1 + 5)))
+                        sym_code = '1_' + \
+                            ''.join(map(str, map(int, sym_e0e1 + 5)))
                     else:
                         sym_code = '.'
 
-                    NG.add_edge(eq0, eq1, sym_code=sym_code, bond_type=bond_type, length=dist_e0e1)
+                    NG.add_edge(
+                        eq0,
+                        eq1,
+                        sym_code=sym_code,
+                        bond_type=bond_type,
+                        length=dist_e0e1)
 
                 if abs(dist_n0e1 - length) < 0.075:
 
                     if np.any(sym_n0e1):
-                        sym_code = '1_' + ''.join(map(str, map(int, sym_n0e1 + 5)))
+                        sym_code = '1_' + \
+                            ''.join(map(str, map(int, sym_n0e1 + 5)))
                     else:
                         sym_code = '.'
 
-                    NG.add_edge(n0, eq1, sym_code=sym_code, bond_type=bond_type, length=dist_n0e1)
+                    NG.add_edge(
+                        n0,
+                        eq1,
+                        sym_code=sym_code,
+                        bond_type=bond_type,
+                        length=dist_n0e1)
 
                 if abs(dist_e0n1 - length) < 0.075:
 
                     if np.any(sym_e0n1):
-                        sym_code = '1_' + ''.join(map(str, map(int, sym_e0n1 + 5)))
+                        sym_code = '1_' + \
+                            ''.join(map(str, map(int, sym_e0n1 + 5)))
                     else:
                         sym_code = '.'
 
-                    NG.add_edge(eq0, n1, sym_code=sym_code, bond_type=bond_type, length=dist_n0e1)
+                    NG.add_edge(
+                        eq0,
+                        n1,
+                        sym_code=sym_code,
+                        bond_type=bond_type,
+                        length=dist_n0e1)
 
                 if abs(dist_n0n1 - length) > 0.075:
                     if (n0, n1) not in edge_remove_list:
@@ -472,11 +668,15 @@ def duplicate_system(system, replications, small_molecule_cutoff=10):
         for es in comp_dict:
             comp_dict[es] = int(comp_dict[es] / float(counts))
 
-        comp = tuple(sorted([(key, val) for key, val in comp_dict.items()], key=lambda x: x[0]))
+        comp = tuple(
+            sorted([(key, val) for key, val in comp_dict.items()], key=lambda x: x[0]))
         formula = ''.join([str(x) for es in comp for x in es])
         components.append((len(elems), formula, S))
 
-    print('there are', len(components), 'components in the system with (  # atoms, formula unit):')
+    print(
+        'there are',
+        len(components),
+        'components in the system with (  # atoms, formula unit):')
     SM = nx.Graph()
     framework = nx.Graph()
     for component in components:
@@ -504,7 +704,11 @@ def duplicate_system(system, replications, small_molecule_cutoff=10):
 
     MI = max([data['index'] for n, data in NG.nodes(data=True)])
 
-    return {'box': replicated_box, 'graph': framework, 'SM_graph': SM, 'max_ind': MI}
+    return {
+        'box': replicated_box,
+        'graph': framework,
+        'SM_graph': SM,
+        'max_ind': MI}
 
 
 def replication_determination(system, replication, cutoff):
@@ -527,13 +731,19 @@ def replication_determination(system, replication, cutoff):
     bvec = np.array([bx, by, bz])
     cvec = np.array([cx, cy, cz])
 
-    thetac = np.arccos(np.dot(np.cross(avec, bvec), cvec) / (np.linalg.norm(np.cross(avec, bvec)) * np.linalg.norm(cvec)))
+    thetac = np.arccos(np.dot(np.cross(avec, bvec), cvec) /
+                       (np.linalg.norm(np.cross(avec, bvec)) *
+                        np.linalg.norm(cvec)))
     dist2 = np.absolute(np.linalg.norm(cvec) * np.cos(thetac))
 
-    thetab = np.arccos(np.dot(np.cross(avec, cvec), bvec) / (np.linalg.norm(np.cross(avec, cvec)) * np.linalg.norm(bvec)))
+    thetab = np.arccos(np.dot(np.cross(avec, cvec), bvec) /
+                       (np.linalg.norm(np.cross(avec, cvec)) *
+                        np.linalg.norm(bvec)))
     dist1 = np.absolute(np.linalg.norm(bvec) * np.cos(thetab))
 
-    thetaa = np.arccos(np.dot(np.cross(cvec, bvec), avec) / (np.linalg.norm(np.cross(cvec, bvec)) * np.linalg.norm(avec)))
+    thetaa = np.arccos(np.dot(np.cross(cvec, bvec), avec) /
+                       (np.linalg.norm(np.cross(cvec, bvec)) *
+                        np.linalg.norm(avec)))
     dist0 = np.absolute(np.linalg.norm(avec) * np.cos(thetaa))
 
     if 'min_atoms' in replication:
@@ -558,8 +768,13 @@ def replication_determination(system, replication, cutoff):
 
             rvals = range(duplications + 1)[1:]
             shapes = itertools.product(rvals, rvals, rvals)
-            shapes = [s for s in shapes if functools.reduce((lambda x, y: x * y), s) == duplications]
-            useable_shapes = [s for s in shapes if min(dist0 * s[0], dist1 * s[1], dist2 * s[2]) >= 2 * cutoff]
+            shapes = [s for s in shapes if functools.reduce(
+                (lambda x, y: x * y), s) == duplications]
+            useable_shapes = [
+                s for s in shapes if min(
+                    dist0 * s[0],
+                    dist1 * s[1],
+                    dist2 * s[2]) >= 2 * cutoff]
             useable_shapes = [s for s in useable_shapes if max([((a * s[0]) / (b * s[1])),
                                                                 ((a * s[0]) / (c * s[2])),
                                                                 ((b * s[1]) / (c * s[2])),
@@ -572,14 +787,23 @@ def replication_determination(system, replication, cutoff):
         print('final duplications:', duplications)
         print('final number of atoms:', int(duplications * Natoms))
 
-        shape_deviations = [(i, np.std([useable_shapes[i][0] * a, useable_shapes[i][1] * b, useable_shapes[i][2] * c])) for i in range(len(useable_shapes))]
+        shape_deviations = [(i, np.std([useable_shapes[i][0] *
+                                        a, useable_shapes[i][1] *
+                                        b, useable_shapes[i][2] *
+                                        c])) for i in range(len(useable_shapes))]
         shape_deviations.sort(key=lambda x: x[1])
         selected_shape = useable_shapes[shape_deviations[0][0]]
 
         replication = 'x'.join(map(str, selected_shape))
-        print('replicating to a', replication, 'cell (' + str(duplications) + ' duplications)...')
+        print(
+            'replicating to a',
+            replication,
+            'cell (' +
+            str(duplications) +
+            ' duplications)...')
         system = duplicate_system(system, replication)
-        print('the minimum boundary-boundary distance is', min([d * s for d, s in zip(selected_shape, (dist0, dist1, dist2))]))
+        print('the minimum boundary-boundary distance is',
+              min([d * s for d, s in zip(selected_shape, (dist0, dist1, dist2))]))
         replication = 'ma' + str(min_atoms)
 
         a, b, c, alpha, beta, gamma = system['box']
@@ -590,9 +814,12 @@ def replication_determination(system, replication, cutoff):
         yz = np.round((b * c * np.cos(math.radians(alpha)) - xy * xz) / ly, 8)
         lz = np.round(np.sqrt(c**2 - xz**2 - yz**2), 8)
 
-        print('lx =', np.round(lx, 3), '(dim 0 separation = ' + str(np.round(selected_shape[0] * dist0, 3)) + ')')
-        print('ly =', np.round(ly, 3), '(dim 1 separation = ' + str(np.round(selected_shape[1] * dist1, 3)) + ')')
-        print('lz =', np.round(lz, 3), '(dim 2 separation = ' + str(np.round(selected_shape[2] * dist2, 3)) + ')')
+        print('lx =', np.round(lx, 3), '(dim 0 separation = ' +
+              str(np.round(selected_shape[0] * dist0, 3)) + ')')
+        print('ly =', np.round(ly, 3), '(dim 1 separation = ' +
+              str(np.round(selected_shape[1] * dist1, 3)) + ')')
+        print('lz =', np.round(lz, 3), '(dim 2 separation = ' +
+              str(np.round(selected_shape[2] * dist2, 3)) + ')')
         print('alpha =', np.round(alpha, 3))
         print('beta  =', np.round(beta, 3))
         print('gamma =', np.round(gamma, 3))
@@ -613,21 +840,35 @@ def replication_determination(system, replication, cutoff):
 
             rvals = range(duplications + 1)[1:]
             shapes = itertools.product(rvals, rvals, rvals)
-            shapes = [s for s in shapes if functools.reduce((lambda x, y: x * y), s) == duplications]
-            useable_shapes = [s for s in shapes if min(dist0 * s[0], dist1 * s[1], dist2 * s[2]) >= 2 * cutoff]
+            shapes = [s for s in shapes if functools.reduce(
+                (lambda x, y: x * y), s) == duplications]
+            useable_shapes = [
+                s for s in shapes if min(
+                    dist0 * s[0],
+                    dist1 * s[1],
+                    dist2 * s[2]) >= 2 * cutoff]
             duplications += 1
 
         duplications -= 1
         print('final duplications:', duplications)
 
-        shape_deviations = [(i, np.std([useable_shapes[i][0] * a, useable_shapes[i][1] * b, useable_shapes[i][2] * c])) for i in range(len(useable_shapes))]
+        shape_deviations = [(i, np.std([useable_shapes[i][0] *
+                                        a, useable_shapes[i][1] *
+                                        b, useable_shapes[i][2] *
+                                        c])) for i in range(len(useable_shapes))]
         shape_deviations.sort(key=lambda x: x[1])
         selected_shape = useable_shapes[shape_deviations[0][0]]
 
         replication = 'x'.join(map(str, selected_shape))
-        print('replicating to a', replication, 'cell (' + str(duplications) + ' duplications)...')
+        print(
+            'replicating to a',
+            replication,
+            'cell (' +
+            str(duplications) +
+            ' duplications)...')
         system = duplicate_system(system, replication)
-        print('the minimum boundary-boundary distance is', min([d * s for d, s in zip(selected_shape, (dist0, dist1, dist2))]))
+        print('the minimum boundary-boundary distance is',
+              min([d * s for d, s in zip(selected_shape, (dist0, dist1, dist2))]))
 
         a, b, c, alpha, beta, gamma = system['box']
         lx = np.round(a, 8)
@@ -637,9 +878,12 @@ def replication_determination(system, replication, cutoff):
         yz = np.round((b * c * np.cos(math.radians(alpha)) - xy * xz) / ly, 8)
         lz = np.round(np.sqrt(c**2 - xz**2 - yz**2), 8)
 
-        print('lx =', np.round(lx, 3), '(dim 0 separation = ' + str(np.round(selected_shape[0] * dist0, 3)) + ')')
-        print('ly =', np.round(ly, 3), '(dim 1 separation = ' + str(np.round(selected_shape[1] * dist1, 3)) + ')')
-        print('lz =', np.round(lz, 3), '(dim 2 separation = ' + str(np.round(selected_shape[2] * dist2, 3)) + ')')
+        print('lx =', np.round(lx, 3), '(dim 0 separation = ' +
+              str(np.round(selected_shape[0] * dist0, 3)) + ')')
+        print('ly =', np.round(ly, 3), '(dim 1 separation = ' +
+              str(np.round(selected_shape[1] * dist1, 3)) + ')')
+        print('lz =', np.round(lz, 3), '(dim 2 separation = ' +
+              str(np.round(selected_shape[2] * dist2, 3)) + ')')
         print('alpha =', np.round(alpha, 3))
         print('beta  =', np.round(beta, 3))
         print('gamma =', np.round(gamma, 3))
@@ -671,7 +915,8 @@ def write_cif_from_system(system, filename):
 
     with open(filename, 'w') as out:
         out.write('data_' + filename[0:-4] + '\n')
-        out.write('_audit_creation_date              ' + datetime.datetime.today().strftime('%Y-%m-%d') + '\n')
+        out.write('_audit_creation_date              ' +
+                  datetime.datetime.today().strftime('%Y-%m-%d') + '\n')
         out.write("_audit_creation_method            'cif2lammps'" + '\n')
         out.write("_symmetry_space_group_name_H-M    'P1'" + '\n')
         out.write('_symmetry_Int_Tables_number       1' + '\n')
@@ -700,7 +945,9 @@ def write_cif_from_system(system, filename):
             ind = es + str(data['index'])
             index_dict[n] = ind
             chg = data['charge']
-            out.write('{:7} {:>4} {:>15.6f} {:>15.6f} {:>15.6f} {:>15.6f}'.format(ind, es, vec[0], vec[1], vec[2], chg))
+            out.write(
+                '{:7} {:>4} {:>15.6f} {:>15.6f} {:>15.6f} {:>15.6f}'.format(
+                    ind, es, vec[0], vec[1], vec[2], chg))
             out.write('\n')
 
         out.write('loop_' + '\n')
@@ -717,5 +964,7 @@ def write_cif_from_system(system, filename):
             dist = np.round(data['length'], 3)
             bond_type = data['bond_type']
 
-            out.write('{:7} {:>7} {:>7} {:>3}'.format(ind0, ind1, dist, bond_type))
+            out.write(
+                '{:7} {:>7} {:>7} {:>3}'.format(
+                    ind0, ind1, dist, bond_type))
             out.write('\n')

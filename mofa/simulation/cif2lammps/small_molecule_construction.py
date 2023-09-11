@@ -32,7 +32,10 @@ def add_small_molecules(FF, ff_string):
         FF.pair_data['special_bonds'] = 'lj/coul 0.0 0.0 1.0'
     # insert more force fields here if needed
     else:
-        raise ValueError('the small molecule force field', ff_string, 'is not defined')
+        raise ValueError(
+            'the small molecule force field',
+            ff_string,
+            'is not defined')
 
     SG = FF.system['graph']
     SMG = FF.system['SM_graph']
@@ -46,12 +49,19 @@ def add_small_molecules(FF, ff_string):
 
         for node, data in SMG.nodes(data=True):
             # print(node, data)
-            atoms.append(Atom(data['element_symbol'], data['cartesian_position']))
+            atoms.append(
+                Atom(
+                    data['element_symbol'],
+                    data['cartesian_position']))
 
         atoms.set_cell(FF.system['box'])
         unit_cell = atoms.get_cell()
         cutoffs = neighborlist.natural_cutoffs(atoms)
-        NL = neighborlist.NewPrimitiveNeighborList(cutoffs, use_scaled_positions=False, self_interaction=False, skin=0.10)  # shorten the cutoff a bit
+        NL = neighborlist.NewPrimitiveNeighborList(
+            cutoffs,
+            use_scaled_positions=False,
+            self_interaction=False,
+            skin=0.10)  # shorten the cutoff a bit
         NL.build([True, True, True], unit_cell, atoms.get_positions())
 
         for i in atoms:
@@ -60,9 +70,21 @@ def add_small_molecules(FF, ff_string):
 
             for j in nbors:
 
-                bond_length = get_distances(i.position, p2=atoms[j].position, cell=unit_cell, pbc=[True, True, True])
+                bond_length = get_distances(
+                    i.position,
+                    p2=atoms[j].position,
+                    cell=unit_cell,
+                    pbc=[
+                        True,
+                        True,
+                        True])
                 bond_length = np.round(bond_length[1][0][0], 3)
-                SMG.add_edge(i.index + offset, j + offset, bond_length=bond_length, bond_order='1.0', bond_type='S')
+                SMG.add_edge(
+                    i.index + offset,
+                    j + offset,
+                    bond_length=bond_length,
+                    bond_order='1.0',
+                    bond_type='S')
 
         NMOL = len(list(nx.connected_components(SMG)))
         print(NMOL, 'small molecules were recovered after bond calculation')
@@ -95,7 +117,8 @@ def add_small_molecules(FF, ff_string):
         mol_flag += 1
         comp = sorted(list(comp))
         ID_string = sorted([SMG.nodes[n]['element_symbol'] for n in comp])
-        ID_string = [(key, len(list(group))) for key, group in groupby(ID_string)]
+        ID_string = [(key, len(list(group)))
+                     for key, group in groupby(ID_string)]
         ID_string = ''.join([str(e) for c in ID_string for e in c])
         comps.append(ID_string)
 
@@ -108,7 +131,8 @@ def add_small_molecules(FF, ff_string):
             if ID_string == 'H2O1':
                 SMG.nodes[n]['force_field_type'] = SMG.nodes[n]['element_symbol'] + '_w'
             else:
-                SMG.nodes[n]['force_field_type'] = SMG.nodes[n]['element_symbol'] + '_' + ID_string
+                SMG.nodes[n]['force_field_type'] = SMG.nodes[n]['element_symbol'] + \
+                    '_' + ID_string
 
         # add COM sites where relevant, extend this list as new types are added
         if ID_string in ('O2', 'N2'):
@@ -135,12 +159,22 @@ def add_small_molecules(FF, ff_string):
             elif ID_string == 'N2':
                 fft = 'N_com'
 
-            ndata = {'element_symbol': 'NA', 'mol_flag': mol_flag, 'index': index, 'force_field_type': fft, 'cartesian_position': ccom,
-                     'fractional_position': fcom, 'charge': 0.0, 'replication': np.array([0.0, 0.0, 0.0]), 'duplicated_version_of': None}
+            ndata = {'element_symbol': 'NA',
+                     'mol_flag': mol_flag,
+                     'index': index,
+                     'force_field_type': fft,
+                     'cartesian_position': ccom,
+                     'fractional_position': fcom,
+                     'charge': 0.0,
+                     'replication': np.array([0.0,
+                                              0.0,
+                                              0.0]),
+                     'duplicated_version_of': None}
             edata = {'sym_code': None, 'length': None, 'bond_type': None}
 
             add_nodes.append([index, ndata])
-            add_edges.extend([(index, comp[0], edata), (index, comp[1], edata)])
+            add_edges.extend(
+                [(index, comp[0], edata), (index, comp[1], edata)])
 
     for n, data in add_nodes:
         SMG.add_node(n, **data)
@@ -171,7 +205,8 @@ def add_small_molecules(FF, ff_string):
     # new_dihedral_types = {}
     # new_improper_types = {}
 
-    for subG, ID_string in zip([SMG.subgraph(c).copy() for c in nx.connected_components(SMG)], comps):
+    for subG, ID_string in zip([SMG.subgraph(c).copy()
+                               for c in nx.connected_components(SMG)], comps):
 
         constants = SM_constants[ID_string]
 
@@ -193,12 +228,14 @@ def add_small_molecules(FF, ff_string):
                 FF.atom_types[fft] = ntypes
                 style = constants['pair']['style']
                 vdW = constants['pair']['vdW'][fft]
-                FF.pair_data['params'][FF.atom_types[fft]] = (style, vdW[0], vdW[1])
+                FF.pair_data['params'][FF.atom_types[fft]] = (
+                    style, vdW[0], vdW[1])
                 FF.pair_data['comments'][FF.atom_types[fft]] = [fft, fft]
                 FF.atom_masses[fft] = mass_key[data['element_symbol']]
 
                 if 'hybrid' not in FF.pair_data['style'] and style != FF.pair_data['style']:
-                    FF.pair_data['style'] = ' '.join(['hybrid', FF.pair_data['style'], style])
+                    FF.pair_data['style'] = ' '.join(
+                        ['hybrid', FF.pair_data['style'], style])
                 elif 'hybrid' in FF.pair_data['style'] and style in FF.pair_data['style']:
                     pass
                 elif 'hybrid' in FF.pair_data['style'] and style not in FF.pair_data['style']:
@@ -212,7 +249,8 @@ def add_small_molecules(FF, ff_string):
             bonds = constants['bonds']
             fft_i = SG.nodes[e0]['force_field_type']
             fft_j = SG.nodes[e1]['force_field_type']
-            # make sure the order corresponds to that in the molecule dictionary
+            # make sure the order corresponds to that in the molecule
+            # dictionary
             bond = tuple(sorted([fft_i, fft_j]))
 
             try:
@@ -229,17 +267,22 @@ def add_small_molecules(FF, ff_string):
                     used_bonds.append(bond)
 
                 if 'hybrid' not in FF.bond_data['style'] and style != FF.bond_data['style']:
-                    FF.bond_data['style'] = ' '.join(['hybrid', FF.bond_data['style'], style])
+                    FF.bond_data['style'] = ' '.join(
+                        ['hybrid', FF.bond_data['style'], style])
                 elif 'hybrid' in FF.bond_data['style'] and style in FF.bond_data['style']:
                     pass
                 elif 'hybrid' in FF.bond_data['style'] and style not in FF.bond_data['style']:
                     FF.bond_data['style'] += ' ' + style
 
                 if ty in FF.bond_data['all_bonds']:
-                    FF.bond_data['count'] = (FF.bond_data['count'][0] + 1, FF.bond_data['count'][1] + 1)
+                    FF.bond_data['count'] = (
+                        FF.bond_data['count'][0] + 1,
+                        FF.bond_data['count'][1] + 1)
                     FF.bond_data['all_bonds'][ty].append((e0, e1))
                 else:
-                    FF.bond_data['count'] = (FF.bond_data['count'][0] + 1, FF.bond_data['count'][1] + 1)
+                    FF.bond_data['count'] = (
+                        FF.bond_data['count'][0] + 1,
+                        FF.bond_data['count'][1] + 1)
                     FF.bond_data['all_bonds'][ty] = [(e0, e1)]
 
             except KeyError:
@@ -267,20 +310,24 @@ def add_small_molecules(FF, ff_string):
                 try:
 
                     style = angles[angle][0]
-                    FF.angle_data['count'] = (FF.angle_data['count'][0] + 1, FF.angle_data['count'][1])
+                    FF.angle_data['count'] = (
+                        FF.angle_data['count'][0] + 1,
+                        FF.angle_data['count'][1])
 
                     if angle not in used_angles:
 
                         ty = ty + 1
                         new_angle_types[angle] = ty
-                        FF.angle_data['count'] = (FF.angle_data['count'][0], FF.angle_data['count'][1] + 1)
+                        FF.angle_data['count'] = (
+                            FF.angle_data['count'][0], FF.angle_data['count'][1] + 1)
                         FF.angle_data['params'][ty] = list(angles[angle])
                         FF.angle_data['comments'][ty] = list(angle)
 
                         used_angles.append(angle)
 
                     if 'hybrid' not in FF.angle_data['style'] and style != FF.angle_data['style']:
-                        FF.angle_data['style'] = ' '.join(['hybrid', FF.angle_data['style'], style])
+                        FF.angle_data['style'] = ' '.join(
+                            ['hybrid', FF.angle_data['style'], style])
                     elif 'hybrid' in FF.angle_data['style'] and style in FF.angle_data['style']:
                         pass
                     elif 'hybrid' in FF.angle_data['style'] and style not in FF.angle_data['style']:
@@ -296,8 +343,12 @@ def add_small_molecules(FF, ff_string):
 
         # add new dihedrals
 
-    FF.bond_data['count'] = (FF.bond_data['count'][0], len(FF.bond_data['params']))
-    FF.angle_data['count'] = (FF.angle_data['count'][0], len(FF.angle_data['params']))
+    FF.bond_data['count'] = (
+        FF.bond_data['count'][0], len(
+            FF.bond_data['params']))
+    FF.angle_data['count'] = (
+        FF.angle_data['count'][0], len(
+            FF.angle_data['params']))
 
     if 'tip4p' in FF.pair_data['style']:
 
@@ -317,7 +368,8 @@ def add_small_molecules(FF, ff_string):
                 FF.pair_data['H2O_angle_type'] = ty
 
         if 'long' in FF.pair_data['style']:
-            FF.pair_data['M_site_dist'] = 0.1546  # only TIP4P/2005 is implemented
+            # only TIP4P/2005 is implemented
+            FF.pair_data['M_site_dist'] = 0.1546
         elif 'cut' in FF.pair_data['style'] and ff_string == 'TIP4P_2005_cutoff':
             FF.pair_data['M_site_dist'] = 0.1546
         elif 'cut' in FF.pair_data['style'] and ff_string == 'TIP4P_cutoff':
@@ -327,26 +379,37 @@ def add_small_molecules(FF, ff_string):
 def update_potential(potential_data, new_potential_params, potential_coeff):
 
     write_instyles = False
-    add_styles = set([new_potential_params[ty]['style'] for ty in new_potential_params])
+    add_styles = set([new_potential_params[ty]['style']
+                     for ty in new_potential_params])
     for ABS in add_styles:
         if ABS not in potential_data['style'] and 'hybrid' in potential_data['style']:
             potential_data['style'] = potential_data['style'] + ' ' + ABS
             write_instyles = True
         if ABS not in potential_data['style'] and 'hybrid' not in potential_data['style']:
-            potential_data['style'] = 'hybrid ' + potential_data['style'] + ' ' + ABS
+            potential_data['style'] = 'hybrid ' + \
+                potential_data['style'] + ' ' + ABS
             write_instyles = True
         else:
             pass
 
     if write_instyles:
-        instyles = {ty: ' ' + new_potential_params[ty]['style'] for ty in new_potential_params}
+        instyles = {
+            ty: ' ' +
+            new_potential_params[ty]['style'] for ty in new_potential_params}
     else:
         instyles = {ty: '' for ty in new_potential_params}
 
     potential_data['infile_add_lines'] = []
     for ty, data in new_potential_params.items():
         strparams = ' '.join([str(p) for p in data['params']])
-        potential_data['infile_add_lines'].append(potential_coeff + str(ty) + instyles[ty] + ' ' + strparams + ' ' + data['comments'])
+        potential_data['infile_add_lines'].append(
+            potential_coeff +
+            str(ty) +
+            instyles[ty] +
+            ' ' +
+            strparams +
+            ' ' +
+            data['comments'])
 
 
 def include_molecule_file(FF, maxIDs, add_molecule):
@@ -383,18 +446,23 @@ def include_molecule_file(FF, maxIDs, add_molecule):
     if angle_params is not None:
         update_potential(FF.angle_data, angle_params, 'angle_coeff     ')
     if dihedral_params is not None:
-        update_potential(FF.dihedral_params, dihedral_params, 'dihedral_coeff  ')
+        update_potential(
+            FF.dihedral_params,
+            dihedral_params,
+            'dihedral_coeff  ')
     if improper_params is not None:
         update_potential(FF.improper_data, improper_params, 'improper_coeff  ')
 
     infile_add_lines = ['molecule        ' + ' '.join(molnames)]
     for atom in mass_dict:
-        infile_add_lines.append('mass            ' + str(atom) + ' ' + str(mass_dict[atom]))
+        infile_add_lines.append('mass            ' +
+                                str(atom) + ' ' + str(mass_dict[atom]))
     seed0 = randint(1, 10000)
     seed1 = randint(1, 10000)
 
     if N > 0:
-        create_line = ' '.join([str(N), str(seed0), 'NULL', 'mol', molnames[0], str(seed1), 'units', 'box'])
+        create_line = ' '.join(
+            [str(N), str(seed0), 'NULL', 'mol', molnames[0], str(seed1), 'units', 'box'])
         infile_add_lines.append('create_atoms    0 random ' + create_line)
 
     return molfile, infile_add_lines, extra_types
@@ -422,7 +490,8 @@ def read_small_molecule_file(sm_file, system):
     ind = max_ind + 1
 
     if fm not in ('pdb', 'xyz', 'cif'):
-        raise ValueError('only xyz and RASPA pdb formats are supported for small molecule files')
+        raise ValueError(
+            'only xyz and RASPA pdb formats are supported for small molecule files')
 
     if fm == 'pdb':
         print('assuming small molecule file is in RASPA pdb format, if not, too bad...')
@@ -435,9 +504,20 @@ def read_small_molecule_file(sm_file, system):
 
     for atom in atoms:
 
-        SMG.add_node(ind, element_symbol=atom.symbol, mol_flag='1', index=ind, force_field_type='', cartesian_position=atom.position,
-                     fractional_position=atom.scaled_position, charge=0.0, replication=np.array([0.0, 0.0, 0.0]), duplicated_version_of=None)
+        SMG.add_node(ind,
+                     element_symbol=atom.symbol,
+                     mol_flag='1',
+                     index=ind,
+                     force_field_type='',
+                     cartesian_position=atom.position,
+                     fractional_position=atom.scaled_position,
+                     charge=0.0,
+                     replication=np.array([0.0,
+                                           0.0,
+                                           0.0]),
+                     duplicated_version_of=None)
 
         ind += 1
 
-    system['SM_graph'] = nx.compose(SMG, system['SM_graph'])  # don't want to overwrite extra framework species already in the cif
+    # don't want to overwrite extra framework species already in the cif
+    system['SM_graph'] = nx.compose(SMG, system['SM_graph'])

@@ -97,7 +97,8 @@ class UFF4MOF(force_field):
         cx = c * np.cos(beta * pi / 180.0)
         cy = (c * b * np.cos(alpha * pi / 180.0) - bx * cx) / by
         cz = (c ** 2.0 - cx ** 2.0 - cy ** 2.0) ** 0.5
-        self.unit_cell = np.asarray([[ax, ay, az], [bx, by, bz], [cx, cy, cz]]).T
+        self.unit_cell = np.asarray(
+            [[ax, ay, az], [bx, by, bz], [cx, cy, cz]]).T
 
     def type_atoms(self):
 
@@ -113,7 +114,10 @@ class UFF4MOF(force_field):
             element_symbol = inf['element_symbol']
             nbors = [a for a in SG.neighbors(name)]
             nbor_symbols = [SG.nodes[n]['element_symbol'] for n in nbors]
-            bond_types = [SG.get_edge_data(name, n)['bond_type'] for n in nbors]
+            bond_types = [
+                SG.get_edge_data(
+                    name,
+                    n)['bond_type'] for n in nbors]
             mass = mass_key[element_symbol]
 
             if len(nbors) > 1:
@@ -126,26 +130,32 @@ class UFF4MOF(force_field):
                     comp_coords = []
                     for n in nbors:
 
-                        dist_n, sym_n = PBC3DF_sym(SG.nodes[n]['fractional_position'], inf['fractional_position'])
+                        dist_n, sym_n = PBC3DF_sym(
+                            SG.nodes[n]['fractional_position'], inf['fractional_position'])
                         dist_n = np.dot(self.unit_cell, dist_n)
                         fcoord = SG.nodes[n]['fractional_position'] + sym_n
                         comp_coords.append(np.dot(self.unit_cell, fcoord))
 
                     comp_coords = np.array(comp_coords)
-                    dist_square = superimpose(comp_coords, comparison_geometries['square_planar'], count)
-                    dist_tetrahedral = superimpose(comp_coords, comparison_geometries['tetrahedral'], count)
+                    dist_square = superimpose(
+                        comp_coords, comparison_geometries['square_planar'], count)
+                    dist_tetrahedral = superimpose(
+                        comp_coords, comparison_geometries['tetrahedral'], count)
 
                 else:
 
                     angles = []
                     for n0, n1 in itertools.combinations(nbors, 2):
 
-                        dist_j, sym_j = PBC3DF_sym(SG.nodes[n0]['fractional_position'], inf['fractional_position'])
-                        dist_k, sym_k = PBC3DF_sym(SG.nodes[n1]['fractional_position'], inf['fractional_position'])
+                        dist_j, sym_j = PBC3DF_sym(
+                            SG.nodes[n0]['fractional_position'], inf['fractional_position'])
+                        dist_k, sym_k = PBC3DF_sym(
+                            SG.nodes[n1]['fractional_position'], inf['fractional_position'])
 
                         dist_j = np.dot(self.unit_cell, dist_j)
 
-                        cosine_angle = np.dot(dist_j, dist_k) / (np.linalg.norm(dist_j) * np.linalg.norm(dist_k))
+                        cosine_angle = np.dot(
+                            dist_j, dist_k) / (np.linalg.norm(dist_j) * np.linalg.norm(dist_k))
 
                         if cosine_angle > 1:
                             cosine_angle = 1
@@ -159,11 +169,13 @@ class UFF4MOF(force_field):
                     angles = np.array(angles)
                     dist_linear = min(np.abs(angles - 180.0))
                     dist_triangle = min(np.abs(angles - 120.0))
-                    dist_square = min(min(np.abs(angles - 90.0)), min(np.abs(angles - 180.0)))
+                    dist_square = min(min(np.abs(angles - 90.0)),
+                                      min(np.abs(angles - 180.0)))
                     dist_corner = min(np.abs(angles - 90.0))
                     dist_tetrahedral = min(np.abs(angles - 109.47))
 
-            if 'A' in bond_types and element_symbol not in ('O', 'H') and element_symbol not in metals:
+            if 'A' in bond_types and element_symbol not in (
+                    'O', 'H') and element_symbol not in metals:
                 ty = element_symbol + '_' + 'R'
                 hyb = 'resonant'
             else:
@@ -208,7 +220,8 @@ class UFF4MOF(force_field):
                         elif len(nbors) == 2 and 'A' not in bond_types and 'D' not in bond_types and not any(i in metals for i in nbor_symbols):
                             ty = 'O_3'
                             hyb = 'sp3'
-                        # coordinated solvent, same parameters as O_3, but different name to modulate bond orders
+                        # coordinated solvent, same parameters as O_3, but
+                        # different name to modulate bond orders
                         elif len(nbors) in (2, 3) and len([i for i in nbor_symbols if i in metals]) == 1 and 'H' in nbor_symbols:
                             ty = 'O_3_M'
                             hyb = 'sp3'
@@ -220,7 +233,9 @@ class UFF4MOF(force_field):
                         elif len(nbors) == 2 and 'D' in bond_types and not any(i in metals for i in nbor_symbols):
                             ty = 'O_2'
                             hyb = 'sp2'
-                        # carboxylate oxygen bound to metal node, same parameters as O_2, but different name to modulate bond orders
+                        # carboxylate oxygen bound to metal node, same
+                        # parameters as O_2, but different name to modulate
+                        # bond orders
                         elif len(nbors) == 2 and any(i in metals for i in nbor_symbols) and 'C' in nbor_symbols:
                             ty = 'O_2_M'
                             hyb = 'sp2'
@@ -234,10 +249,13 @@ class UFF4MOF(force_field):
                         # 3 connected oxygens bonded to metals
                         elif len(nbors) == 3 and len([i for i in nbor_symbols if i in metals]) > 1:
                             # trigonal geometry
-                            if dist_triangle < dist_tetrahedral and not any(i in ['Zr', 'Eu', 'Tb', 'U'] for i in nbor_symbols):
+                            if dist_triangle < dist_tetrahedral and not any(
+                                    i in ['Zr', 'Eu', 'Tb', 'U'] for i in nbor_symbols):
                                 ty = 'O_2_z'
                                 hyb = 'sp2'
-                            # sometimes oxygens in Zr6 and analagous nodes can have near trigonal geometry, still want O_3_f, however
+                            # sometimes oxygens in Zr6 and analagous nodes can
+                            # have near trigonal geometry, still want O_3_f,
+                            # however
                             elif dist_triangle < dist_tetrahedral and any(i in ['Zr', 'Eu', 'Tb', 'U'] for i in nbor_symbols):
                                 ty = 'O_3_f'
                                 hyb = 'sp2'
@@ -299,60 +317,90 @@ class UFF4MOF(force_field):
 
                     # 2 connected, linear
                     if len(nbors) == 2 and dist_linear < 60.0:
-                        options = ('1f1', '4f2', '4+2', '6f3', '6+3', '6+2', '6+4')
-                        ty = typing_loop(options, add_symbol, UFF4MOF_atom_parameters)
+                        options = (
+                            '1f1', '4f2', '4+2', '6f3', '6+3', '6+2', '6+4')
+                        ty = typing_loop(
+                            options, add_symbol, UFF4MOF_atom_parameters)
 
                     # incomplete square planar
                     elif len(nbors) == 3 and dist_square < min(dist_tetrahedral, dist_triangle):
                         options = ('4f2', '4+2')
-                        ty = typing_loop(options, add_symbol, UFF4MOF_atom_parameters)
+                        ty = typing_loop(
+                            options, add_symbol, UFF4MOF_atom_parameters)
 
                     # incomplete tetrahedron
                     elif len(nbors) == 3 and dist_tetrahedral < min(dist_square, dist_triangle):
                         options = ('3f2', '3+2')
-                        ty = typing_loop(options, add_symbol, UFF4MOF_atom_parameters)
+                        ty = typing_loop(
+                            options, add_symbol, UFF4MOF_atom_parameters)
 
                     # trigonal, only Cu, Zn, Ag
                     elif len(nbors) == 3 and dist_triangle < min(dist_square, dist_tetrahedral):
                         options = ['2f2']
-                        ty = typing_loop(options, add_symbol, UFF4MOF_atom_parameters)
+                        ty = typing_loop(
+                            options, add_symbol, UFF4MOF_atom_parameters)
 
                     # 4 connected, square planar
                     elif len(nbors) == 4 and dist_square < dist_tetrahedral:
                         options = ('4f2', '4+2', '6f3', '6+3', '6+2', '6+4')
-                        ty = typing_loop(options, add_symbol, UFF4MOF_atom_parameters)
+                        ty = typing_loop(
+                            options, add_symbol, UFF4MOF_atom_parameters)
 
-                    # 4 connected, tetrahedral 3+3 does not apply for As, Sb, Tl, Bi
+                    # 4 connected, tetrahedral 3+3 does not apply for As, Sb,
+                    # Tl, Bi
                     elif len(nbors) == 4 and (dist_tetrahedral < dist_square):
-                        options = ('3f2', '3f4', '3+1', '3+2', '3+3', '3+4', '3+5', '3+6')
-                        ty = typing_loop(options, add_symbol, UFF4MOF_atom_parameters)
+                        options = ('3f2', '3f4', '3+1', '3+2',
+                                   '3+3', '3+4', '3+5', '3+6')
+                        ty = typing_loop(
+                            options, add_symbol, UFF4MOF_atom_parameters)
 
-                    # paddlewheels, 5 neighbors if bare, 6 neighbors if pillared, one should be another metal
+                    # paddlewheels, 5 neighbors if bare, 6 neighbors if
+                    # pillared, one should be another metal
                     elif len(nbors) in (5, 6) and any(i in metals for i in nbor_symbols):
                         if (dist_square < dist_tetrahedral):
-                            options = ('4f2', '4+2', '6f3', '6+3', '6+2', '6+4')
-                            ty = typing_loop(options, add_symbol, UFF4MOF_atom_parameters)
+                            options = (
+                                '4f2', '4+2', '6f3', '6+3', '6+2', '6+4')
+                            ty = typing_loop(
+                                options, add_symbol, UFF4MOF_atom_parameters)
                         else:
-                            options = ('4f2', '4+2', '6f3', '6+3', '6+2', '6+4')
-                            ty = typing_loop(options, add_symbol, UFF4MOF_atom_parameters)
-                            message = 'There is a ' + element_symbol + ' that has a near tetrahedral angle typed as ' + ty + '\n'
-                            message += 'The neighbors are ' + ' '.join(nbor_symbols)
+                            options = (
+                                '4f2', '4+2', '6f3', '6+3', '6+2', '6+4')
+                            ty = typing_loop(
+                                options, add_symbol, UFF4MOF_atom_parameters)
+                            message = 'There is a ' + element_symbol + \
+                                ' that has a near tetrahedral angle typed as ' + ty + '\n'
+                            message += 'The neighbors are ' + \
+                                ' '.join(nbor_symbols)
                             warnings.warn(message)
 
-                    # M3O(CO2H)6 metals, e.g. MIL-100, paddlewheel options are secondary, followed by 8f4 (should give nearly correct geometry)
+                    # M3O(CO2H)6 metals, e.g. MIL-100, paddlewheel options are
+                    # secondary, followed by 8f4 (should give nearly correct
+                    # geometry)
                     elif len(nbors) in (5, 6) and not any(i in metals for i in nbor_symbols) and (dist_square < dist_tetrahedral):
                         options = ('6f3', '6+2', '6+3', '6+4', '4f2', '4+2')
-                        ty = typing_loop(options, add_symbol, UFF4MOF_atom_parameters)
+                        ty = typing_loop(
+                            options, add_symbol, UFF4MOF_atom_parameters)
 
                     # 5,6 connected, with near-tetrahedral angles
                     elif len(nbors) in (5, 6) and not any(i in metals for i in nbor_symbols) and (dist_tetrahedral < dist_square):
-                        options = ('8f4', '3f2', '3f4', '3+1', '3+2', '3+3', '3+4', '3+5', '3+6')
-                        ty = typing_loop(options, add_symbol, UFF4MOF_atom_parameters)
+                        options = (
+                            '8f4',
+                            '3f2',
+                            '3f4',
+                            '3+1',
+                            '3+2',
+                            '3+3',
+                            '3+4',
+                            '3+5',
+                            '3+6')
+                        ty = typing_loop(
+                            options, add_symbol, UFF4MOF_atom_parameters)
 
                     # highly connected metals (max of 12 neighbors)
                     elif 7 <= len(nbors) <= 14:
                         options = ['8f4']
-                        ty = typing_loop(options, add_symbol, UFF4MOF_atom_parameters)
+                        ty = typing_loop(
+                            options, add_symbol, UFF4MOF_atom_parameters)
 
                 # only one type for Bi
                 elif element_symbol in ('As', 'Bi', 'Tl', 'Sb'):
@@ -379,14 +427,23 @@ class UFF4MOF(force_field):
             SG.nodes[name]['hybridization'] = hyb
 
             if ty is None:
-                raise ValueError('No UFF4MOF type identified for atom ' + element_symbol + ' with neighbors ' + ' '.join(nbor_symbols))
+                raise ValueError(
+                    'No UFF4MOF type identified for atom ' +
+                    element_symbol +
+                    ' with neighbors ' +
+                    ' '.join(nbor_symbols))
             elif ty == 'C_R' and len(nbor_symbols) > 3:
-                raise ValueError('Too many neighbors for aromatic carbon ' + element_symbol + ' with neighbors ' + ' '.join(nbor_symbols))
+                raise ValueError(
+                    'Too many neighbors for aromatic carbon ' +
+                    element_symbol +
+                    ' with neighbors ' +
+                    ' '.join(nbor_symbols))
 
         types = set(types)
         types = sorted(types, key=lambda x: x[0])
         Ntypes = len(types)
-        atom_types = dict((ty[0], i + 1) for i, ty in zip(range(Ntypes), types))
+        atom_types = dict((ty[0], i + 1)
+                          for i, ty in zip(range(Ntypes), types))
         atom_element_symbols = dict((ty[0], ty[1]) for ty in types)
         atom_masses = dict((ty[0], ty[2]) for ty in types)
 
@@ -412,7 +469,8 @@ class UFF4MOF(force_field):
         # bond-order correction
         rbo = -0.1332 * (r0_i + r0_j) * np.log(bond_order)
         # electronegativity correction
-        ren = r0_i * r0_j * (((np.sqrt(X_i) - np.sqrt(X_j))**2)) / (X_i * r0_i + X_j * r0_j)
+        ren = r0_i * r0_j * (((np.sqrt(X_i) - np.sqrt(X_j))**2)
+                             ) / (X_i * r0_i + X_j * r0_j)
         # equilibrium distance
         r_ij = r0_i + r0_j + rbo - ren
         r_ij3 = r_ij * r_ij * r_ij
@@ -458,7 +516,8 @@ class UFF4MOF(force_field):
 
         r_ik = np.sqrt(r_ij**2.0 + r_jk**2.0 - 2.0 * r_ij * r_jk * cosT0)
         # force constant
-        K = ((664.12 * Z1_i * Z1_k) / (r_ik**5.0)) * (3.0 * r_ij * r_jk * (1.0 - cosT0**2.0) - r_ik**2.0 * cosT0)
+        K = ((664.12 * Z1_i * Z1_k) / (r_ik**5.0)) * \
+            (3.0 * r_ij * r_jk * (1.0 - cosT0**2.0) - r_ik**2.0 * cosT0)
 
         # general non-linear
         if theta0_j not in (90.0, 120.0, 180.0):
@@ -473,7 +532,8 @@ class UFF4MOF(force_field):
         # the 1/2 scaling is needed to correct the LAMMPS angle energy calculation
         # angle energy for angle_style cosine/periodic is multiplied by 2 in LAMMPS for some reason
         # see https://github.com/lammps/lammps/blob/master/src/MOLECULE/angle_cosine_periodic.cpp, line 140
-        # the 1/2 factor for the UFF fourier angles should be included here as it is not included in LAMMPS
+        # the 1/2 factor for the UFF fourier angles should be included here as
+        # it is not included in LAMMPS
         K *= 0.5
 
         return (angle_style, K, b, n)
@@ -600,7 +660,11 @@ class UFF4MOF(force_field):
             params[ID] = (style, D_i, x_i)
             comments[ID] = [a, a]
 
-        self.pair_data = {'params': params, 'style': style, 'special_bonds': sb, 'comments': comments}
+        self.pair_data = {
+            'params': params,
+            'style': style,
+            'special_bonds': sb,
+            'comments': comments}
 
     def enumerate_bonds(self):
 
@@ -617,7 +681,8 @@ class UFF4MOF(force_field):
             esi = SG.nodes[i]['element_symbol']
             esj = SG.nodes[j]['element_symbol']
 
-            # look for the bond order, otherwise use the convention based on the bond type
+            # look for the bond order, otherwise use the convention based on
+            # the bond type
             try:
                 bond_order = bond_order_dict[(fft_i, fft_j)]
             except KeyError:
@@ -625,7 +690,13 @@ class UFF4MOF(force_field):
                     bond_order = bond_order_dict[(fft_j, fft_i)]
                 except KeyError:
                     # half for metal-nonmetal
-                    if any(a in metals for a in (esi, esj)) and not all(a in metals for a in (esi, esj)):
+                    if any(
+                        a in metals for a in (
+                            esi,
+                            esj)) and not all(
+                        a in metals for a in (
+                            esi,
+                            esj)):
                         bond_order = 0.5
                     # quarter for metal-metal
                     elif all(a in metals for a in (esi, esj)):
@@ -669,7 +740,14 @@ class UFF4MOF(force_field):
         else:
             style = 'hybrid ' + ' '.join(styles)
 
-        self.bond_data = {'all_bonds': all_bonds, 'params': bond_params, 'style': style, 'count': (count, len(all_bonds)), 'comments': bond_comments}
+        self.bond_data = {
+            'all_bonds': all_bonds,
+            'params': bond_params,
+            'style': style,
+            'count': (
+                count,
+                len(all_bonds)),
+            'comments': bond_comments}
 
     def enumerate_angles(self):
 
@@ -751,7 +829,14 @@ class UFF4MOF(force_field):
         else:
             style = 'hybrid ' + ' '.join(styles)
 
-        self.angle_data = {'all_angles': all_angles, 'params': angle_params, 'style': style, 'count': (count, len(all_angles)), 'comments': angle_comments}
+        self.angle_data = {
+            'all_angles': all_angles,
+            'params': angle_params,
+            'style': style,
+            'count': (
+                count,
+                len(all_angles)),
+            'comments': angle_comments}
 
     def enumerate_dihedrals(self):
 
@@ -783,8 +868,10 @@ class UFF4MOF(force_field):
             element_symbols = (els_j, els_k)
 
             # here I calculate  parameters for each dihedral (I know) but I prefer identifying
-            # those dihedrals before passing to the final dihedral data construction.
-            params = self.dihedral_parameters(bond, hybridization, element_symbols, nodes)
+            # those dihedrals before passing to the final dihedral data
+            # construction.
+            params = self.dihedral_parameters(
+                bond, hybridization, element_symbols, nodes)
 
             if params != 'NA':
                 try:
@@ -805,11 +892,18 @@ class UFF4MOF(force_field):
             params = dihedral_params[d]
             all_dihedrals[ID] = dihedrals[d]
             indexed_dihedral_params[ID] = list(dihedral_params[d])
-            dihedral_comments[ID] = list(dihedral) + ['bond order=' + str(d[2])]
+            dihedral_comments[ID] = list(
+                dihedral) + ['bond order=' + str(d[2])]
             count += len(dihedrals[d])
 
-        self.dihedral_data = {'all_dihedrals': all_dihedrals, 'params': indexed_dihedral_params,
-                              'style': 'harmonic', 'count': (count, len(all_dihedrals)), 'comments': dihedral_comments}
+        self.dihedral_data = {
+            'all_dihedrals': all_dihedrals,
+            'params': indexed_dihedral_params,
+            'style': 'harmonic',
+            'count': (
+                count,
+                len(all_dihedrals)),
+            'comments': dihedral_comments}
 
     def enumerate_impropers(self):
 
@@ -824,7 +918,8 @@ class UFF4MOF(force_field):
             if len(nbors) == 3:
 
                 fft_i = data['force_field_type']
-                fft_nbors = tuple(sorted([SG.nodes[m]['force_field_type'] for m in nbors]))
+                fft_nbors = tuple(
+                    sorted([SG.nodes[m]['force_field_type'] for m in nbors]))
                 O_2_flag = False
                 # force constant is much larger if j,k, or l is O_2
                 if 'O_2' in fft_nbors or 'O_2_M' in fft_nbors:
@@ -853,12 +948,19 @@ class UFF4MOF(force_field):
             if params is not None:
                 ID += 1
                 improper_params[ID] = list(params)
-                improper_comments[ID] = [i[0], 'X', 'X', 'X', 'O_2 present=' + str(O_2_flag)]
+                improper_comments[ID] = [
+                    i[0], 'X', 'X', 'X', 'O_2 present=' + str(O_2_flag)]
                 all_impropers[ID] = impropers[i]
                 count += len(impropers[i])
 
-        self.improper_data = {'all_impropers': all_impropers, 'params': improper_params,
-                              'style': 'fourier', 'count': (count, len(all_impropers)), 'comments': improper_comments}
+        self.improper_data = {
+            'all_impropers': all_impropers,
+            'params': improper_params,
+            'style': 'fourier',
+            'count': (
+                count,
+                len(all_impropers)),
+            'comments': improper_comments}
 
     def compile_force_field(self, charges=False):
 

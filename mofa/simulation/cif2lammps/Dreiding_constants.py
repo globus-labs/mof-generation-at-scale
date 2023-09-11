@@ -21,7 +21,8 @@ Dreiding_atom_parameters = {
     "Si3": (0.937, 109.471, 4.27, 0.31, 0.0, 12.0),
     "P_3": (0.890, 93.3, 4.15, 0.32, 0.0, 12.0),
     "S_3": (1.040, 92.1, 4.03, 0.344, 0.0, 12.0),
-    "S_R": (1.040, 92.1, 4.03, 0.344, 0.0, 12.0),  # same as S_3, but R is more useful
+    # same as S_3, but R is more useful
+    "S_R": (1.040, 92.1, 4.03, 0.344, 0.0, 12.0),
     "Cl_": (0.997, 180.0, 3.9503, 0.2833, 0.0, 13.861),
     "Ga3": (1.210, 109.471, 4.39, 0.4, 0.0, 12.0),
     "Ge3": (1.210, 109.471, 4.27, 0.4, 0.0, 12.0),
@@ -37,9 +38,12 @@ Dreiding_atom_parameters = {
     "Ca": (1.940, 90.0, 3.472, 0.05, 0.0, 12.0),
     "Fe": (1.285, 90.0, 4.54, 0.055, 0.0, 12.0),
     "Zn": (1.330, 109.471, 4.54, 0.055, 0.0, 12.0),
-    "Cu": (1.302, 90.0, 4.54, 0.055, 0.0, 12.0),  # R1 taken from UFF, the rest are just a copy of DREIDING Zn
-    "Zr": (1.564, 109.471, 4.54, 0.055, 0.0, 12.0),  # R1 taken from UFF, the rest are just a copy of DREIDING Zn
-    "Cr": (1.345, 90.0, 4.54, 0.055, 0.0, 12.0),  # R1 taken from UFF, the rest are just a copy of DREIDING Zn
+    # R1 taken from UFF, the rest are just a copy of DREIDING Zn
+    "Cu": (1.302, 90.0, 4.54, 0.055, 0.0, 12.0),
+    # R1 taken from UFF, the rest are just a copy of DREIDING Zn
+    "Zr": (1.564, 109.471, 4.54, 0.055, 0.0, 12.0),
+    # R1 taken from UFF, the rest are just a copy of DREIDING Zn
+    "Cr": (1.345, 90.0, 4.54, 0.055, 0.0, 12.0),
     # added for easier IDs
     "O_2_M": (0.560, 120.0, 3.4046, 0.0957, 0.0, 13.483),
     "O_3_M": (0.660, 104.51, 3.4046, 0.0957, 0.0, 13.483)

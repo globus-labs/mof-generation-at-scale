@@ -230,8 +230,10 @@ UFF4MOF_atom_parameters = {
     "No6+3": (1.679, 90.0000, 3.248, 0.011, 12.0, 3.8882, 0.000, 3.4750),
     "Lr6+3": (1.698, 90.0000, 3.236, 0.011, 12.0, 3.8882, 0.000, 3.5000),
     # # Special O-types for using alternate bond orders
-    "O_2_M": (0.634, 120.00, 3.500, 0.060, 14.085, 2.3000, 2.000, 8.7410),  # carboxyllic oxygen bonded to metal
-    "O_3_M": (0.658, 104.51, 3.500, 0.060, 14.085, 2.3000, 0.018, 8.7410)  # this should be used for O in coordinated solvent
+    # carboxyllic oxygen bonded to metal
+    "O_2_M": (0.634, 120.00, 3.500, 0.060, 14.085, 2.3000, 2.000, 8.7410),
+    # this should be used for O in coordinated solvent
+    "O_3_M": (0.658, 104.51, 3.500, 0.060, 14.085, 2.3000, 0.018, 8.7410)
 }
 
 # all M-M bonds have order 0.25 unless otherwise specified by UFF4MOF

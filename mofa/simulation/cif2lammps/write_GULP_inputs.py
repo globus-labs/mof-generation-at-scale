@@ -1,5 +1,6 @@
 from __future__ import print_function
-from .cif2system import initialize_system, replication_determination  # , duplicate_system, write_cif_from_system
+# , duplicate_system, write_cif_from_system
+from .cif2system import initialize_system, replication_determination
 from . import atomic_data
 import os
 import numpy as np
@@ -49,14 +50,23 @@ mass_key = atomic_data.mass_key
 
 def GULP_inputs(args):
 
-    gulp_bond_types = {0.25: 'quarter', 0.5: 'half', 1.0: '', 1.5: 'resonant', 2.0: '', 3.0: ''}
+    gulp_bond_types = {
+        0.25: 'quarter',
+        0.5: 'half',
+        1.0: '',
+        1.5: 'resonant',
+        2.0: '',
+        3.0: ''}
 
     cifname, force_field, outdir, charges, replication, noautobond = args
-    FF_args = {'FF_parameters': UFF4MOF_atom_parameters, 'bond_orders': UFF4MOF_bond_orders_0}
+    FF_args = {
+        'FF_parameters': UFF4MOF_atom_parameters,
+        'bond_orders': UFF4MOF_bond_orders_0}
     cutoff = 12.5
 
     system = initialize_system(cifname, charges=charges)
-    system, replication = replication_determination(system, replication, cutoff)
+    system, replication = replication_determination(
+        system, replication, cutoff)
     FF = force_field(system, cutoff, FF_args)
     FF.compile_force_field(charges=charges)
 
@@ -96,7 +106,8 @@ def GULP_inputs(args):
             gin.write('\n')
         gin.write('\n')
 
-        bonds = [(b, ty) for ty in FF.bond_data['all_bonds'] for b in FF.bond_data['all_bonds'][ty]]
+        bonds = [(b, ty) for ty in FF.bond_data['all_bonds']
+                 for b in FF.bond_data['all_bonds'][ty]]
         bonds.sort(key=lambda x: x[0][0])
 
         if noautobond:

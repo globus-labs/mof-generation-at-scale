@@ -28,7 +28,10 @@ class UFF(force_field):
             element_symbol = inf['element_symbol']
             nbors = list(SG.neighbors(name))
             nbor_symbols = [SG.nodes[n]['element_symbol'] for n in nbors]
-            bond_types = [SG.get_edge_data(name, n)['bond_type'] for n in nbors]
+            bond_types = [
+                SG.get_edge_data(
+                    name,
+                    n)['bond_type'] for n in nbors]
             mass = mass_key[element_symbol]
 
             # Atom typing for UFF, this can be made much more robust with pattern matching,
@@ -89,7 +92,10 @@ class UFF(force_field):
                             ty = 'O_3_M'
                             hyb = 'sp2'
                         else:
-                            raise ValueError('Oxygen with neighbors ' + ' '.join(nbor_symbols) + ' is not parametrized')
+                            raise ValueError(
+                                'Oxygen with neighbors ' +
+                                ' '.join(nbor_symbols) +
+                                ' is not parametrized')
                     # sulfur case is simple
                     elif element_symbol == 'S':
                         ty = 'S_' + str(len(nbors) + 1)
@@ -103,8 +109,10 @@ class UFF(force_field):
                     hyb = 'sp1'
                 # Metals
                 elif element_symbol in metals:
-                    # Cu paddlewheel, just changed equilibrium angle of Cu3+1 to 90.0
-                    if len(nbors) == 5 and element_symbol == 'Cu' and any(i in metals for i in nbor_symbols):
+                    # Cu paddlewheel, just changed equilibrium angle of Cu3+1
+                    # to 90.0
+                    if len(nbors) == 5 and element_symbol == 'Cu' and any(
+                            i in metals for i in nbor_symbols):
                         ty = element_symbol + '4+1'
                         hyb = 'NA'
                     # M3O(CO2H)6 metals, e.g. MIL-100
@@ -123,7 +131,11 @@ class UFF(force_field):
                         hyb = 'NA'
                 # if no type can be identified
                 else:
-                    raise ValueError('No UFF type identified for ' + element_symbol + 'with neighbors ' + ' '.join(nbor_symbols))
+                    raise ValueError(
+                        'No UFF type identified for ' +
+                        element_symbol +
+                        'with neighbors ' +
+                        ' '.join(nbor_symbols))
 
             types.append((ty, element_symbol, mass))
             SG.nodes[name]['force_field_type'] = ty
@@ -131,7 +143,8 @@ class UFF(force_field):
 
         types = set(types)
         Ntypes = len(types)
-        atom_types = dict((ty[0], i + 1) for i, ty in zip(range(Ntypes), types))
+        atom_types = dict((ty[0], i + 1)
+                          for i, ty in zip(range(Ntypes), types))
         atom_element_symbols = dict((ty[0], ty[1]) for ty in types)
         atom_masses = dict((ty[0], ty[2]) for ty in types)
 
@@ -155,7 +168,8 @@ class UFF(force_field):
         # bond-order correction
         rbo = -0.1332 * (r0_i + r0_j) * np.log(bond_order)
         # electronegativity correction
-        ren = r0_i * r0_j * (((np.sqrt(X_i) - np.sqrt(X_j))**2)) / (X_i * r0_i + X_j * r0_j)
+        ren = r0_i * r0_j * (((np.sqrt(X_i) - np.sqrt(X_j))**2)
+                             ) / (X_i * r0_i + X_j * r0_j)
         # equilibrium distance
         r_ij = r0_i + r0_j + rbo - ren
         r_ij3 = r_ij * r_ij * r_ij
@@ -201,7 +215,8 @@ class UFF(force_field):
 
         r_ik = np.sqrt(r_ij**2.0 + r_jk**2.0 - 2.0 * r_ij * r_jk * cosT0)
         # force constant
-        K = ((664.12 * Z1_i * Z1_k) / (r_ik**5.0)) * (3.0 * r_ij * r_jk * (1.0 - cosT0**2.0) - r_ik**2.0 * cosT0)
+        K = ((664.12 * Z1_i * Z1_k) / (r_ik**5.0)) * \
+            (3.0 * r_ij * r_jk * (1.0 - cosT0**2.0) - r_ik**2.0 * cosT0)
 
         # general non-linear
         if theta0_j not in (90.0, 120.0, 180.0):
@@ -342,7 +357,12 @@ class UFF(force_field):
             params[ID] = (style, D_i, x_i)
             comments[ID] = [a, a]
 
-        self.pair_data = {'params': params, 'style': style, 'special_bonds': sb, 'comments': comments, 'cutoff': cutoff}
+        self.pair_data = {
+            'params': params,
+            'style': style,
+            'special_bonds': sb,
+            'comments': comments,
+            'cutoff': cutoff}
 
     def enumerate_bonds(self):
 
@@ -357,7 +377,8 @@ class UFF(force_field):
             fft_j = SG.nodes[j]['force_field_type']
             bond_type = data['bond_type']
 
-            # look for the bond order, otherwise use the convention based on the bond type
+            # look for the bond order, otherwise use the convention based on
+            # the bond type
             try:
                 bond_order = bond_order_dict[(fft_i, fft_j)]
             except KeyError:
@@ -393,7 +414,14 @@ class UFF(force_field):
             all_bonds[ID] = bonds[b]
             count += len(bonds[b])
 
-        self.bond_data = {'all_bonds': all_bonds, 'params': bond_params, 'style': 'harmonic', 'count': (count, len(all_bonds)), 'comments': bond_comments}
+        self.bond_data = {
+            'all_bonds': all_bonds,
+            'params': bond_params,
+            'style': 'harmonic',
+            'count': (
+                count,
+                len(all_bonds)),
+            'comments': bond_comments}
 
     def enumerate_angles(self):
 
@@ -417,9 +445,21 @@ class UFF(force_field):
                 fft_j = SG.nodes[j]['force_field_type']
                 fft_k = SG.nodes[k]['force_field_type']
 
-                octa_metals = ('Al6+3', 'Sc6+3', 'Ti4+2', 'V_4+2', 'V_6+3', 'Cr4+2',
-                               'Cr6f3', 'Mn6+3', 'Mn4+2', 'Fe6+3', 'Fe4+2', 'Co4+2',
-                               'Cu4+2', 'Zn4+2')
+                octa_metals = (
+                    'Al6+3',
+                    'Sc6+3',
+                    'Ti4+2',
+                    'V_4+2',
+                    'V_6+3',
+                    'Cr4+2',
+                    'Cr6f3',
+                    'Mn6+3',
+                    'Mn4+2',
+                    'Fe6+3',
+                    'Fe4+2',
+                    'Co4+2',
+                    'Cu4+2',
+                    'Zn4+2')
 
                 if fft_j in octa_metals:
                     i_coord = SG.nodes[i]['cartesian_position']
@@ -427,7 +467,8 @@ class UFF(force_field):
                     k_coord = SG.nodes[k]['cartesian_position']
                     ij = i_coord - j_coord
                     jk = j_coord - k_coord
-                    cosine_angle = np.dot(ij, jk) / (np.linalg.norm(ij) * np.linalg.norm(jk))
+                    cosine_angle = np.dot(
+                        ij, jk) / (np.linalg.norm(ij) * np.linalg.norm(jk))
                     angle = (180.0 / np.pi) * np.arccos(cosine_angle)
 
                 sort_ik = sorted([(fft_i, i), (fft_k, k)], key=lambda x: x[0])
@@ -482,7 +523,14 @@ class UFF(force_field):
         else:
             style = 'hybrid ' + ' '.join(styles)
 
-        self.angle_data = {'all_angles': all_angles, 'params': angle_params, 'style': style, 'count': (count, len(all_angles)), 'comments': angle_comments}
+        self.angle_data = {
+            'all_angles': all_angles,
+            'params': angle_params,
+            'style': style,
+            'count': (
+                count,
+                len(all_angles)),
+            'comments': angle_comments}
 
     def enumerate_dihedrals(self):
 
@@ -514,8 +562,10 @@ class UFF(force_field):
             element_symbols = (els_j, els_k)
 
             # here I calculate  parameters for each dihedral (I know) but I prefer identifying
-            # those dihedrals before passing to the final dihedral data construction.
-            params = self.dihedral_parameters(bond, hybridization, element_symbols, nodes)
+            # those dihedrals before passing to the final dihedral data
+            # construction.
+            params = self.dihedral_parameters(
+                bond, hybridization, element_symbols, nodes)
 
             if params != 'NA':
                 try:
@@ -536,11 +586,18 @@ class UFF(force_field):
             params = dihedral_params[d]
             all_dihedrals[ID] = dihedrals[d]
             indexed_dihedral_params[ID] = list(dihedral_params[d])
-            dihedral_comments[ID] = list(dihedral) + ['bond order=' + str(d[2])]
+            dihedral_comments[ID] = list(
+                dihedral) + ['bond order=' + str(d[2])]
             count += len(dihedrals[d])
 
-        self.dihedral_data = {'all_dihedrals': all_dihedrals, 'params': indexed_dihedral_params,
-                              'style': 'harmonic', 'count': (count, len(all_dihedrals)), 'comments': dihedral_comments}
+        self.dihedral_data = {
+            'all_dihedrals': all_dihedrals,
+            'params': indexed_dihedral_params,
+            'style': 'harmonic',
+            'count': (
+                count,
+                len(all_dihedrals)),
+            'comments': dihedral_comments}
 
     def enumerate_impropers(self):
 
@@ -555,7 +612,8 @@ class UFF(force_field):
             if len(nbors) == 3:
 
                 fft_i = data['force_field_type']
-                fft_nbors = tuple(sorted([SG.nodes[m]['force_field_type'] for m in nbors]))
+                fft_nbors = tuple(
+                    sorted([SG.nodes[m]['force_field_type'] for m in nbors]))
                 O_2_flag = False
                 # force constant is much larger if j,k, or l is O_2
                 if 'O_2' in fft_nbors or 'O_2_M' in fft_nbors:
@@ -584,12 +642,19 @@ class UFF(force_field):
             if params is not None:
                 ID += 1
                 improper_params[ID] = list(params)
-                improper_comments[ID] = [i[0], 'X', 'X', 'X', 'O_2 present=' + str(O_2_flag)]
+                improper_comments[ID] = [
+                    i[0], 'X', 'X', 'X', 'O_2 present=' + str(O_2_flag)]
                 all_impropers[ID] = impropers[i]
                 count += len(impropers[i])
 
-        self.improper_data = {'all_impropers': all_impropers, 'params': improper_params,
-                              'style': 'fourier', 'count': (count, len(all_impropers)), 'comments': improper_comments}
+        self.improper_data = {
+            'all_impropers': all_impropers,
+            'params': improper_params,
+            'style': 'fourier',
+            'count': (
+                count,
+                len(all_impropers)),
+            'comments': improper_comments}
 
     def compile_force_field(self, charges=False):
 

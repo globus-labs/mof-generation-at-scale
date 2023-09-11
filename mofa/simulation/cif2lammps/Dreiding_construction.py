@@ -28,7 +28,10 @@ class Dreiding(force_field):
             element_symbol = inf['element_symbol']
             nbors = list(SG.neighbors(name))
             nbor_symbols = [SG.nodes[n]['element_symbol'] for n in nbors]
-            bond_types = [SG.get_edge_data(name, n)['bond_type'] for n in nbors]
+            bond_types = [
+                SG.get_edge_data(
+                    name,
+                    n)['bond_type'] for n in nbors]
             mass = mass_key[element_symbol]
 
             # Atom typing for Dreiding, this can be made much more robust with pattern matching,
@@ -55,7 +58,8 @@ class Dreiding(force_field):
                     # oxygen case is complex with the UFF4MOF oxygen types
                     if element_symbol == 'O':
                         # -OH, for example
-                        if len(nbors) == 2 and 'A' not in bond_types and 'D' not in bond_types and not any(i in metals for i in nbor_symbols):
+                        if len(nbors) == 2 and 'A' not in bond_types and 'D' not in bond_types and not any(
+                                i in metals for i in nbor_symbols):
                             ty = 'O_3'
                             hyb = 'sp3'
                         # furan oxygen, for example
@@ -79,7 +83,10 @@ class Dreiding(force_field):
                             ty = 'O_3_M'
                             hyb = 'sp2'
                         else:
-                            raise ValueError('Oxygen with neighbors ' + ' '.join(nbor_symbols) + ' is not parametrized')
+                            raise ValueError(
+                                'Oxygen with neighbors ' +
+                                ' '.join(nbor_symbols) +
+                                ' is not parametrized')
                     # sulfur case is simple
                     elif element_symbol == 'S':
                         ty = 'S_' + str(len(nbors) + 1)
@@ -94,7 +101,11 @@ class Dreiding(force_field):
                     hyb = 'NA'
                 # if no type can be identified
                 else:
-                    raise ValueError('No Dreiding type identified for ' + element_symbol + 'with neighbors ' + ' '.join(nbor_symbols))
+                    raise ValueError(
+                        'No Dreiding type identified for ' +
+                        element_symbol +
+                        'with neighbors ' +
+                        ' '.join(nbor_symbols))
 
             types.append((ty, element_symbol, mass))
             SG.nodes[name]['force_field_type'] = ty
@@ -102,7 +113,8 @@ class Dreiding(force_field):
 
         types = set(types)
         Ntypes = len(types)
-        atom_types = dict((ty[0], i + 1) for i, ty in zip(range(Ntypes), types))
+        atom_types = dict((ty[0], i + 1)
+                          for i, ty in zip(range(Ntypes), types))
         atom_element_symbols = dict((ty[0], ty[1]) for ty in types)
         atom_masses = dict((ty[0], ty[2]) for ty in types)
 
@@ -196,7 +208,8 @@ class Dreiding(force_field):
             n = 6.0
             V = 1.0
 
-            if (hyb_j == 'sp3' and els_j == 'O') or (hyb_k == 'sp3' and els_k == 'O'):
+            if (hyb_j == 'sp3' and els_j == 'O') or (
+                    hyb_k == 'sp3' and els_k == 'O'):
                 # case (i)
                 phi0 = 180.0
                 n = 2.0
@@ -276,7 +289,12 @@ class Dreiding(force_field):
             params[ID] = (style, eps_i, sig_i)
             comments[ID] = [a, a]
 
-        self.pair_data = {'params': params, 'style': style, 'special_bonds': sb, 'comments': comments, 'cutoff': cutoff}
+        self.pair_data = {
+            'params': params,
+            'style': style,
+            'special_bonds': sb,
+            'comments': comments,
+            'cutoff': cutoff}
 
     def enumerate_bonds(self):
 
@@ -291,7 +309,8 @@ class Dreiding(force_field):
             fft_j = SG.nodes[j]['force_field_type']
             bond_type = data['bond_type']
 
-            # look for the bond order, otherwise use the convention based on the bond type
+            # look for the bond order, otherwise use the convention based on
+            # the bond type
             try:
                 bond_order = bond_order_dict[(fft_i, fft_j)]
             except KeyError:
@@ -327,7 +346,14 @@ class Dreiding(force_field):
             all_bonds[ID] = bonds[b]
             count += len(bonds[b])
 
-        self.bond_data = {'all_bonds': all_bonds, 'params': bond_params, 'style': 'harmonic', 'count': (count, len(all_bonds)), 'comments': bond_comments}
+        self.bond_data = {
+            'all_bonds': all_bonds,
+            'params': bond_params,
+            'style': 'harmonic',
+            'count': (
+                count,
+                len(all_bonds)),
+            'comments': bond_comments}
 
     def enumerate_angles(self):
 
@@ -390,7 +416,14 @@ class Dreiding(force_field):
         else:
             style = 'hybrid ' + ' '.join(styles)
 
-        self.angle_data = {'all_angles': all_angles, 'params': angle_params, 'style': style, 'count': (count, len(all_angles)), 'comments': angle_comments}
+        self.angle_data = {
+            'all_angles': all_angles,
+            'params': angle_params,
+            'style': style,
+            'count': (
+                count,
+                len(all_angles)),
+            'comments': angle_comments}
 
     def enumerate_dihedrals(self):
 
@@ -422,8 +455,10 @@ class Dreiding(force_field):
             element_symbols = (els_j, els_k)
 
             # here I calculate  parameters for each dihedral (I know) but I prefer identifying
-            # those dihedrals before passing to the final dihedral data construction.
-            params = self.dihedral_parameters(bond, hybridization, element_symbols, nodes)
+            # those dihedrals before passing to the final dihedral data
+            # construction.
+            params = self.dihedral_parameters(
+                bond, hybridization, element_symbols, nodes)
 
             if params != 'NA':
                 try:
@@ -444,11 +479,18 @@ class Dreiding(force_field):
             params = dihedral_params[d]
             all_dihedrals[ID] = dihedrals[d]
             indexed_dihedral_params[ID] = list(dihedral_params[d])
-            dihedral_comments[ID] = list(dihedral) + ['bond order=' + str(d[2])]
+            dihedral_comments[ID] = list(
+                dihedral) + ['bond order=' + str(d[2])]
             count += len(dihedrals[d])
 
-        self.dihedral_data = {'all_dihedrals': all_dihedrals, 'params': indexed_dihedral_params,
-                              'style': 'charmm', 'count': (count, len(all_dihedrals)), 'comments': dihedral_comments}
+        self.dihedral_data = {
+            'all_dihedrals': all_dihedrals,
+            'params': indexed_dihedral_params,
+            'style': 'charmm',
+            'count': (
+                count,
+                len(all_dihedrals)),
+            'comments': dihedral_comments}
 
     def enumerate_impropers(self):
 
@@ -491,8 +533,14 @@ class Dreiding(force_field):
                 all_impropers[ID] = impropers[i]
                 count += len(impropers[i])
 
-        self.improper_data = {'all_impropers': all_impropers, 'params': improper_params,
-                              'style': 'umbrella', 'count': (count, len(all_impropers)), 'comments': improper_comments}
+        self.improper_data = {
+            'all_impropers': all_impropers,
+            'params': improper_params,
+            'style': 'umbrella',
+            'count': (
+                count,
+                len(all_impropers)),
+            'comments': improper_comments}
 
     def compile_force_field(self, charges):
 

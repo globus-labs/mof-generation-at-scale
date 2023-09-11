@@ -24,7 +24,8 @@ def water(last_atom_ID, last_bond_ID, last_angle_ID, model='TIP4P_cutoff'):
     }
 
     LJ_dict = {
-        # LAMMPS has a special TIP4P pair_style that automatically adds the M site
+        # LAMMPS has a special TIP4P pair_style that automatically adds the M
+        # site
         'TIP4P_cutoff': {ID_O: ('lj/cut/tip4p/cut', 0.15500, 3.15360),
                          ID_H: ('lj/cut/tip4p/cut', 0.0, 0.0),
                          'style': 'lj/cut/tip4p/cut',
@@ -72,7 +73,8 @@ def water(last_atom_ID, last_bond_ID, last_angle_ID, model='TIP4P_cutoff'):
 
     if 'TIP4P' in model:
 
-        molfile = dedent("""  # Water molecule. useable for TIP3P or TIP4P in LAMMPS.
+        molfile = dedent(
+            """  # Water molecule. useable for TIP3P or TIP4P in LAMMPS.
 
 3 atoms
 2 bonds
@@ -121,11 +123,13 @@ Shake Bond Types
 
 1 {BT} {BT} {AT}
 2 {BT} {BT} {AT}
-3 {BT} {BT} {AT}""".format(**locals())).strip()
+3 {BT} {BT} {AT}""".format(
+                **locals())).strip()
 
     if 'TIP3P' in model:
 
-        molfile = dedent("""  # Water molecule. useable for TIP3P or TIP4P in LAMMPS.
+        molfile = dedent(
+            """  # Water molecule. useable for TIP3P or TIP4P in LAMMPS.
 
 3 atoms
 2 bonds
@@ -156,11 +160,13 @@ Bonds
 
 Angles
 
-1    {AT} 2 1 3""".format(**locals())).strip()
+1    {AT} 2 1 3""".format(
+                **locals())).strip()
 
     mass_dict = {ID_O: 15.9994, ID_H: 1.00794}
     molnames = ('H2O_mol', 'H2O.txt')
 
     extra_types = (2, 1, 1, None, None)
 
-    return molfile, LJ_params, bond_params, angle_params, molnames, mass_dict, M_site_dist_dict[model], extra_types
+    return molfile, LJ_params, bond_params, angle_params, molnames, mass_dict, M_site_dist_dict[
+        model], extra_types

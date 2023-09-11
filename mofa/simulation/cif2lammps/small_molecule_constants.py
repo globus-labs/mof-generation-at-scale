@@ -1,8 +1,10 @@
 TraPPE = {
     'O2': {
         'pair': {'style': 'lj/cut/coul/long', 'vdW': {'O_O2': (0.0974, 3.02), 'O_com': (0.0, 0.0)}, 'charges': {'O_O2': -0.113, 'O_com': 0.226}},
-        'bonds': {('O_O2', 'O_com'): ('harmonic', 100.0, 0.604)},  # molecule should be kept rigid, force constants don't matter
-        'angles': {('O_O2', 'O_com', 'O_O2'): ('harmonic', 100.0, 180.0)},  # molecule should be kept rigid, force constants don't matter
+        # molecule should be kept rigid, force constants don't matter
+        'bonds': {('O_O2', 'O_com'): ('harmonic', 100.0, 0.604)},
+        # molecule should be kept rigid, force constants don't matter
+        'angles': {('O_O2', 'O_com', 'O_O2'): ('harmonic', 100.0, 180.0)},
         'dihedrals': None,
         'impropers': None
     },
@@ -79,10 +81,15 @@ TIP4P_cutoff = {
 
 Ions = {
     'Cl1': {
-        'pair': {'style': 'lj/cut/coul/long', 'vdW': {'Cl_Cl1': (0.22700, 3.51638)}, 'charges': {'Cl_Cl1': -1.0}},
+        'pair': {
+            'style': 'lj/cut/coul/long',
+            'vdW': {
+                'Cl_Cl1': (
+                    0.22700,
+                    3.51638)},
+            'charges': {
+                'Cl_Cl1': -1.0}},
         'bonds': None,
         'angles': None,
         'dihedrals': None,
-        'impropers': None
-    }
-}
+        'impropers': None}}

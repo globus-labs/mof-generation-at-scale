@@ -34,14 +34,19 @@ class MZHB(force_field):
             elif element_symbol == 'O':
                 ty = 'O'
             else:
-                raise ValueError('No Nicholas type identified for ' + element_symbol + 'with neighbors ' + ' '.join(nbor_symbols))
+                raise ValueError(
+                    'No Nicholas type identified for ' +
+                    element_symbol +
+                    'with neighbors ' +
+                    ' '.join(nbor_symbols))
 
             types.append((ty, element_symbol, mass))
             SG.nodes[name]['force_field_type'] = ty
 
         types = set(types)
         Ntypes = len(types)
-        atom_types = dict((ty[0], i + 1) for i, ty in zip(range(Ntypes), types))
+        atom_types = dict((ty[0], i + 1)
+                          for i, ty in zip(range(Ntypes), types))
         atom_element_symbols = dict((ty[0], ty[1]) for ty in types)
         atom_masses = dict((ty[0], ty[2]) for ty in types)
 
@@ -80,7 +85,11 @@ class MZHB(force_field):
             else:
                 pass
 
-        self.pair_data = {'params': params, 'style': style, 'special_bonds': sb, 'comments': comments}
+        self.pair_data = {
+            'params': params,
+            'style': style,
+            'special_bonds': sb,
+            'comments': comments}
 
     def bond_parameters(self, bond):
 
@@ -94,7 +103,8 @@ class MZHB(force_field):
             k_ij = 537.31 / 2.0
             r_ij = 1.620
         else:
-            raise ValueError('There is a non Si-O bond, which is not yet parametrized for Nicholas')
+            raise ValueError(
+                'There is a non Si-O bond, which is not yet parametrized for Nicholas')
 
         return ('harmonic', k_ij, r_ij)
 
@@ -165,7 +175,14 @@ class MZHB(force_field):
             all_bonds[ID] = bonds[b]
             count += len(bonds[b])
 
-        self.bond_data = {'all_bonds': all_bonds, 'params': bond_params, 'style': 'harmonic', 'count': (count, len(all_bonds)), 'comments': bond_comments}
+        self.bond_data = {
+            'all_bonds': all_bonds,
+            'params': bond_params,
+            'style': 'harmonic',
+            'count': (
+                count,
+                len(all_bonds)),
+            'comments': bond_comments}
 
     def enumerate_angles(self):
 
@@ -221,7 +238,14 @@ class MZHB(force_field):
         else:
             style = 'hybrid ' + ' '.join(styles)
 
-        self.angle_data = {'all_angles': all_angles, 'params': angle_params, 'style': style, 'count': (count, len(all_angles)), 'comments': angle_comments}
+        self.angle_data = {
+            'all_angles': all_angles,
+            'params': angle_params,
+            'style': style,
+            'count': (
+                count,
+                len(all_angles)),
+            'comments': angle_comments}
 
     def enumerate_dihedrals(self):
 

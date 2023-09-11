@@ -1,6 +1,7 @@
 from textwrap import dedent
 
-# AMBER General Force Field for organic molecules (Version 1.4, March 2010) add. info. at the end
+# AMBER General Force Field for organic molecules (Version 1.4, March
+# 2010) add. info. at the end
 gaff_atom_types = dedent("""
 c  12.01         0.616               Sp2 C carbonyl group
 c1 12.01         0.360               Sp C
@@ -5701,7 +5702,8 @@ n2-ca-ca-n2         1.1          180.          2.           dac guess, 9/94
 na-n2-ca-n2         1.1          180.          2.           dac, 10/94
 """)
 
-# hw  ow  0000.     0000.                                4.  flag for fast water
+# hw  ow  0000.     0000.                                4.  flag for fast
+# water
 
 # MOD4      RE
 gaff_LJ_params = dedent("""
