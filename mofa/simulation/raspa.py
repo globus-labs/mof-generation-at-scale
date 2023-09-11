@@ -1,4 +1,3 @@
-import ase
 import os
 import io
 import re
@@ -152,7 +151,8 @@ C      yes  C  C  0  12.0        0.0      0.0    1.0   1.00   0     0   relative
                 pseudo_atoms_df.at[x, "anisotropic-type"],
                 pseudo_atoms_df.at[x, "tinker-type"]) for x in pseudo_atoms_df.index])
 
-        # pseudo_atoms_str = "#number of pseudo atoms\n" + "%d" % len(pseudo_atoms_df) + "\n" + pseudo_atoms_df.to_string(header=True, index=None, justify="left",
+        # pseudo_atoms_str = "#number of pseudo atoms\n" + "%d" % len(pseudo_atoms_df) + "\n" + \
+        # pseudo_atoms_df.to_string(header=True, index=None, justify="left",
         # col_space=[10, 7, 5, 5, 11, 10, 9, 12, 8, 6, 12, 11, 18, 10])
         with io.open(os.path.join(raspa_path, "pseudo_atoms.def"), "w", newline="\n") as wf:
             wf.write(pseudo_atoms_str)
@@ -557,7 +557,8 @@ _atom_site_charge
             report_frequency: How often to report structures
         Returns:
             raspa_path: a directory with the raspa simulation input files
-            return_code: cif2lammps running status, 0 means success (directory raspa_path will be kept), -1 means failure (directory raspa_path will be destroyed)
+            return_code: cif2lammps running status, 0 means success (directory raspa_path will be kept), 
+                         -1 means failure (directory raspa_path will be destroyed)
         """
         cif_name = os.path.split(cif_path)[-1]
         raspa_path = os.path.join(
@@ -770,14 +771,14 @@ flexible
         #                         stdout=subprocess.PIPE,
         #                         stderr=subprocess.STDOUT)
         # read void fraction:
-        # outdir = os.path.join(sim_dir, "Output")
-        # outdir = os.path.join(outdir, os.listdir(outdir)[0])
-        # outfile = os.path.join(outdir, [x for x in os.listdir(outdir) if "2.2.2" in x][0])
-        # outstr = None
-        # with io.open(outfile, "r", newline="\n") as rf:
-        #     outstr = rf.read()
-        # He_Void_Faction = float(outstr.split("[helium] Average Widom Rosenbluth-weight:")[1].split("+/-")[0])
-        He_Void_Faction = 0.0
+        outdir = os.path.join(sim_dir, "Output")
+        outdir = os.path.join(outdir, os.listdir(outdir)[0])
+        outfile = os.path.join(outdir, [x for x in os.listdir(outdir) if "2.2.2" in x][0])
+        outstr = None
+        with io.open(outfile, "r", newline="\n") as rf:
+            outstr = rf.read()
+        He_Void_Faction = float(outstr.split("[helium] Average Widom Rosenbluth-weight:")[1].split("+/-")[0])
+        #He_Void_Faction = 0.0
 
         # GCMC rigid!!!
         sim_dir = os.path.join(raspa_path, "co2_adsorption_rigid")
@@ -1017,4 +1018,4 @@ pwd
         with io.open(os.path.join(sim_dir, "run_gcmc.sbatch"), "w", newline="\n") as wf:
             wf.write(slurm_str)
 
-        return raspa_path, return_code, atom_df, cifbox, cif_name
+        return raspa_path, return_code
