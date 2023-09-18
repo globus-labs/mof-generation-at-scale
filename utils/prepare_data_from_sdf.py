@@ -18,13 +18,13 @@ import frag_utils
 
 from docopt import docopt
 
-def prepare_sdf():
+def prepare_sdf(sdf_path, output_path, no_filters, verbose):
     # Parse args
-    args = docopt(__doc__)
-    sdf_path = args.get('--sdf_path')
-    output_path = args.get('--output_path')
-    no_filters = args.get('--no_filters')
-    verbose = args.get('--verbose')
+    # args = docopt(__doc__)
+    # sdf_path = args.get('--sdf_path')
+    # output_path = args.get('--output_path')
+    # no_filters = args.get('--no_filters')
+    # verbose = args.get('--verbose')
     
     # Load data
     conformers = Chem.SDMolSupplier(sdf_path)
@@ -94,6 +94,7 @@ def prepare_sdf():
 if __name__ == "__main__":
     # Parse args
     args = docopt(__doc__)
+    print(args)
     sdf_path = args.get('--sdf_path')
     output_path = args.get('--output_path')
     no_filters = args.get('--no_filters')
