@@ -102,5 +102,8 @@ def fragmentation():
         if not os.path.isfile(f'data/fragments_smi/frag_{node_name}.txt'):
             # generate fragment SMILES
             print('Generating SMILES ... ')
-            prepare_sdf()
+            prepare_sdf(sdf_path=f"data/conformers/conformers_{node_name}.sdf", output_path=f"data/fragments_smi/frag_{node_name}.txt", verbose=True)
             # subprocess.run(f'python utils/prepare_data_from_sdf.py --sdf_path data/conformers/conformers_{node_name}.sdf --output_path data/fragments_smi/frag_{node_name}.txt --verbose',shell=True)
+
+if __name__ == "__main__":
+    fragmentation()
