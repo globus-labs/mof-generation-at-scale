@@ -5,6 +5,7 @@ from tqdm import tqdm
 import pandas as pd
 import rdkit.Chem.AllChem as Chem
 from rdkit.Chem import AllChem
+from utils.prepare_data_from_sdf import prepare_sdf
 
 def fragmentation():
     # data cleaning
@@ -101,4 +102,5 @@ def fragmentation():
         if not os.path.isfile(f'data/fragments_smi/frag_{node_name}.txt'):
             # generate fragment SMILES
             print('Generating SMILES ... ')
-            subprocess.run(f'python utils/prepare_data_from_sdf.py --sdf_path data/conformers/conformers_{node_name}.sdf --output_path data/fragments_smi/frag_{node_name}.txt --verbose',shell=True)
+            prepare_sdf()
+            # subprocess.run(f'python utils/prepare_data_from_sdf.py --sdf_path data/conformers/conformers_{node_name}.sdf --output_path data/fragments_smi/frag_{node_name}.txt --verbose',shell=True)
