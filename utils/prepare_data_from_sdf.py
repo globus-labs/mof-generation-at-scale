@@ -18,7 +18,7 @@ import frag_utils
 
 from docopt import docopt
 
-def prepare_sdf(sdf_path, output_path, no_filters, verbose):
+def prepare_sdf(sdf_path: str=None, output_path: str=None, no_filters: bool=False, verbose: bool=False):
     # Parse args
     # args = docopt(__doc__)
     # sdf_path = args.get('--sdf_path')
