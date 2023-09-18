@@ -20,7 +20,8 @@ from docopt import docopt
 
 def prepare_sdf(sdf_path: str=None, output_path: str=None, no_filters: bool=False, verbose: bool=False):
     # Parse args
-    # args = docopt(__doc__)
+    args = docopt(__doc__)
+    print(args)
     # sdf_path = args.get('--sdf_path')
     # output_path = args.get('--output_path')
     # no_filters = args.get('--no_filters')
