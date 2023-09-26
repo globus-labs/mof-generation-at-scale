@@ -39,7 +39,13 @@ for node in nodes:
     print(f'Generating fragment and connection atom sdf files...')
     os.makedirs(OUT_DIR,exist_ok=True)
     # subprocess.run(f'python -W ignore utils/prepare_dataset_parallel.py --table {INPUT_SMILES} --sdf-dir {TARGET_DIR} --out-dir {OUT_DIR} --template {OUTPUT_TEMPLATE} --cores {CORES}',shell=True)
-    prep.run(table_path={INPUT_SMILES}, sdf_path={TARGET_DIR} --out-dir {OUT_DIR} --template {OUTPUT_TEMPLATE} --cores {CORES})
+    sdf_path = os.path.join(args.sdf_dir, f'{args.template}_{pid}.sdf')
+    out_mol_path = os.path.join(args.out_dir, f'{args.template}_mol_{pid}.sdf')
+    out_frag_path = os.path.join(args.out_dir, f'{args.template}_frag_{pid}.sdf')
+    out_link_path = os.path.join(args.out_dir, f'{args.template}_link_{pid}.sdf')
+    out_table_path = os.path.join(args.out_dir, f'{args.template}_table_{pid}.csv')
+    prep.run(table_path={INPUT_SMILES}, sdf_path={OUTPUT_TEMPLATE} --out-dir {OUT_DIR} --template {OUTPUT_TEMPLATE} --cores {CORES})
+    prep.run(table_path={INPUT_SMILES}, sdf_path={OUTPUT_TEMPLATE}, out_mol_path, out_frag_path, out_link_path, out_table_path,)
     
     # filter and merge
     print(f'Filtering and merging ...')
