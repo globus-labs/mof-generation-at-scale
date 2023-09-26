@@ -17,7 +17,7 @@ for node in nodes:
     print(f'Now on node {node}')
     TARGET_DIR = f'data/sdf/{node}/'
     INPUT_SMILES=f'data/fragments_smi/frag_{node}.txt'
-    OUTPUT_TEMPLATE=f'hMOF.sdf'
+    OUTPUT_TEMPLATE=f'hMOF'
     OUT_DIR=f'data/fragments_all/{node}/'
     CORES='0'
     
@@ -31,7 +31,7 @@ for node in nodes:
             smiles.append(line.strip())
     
     # subprocess.run([f'python -W ignore utils/rdkit_conf_parallel.py {INPUT_SMILES} {OUTPUT_TEMPLATE} --cores {CORES}'], shell=True, stdout=PIPE, stderr=PIPE)
-    compute_confs_worker(smifile=smiles, sdffile={OUTPUT_TEMPLATE}, pid={CORES})
+    compute_confs_worker(smifile=smiles, sdffile=f"{OUTPUT_TEMPLATE}" + ".csv", pid=f"{CORES}")
     for sdf in glob('*.sdf'):
         shutil.move(sdf, TARGET_DIR) 
     
@@ -39,13 +39,12 @@ for node in nodes:
     print(f'Generating fragment and connection atom sdf files...')
     os.makedirs(OUT_DIR,exist_ok=True)
     # subprocess.run(f'python -W ignore utils/prepare_dataset_parallel.py --table {INPUT_SMILES} --sdf-dir {TARGET_DIR} --out-dir {OUT_DIR} --template {OUTPUT_TEMPLATE} --cores {CORES}',shell=True)
-    sdf_path = os.path.join(OUT_DIR, f'{args.template}.sdf')
-    out_mol_path = os.path.join(OUT_DIR, f'{args.template}_mol.sdf')
-    out_frag_path = os.path.join(OUT_DIR, f'{args.template}_frag.sdf')
-    out_link_path = os.path.join(OUT_DIR, f'{args.template}_link.sdf')
-    out_table_path = os.path.join(OUT_DIR, f'{args.template}_table.csv')
-    prep.run(table_path={INPUT_SMILES}, sdf_path={OUTPUT_TEMPLATE} --out-dir {OUT_DIR} --template {OUTPUT_TEMPLATE} --cores {CORES})
-    prep.run(table_path={INPUT_SMILES}, sdf_path={OUTPUT_TEMPLATE}, out_mol_path=out_mol_path, out_frag_path=out_frag_path, out_link_path=out_link_path, out_table_path=out_table_path)
+    sdf_path = os.path.join(OUT_DIR, f'{OUTPUT_TEMPLATE}.sdf')
+    out_mol_path = os.path.join(OUT_DIR, f'{OUTPUT_TEMPLATE}_mol.sdf')
+    out_frag_path = os.path.join(OUT_DIR, f'{OUTPUT_TEMPLATE}_frag.sdf')
+    out_link_path = os.path.join(OUT_DIR, f'{OUTPUT_TEMPLATE}_link.sdf')
+    out_table_path = os.path.join(OUT_DIR, f'{OUTPUT_TEMPLATE}_table.csv')
+    prep.run(table_path=INPUT_SMILES, sdf_path=OUTPUT_TEMPLATE, out_mol_path=out_mol_path, out_frag_path=out_frag_path, out_link_path=out_link_path, out_table_path=out_table_path)
     
     # filter and merge
     print(f'Filtering and merging ...')
