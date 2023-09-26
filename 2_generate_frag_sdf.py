@@ -33,7 +33,7 @@ for node in nodes:
             smiles.append(line.strip())
     
     # subprocess.run([f'python -W ignore utils/rdkit_conf_parallel.py {INPUT_SMILES} {OUTPUT_TEMPLATE} --cores {CORES}'], shell=True, stdout=PIPE, stderr=PIPE)
-    compute_confs_worker(smifile=smiles, sdffile=f"{OUTPUT_TEMPLATE}" + ".csv", pid=f"{CORES}")
+    compute_confs_worker(smifile=smiles, sdffile=os.path.join(OUT_DIR, f"{OUTPUT_TEMPLATE}" + ".csv"), pid=f"{CORES}")
     for sdf in glob('*.sdf'):
         shutil.move(sdf, TARGET_DIR) 
     
