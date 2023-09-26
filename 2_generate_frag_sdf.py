@@ -41,9 +41,9 @@ for node in nodes:
     # subprocess.run(f'python -W ignore utils/prepare_dataset_parallel.py --table {INPUT_SMILES} --sdf-dir {TARGET_DIR} --out-dir {OUT_DIR} --template {OUTPUT_TEMPLATE} --cores {CORES}',shell=True)
     sdf_path = os.path.join(OUT_DIR, f'{args.template}.sdf')
     out_mol_path = os.path.join(OUT_DIR, f'{args.template}_mol.sdf')
-    out_frag_path = os.path.join(args.out_dir, f'{args.template}_frag.sdf')
-    out_link_path = os.path.join(args.out_dir, f'{args.template}_link.sdf')
-    out_table_path = os.path.join(args.out_dir, f'{args.template}_table.csv')
+    out_frag_path = os.path.join(OUT_DIR, f'{args.template}_frag.sdf')
+    out_link_path = os.path.join(OUT_DIR, f'{args.template}_link.sdf')
+    out_table_path = os.path.join(OUT_DIR, f'{args.template}_table.csv')
     prep.run(table_path={INPUT_SMILES}, sdf_path={OUTPUT_TEMPLATE} --out-dir {OUT_DIR} --template {OUTPUT_TEMPLATE} --cores {CORES})
     prep.run(table_path={INPUT_SMILES}, sdf_path={OUTPUT_TEMPLATE}, out_mol_path=out_mol_path, out_frag_path=out_frag_path, out_link_path=out_link_path, out_table_path=out_table_path)
     
