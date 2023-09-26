@@ -7,7 +7,7 @@ import pandas as pd
 
 from rdkit import Chem
 from tqdm import tqdm
-from src.datasets import read_sdf
+from utils.src.datasets import read_sdf
 
 
 def run(input_dir, output_dir, template):
