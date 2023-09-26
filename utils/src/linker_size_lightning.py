@@ -1,10 +1,10 @@
 import pytorch_lightning as pl
 import torch
 
-from utils.src.const import ZINC_TRAIN_LINKER_ID2SIZE, ZINC_TRAIN_LINKER_SIZE2ID
-from utils.src.linker_size import SizeGNN
-from utils.src.egnn import coord2diff
-from utils.src.datasets import ZincDataset, get_dataloader, collate_with_fragment_edges
+from .const import ZINC_TRAIN_LINKER_ID2SIZE, ZINC_TRAIN_LINKER_SIZE2ID
+from .linker_size import SizeGNN
+from .egnn import coord2diff
+from .datasets import ZincDataset, get_dataloader, collate_with_fragment_edges
 from typing import Dict, List, Optional
 from torch.nn.functional import cross_entropy, mse_loss, sigmoid
 

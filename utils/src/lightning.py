@@ -4,16 +4,16 @@ import pytorch_lightning as pl
 import torch
 import wandb
 
-from utils.src import metrics, utils, delinker
-from utils.src.const import LINKER_SIZE_DIST
-from utils.src.egnn import Dynamics, DynamicsWithPockets
-from utils.src.edm import EDM, InpaintingEDM
-from utils.src.datasets import (
+from . import metrics, utils, delinker
+from .const import LINKER_SIZE_DIST
+from .egnn import Dynamics, DynamicsWithPockets
+from .edm import EDM, InpaintingEDM
+from .datasets import (
     ZincDataset, MOADDataset, create_templates_for_linker_generation, get_dataloader, collate
 )
-from utils.src.linker_size import DistributionNodes
-from utils.src.molecule_builder import build_molecules
-from utils.src.visualizer import save_xyz_file, visualize_chain
+from .linker_size import DistributionNodes
+from .molecule_builder import build_molecules
+from .visualizer import save_xyz_file, visualize_chain
 from typing import Dict, List, Optional
 from tqdm import tqdm
 

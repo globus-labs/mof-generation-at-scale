@@ -3,9 +3,9 @@ import torch.nn.functional as F
 import numpy as np
 import math
 
-from utils.src import utils
-from utils.src.egnn import Dynamics
-from utils.src.noise import GammaNetwork, PredefinedNoiseSchedule
+from . import utils
+from .egnn import Dynamics
+from .noise import GammaNetwork, PredefinedNoiseSchedule
 from typing import Union
 
 from pdb import set_trace

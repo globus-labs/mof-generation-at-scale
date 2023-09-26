@@ -3,7 +3,7 @@ import numpy as np
 
 from rdkit import Chem, Geometry
 
-from utils.src import const
+from . import const
 
 
 def create_conformer(coords):

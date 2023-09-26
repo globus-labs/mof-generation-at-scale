@@ -2,8 +2,8 @@ import numpy as np
 
 from rdkit import Chem
 from rdkit.Chem import AllChem
-from utils.src import const
-from utils.src.molecule_builder import get_bond_order
+from . import const
+from .molecule_builder import get_bond_order
 from scipy.stats import wasserstein_distance
 
 from pdb import set_trace
