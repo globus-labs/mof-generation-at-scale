@@ -6,6 +6,8 @@ import pandas as pd
 import numpy as np
 from cif2lammps.main_conversion import single_conversion
 from cif2lammps.UFF4MOF_construction import UFF4MOF
+from pymatgen.core import IStructure
+from pacmof import get_charges_single_serial
 
 
 def read_lmp_sec_str2df(df_str, comment_char="#"):
@@ -17,6 +19,148 @@ def read_lmp_sec_str2df(df_str, comment_char="#"):
     df[comment_char] = comment_char
     df["comment"] = comments
     return df.reset_index(drop=True)
+
+
+def fix_label_cif_pmg(incif, outcif):
+    pmg_structure = IStructure.from_file(incif)
+    label_dict = {}
+    for i in range(0, len(pmg_structure.sites)):
+        curr_symbol = pmg_structure.sites[i].specie.symbol
+        if curr_symbol in label_dict.keys():
+            label_dict[curr_symbol] = label_dict[curr_symbol] + 1
+        else:
+            label_dict[curr_symbol] = 0
+        pmg_structure.sites[i].label = curr_symbol + \
+            "%d" % label_dict[curr_symbol]
+    pmg_structure.to(filename=outcif, fmt="cif")
+
+
+def fix_label_cif(incif, outcif):
+    cif_str = None
+    with io.open(incif, "r", newline="\n") as rf:
+        cif_str = rf.read()
+    loop_sections = list(filter(None, re.split("loop_\\s*\n", cif_str)))
+    new_cif_str = ""
+    for ls_i in range(0, len(loop_sections)):
+        ls = loop_sections[ls_i]
+        if "_atom_site_" in ls:
+            ls_lines = list(filter(None, ls.split("\n")))
+            header = []
+            for i in range(0, len(ls_lines)):
+                line = ls_lines[i]
+                if "_atom_site_" not in line:
+                    break
+                header.append(line.strip())
+            atom_df = pd.read_csv(io.StringIO("\n".join(
+                ls_lines[i:])), sep=r"\s+", names=header, header=None)
+
+            label_dict = {}
+            for i in atom_df.index:
+                curr_symbol = atom_df.at[i, "_atom_site_type_symbol"]
+                if curr_symbol in label_dict.keys():
+                    label_dict[curr_symbol] = label_dict[curr_symbol] + 1
+                else:
+                    label_dict[curr_symbol] = 0
+                atom_df.at[i, "_atom_site_label"] = curr_symbol + \
+                    "%d" % label_dict[curr_symbol]
+            atom_str = atom_df.to_string(
+                header=None, index=None, justify="left")
+            ls = "\n".join(header) + "\n" + atom_str
+        new_cif_str = new_cif_str + "loop_\n" + ls
+    with io.open(outcif, "w", newline="\n") as wf:
+        wf.write(new_cif_str)
+
+
+def pacmof_cif2raspa_cif(incif, outcif, extra_info=""):
+    cif_str = None
+    with io.open(incif, "r", newline="\n") as rf:
+        cif_str = rf.read()
+    loop_sections = re.split("loop_\\s*\n", cif_str)
+    for ls in loop_sections:
+        if "_cell_" in ls:
+            ls_lines = list(filter(None, ls.split("\n")))
+            for i in range(0, len(ls_lines)):
+                line = ls_lines[i]
+                if "_cell_length_a" in line:
+                    a = float(line.replace("_cell_length_a", "").strip())
+                elif "_cell_length_b" in line:
+                    b = float(line.replace("_cell_length_b", "").strip())
+                elif "_cell_length_c" in line:
+                    c = float(line.replace("_cell_length_c", "").strip())
+                elif "_cell_angle_alpha" in line:
+                    alpha = float(
+                        line.replace(
+                            "_cell_angle_alpha",
+                            "").strip())
+                elif "_cell_angle_beta" in line:
+                    beta = float(line.replace("_cell_angle_beta", "").strip())
+                elif "_cell_angle_gamma" in line:
+                    gamma = float(
+                        line.replace(
+                            "_cell_angle_gamma",
+                            "").strip())
+        elif "_atom_site_" in ls:
+            ls_lines = list(filter(None, ls.split("\n")))
+            header = []
+            for i in range(0, len(ls_lines)):
+                line = ls_lines[i]
+                if "_atom_site_" not in line:
+                    break
+                header.append(line.strip())
+            atom_df = pd.read_csv(io.StringIO("\n".join(
+                ls_lines[i:])), sep=r"\s+", names=header, header=None)
+    needed_cols = [
+        "_atom_site_label",
+        "_atom_site_type_symbol",
+        "_atom_site_fract_x",
+        "_atom_site_fract_y",
+        "_atom_site_fract_z",
+        "_atom_site_charge"]
+    atom_df = atom_df[needed_cols]
+    label_dict = {}
+    for i in atom_df.index:
+        curr_symbol = atom_df.at[i, "_atom_site_type_symbol"]
+        if curr_symbol in label_dict.keys():
+            label_dict[curr_symbol] = label_dict[curr_symbol] + 1
+        else:
+            label_dict[curr_symbol] = 0
+        atom_df.at[i, "_atom_site_label"] = curr_symbol + \
+            "%d" % label_dict[curr_symbol]
+    atom_str = atom_df.to_string(
+        header=None, index=None, col_space=[
+            10, 8, 20, 20, 20, 20], justify="left")
+    cosa = np.cos(np.deg2rad(alpha))
+    cosb = np.cos(np.deg2rad(beta))
+    cosr = np.cos(np.deg2rad(gamma))
+    V = a * b * c * np.sqrt(1. - (2. * cosa * cosb * cosr) -
+                            (cosa * cosa) - (cosb * cosb) - (cosr * cosr))
+    new_cif_str = """# generated by xyan11@uic.edu
+""" + extra_info + """
+_audit_author_name 'xyan11@uic.edu'
+_cell_length_a       """ + "%.8f" % a + """
+_cell_length_b       """ + "%.8f" % b + """
+_cell_length_c       """ + "%.8f" % c + """
+_cell_angle_alpha    """ + "%.8f" % alpha + """
+_cell_angle_beta     """ + "%.8f" % beta + """
+_cell_angle_gamma    """ + "%.8f" % gamma + """
+_cell_volume         """ + "%.8f" % V + """
+_symmetry_Int_Tables_number        1
+_symmetry_cell_setting             triclinic
+_symmetry_space_group_name_Hall    'P 1'
+_symmetry_space_group_name_H-M     'P 1'
+loop_
+_symmetry_equiv_pos_as_xyz
+ 'x,y,z'
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+_atom_site_charge
+""" + atom_str
+    with io.open(outcif, "w", newline="\n") as wf:
+        wf.write(new_cif_str)
 
 
 class RASPARunner:
@@ -457,6 +601,24 @@ yes
             wf.write(framework_str)
         return "framework.def"
 
+    def write_force_field_def(self, raspa_path: str) -> (str):
+        """Use LAMMPS input files to write force_field.def
+
+        Args:
+            raspa_path: output directory
+        Returns:
+            raspa_file_name: written file name
+        """
+        with io.open(os.path.join(raspa_path, "force_field.def"), "w", newline="\n") as wf:
+            wf.write("""# rules to overwrite
+0
+# number of defined interactions
+0
+# mixing rules to overwrite
+0
+""")
+        return "force_field.def"
+
     def rewrite_cif(
             self,
             raspa_path: str,
@@ -518,25 +680,439 @@ _atom_site_charge
             wf.write(new_cif_str)
         return new_cif_name
 
-    def write_force_field_def(self, raspa_path: str) -> (str):
-        """Use LAMMPS input files to write force_field.def
+    def run_raspa_single_rigid(
+            self,
+            cif_path: str,
+            timesteps: int,
+            report_frequency: int,
+            stepsize_fs: float = 0.5,
+            cell_replicate: list = [
+                2,
+                2,
+                2],
+            raspa_abs_path: str = "/projects/bbke/xyan11/conda-envs/gcmc2-310/bin/simulate") -> (
+                str,
+            int):
+        """Use cif2lammps to assign force field to a single MOF and generate input files for raspa simulation
 
         Args:
-            raspa_path: output directory
+            cif_path: starting structure's cif file path
+            timesteps: Number of timesteps to run
+            report_frequency: How often to report structures
         Returns:
-            raspa_file_name: written file name
+            raspa_path: a directory with the raspa simulation input files
+            return_code: cif2lammps running status, 0 means success (directory raspa_path will be kept),
+                         -1 means failure (directory raspa_path will be destroyed)
         """
-        with io.open(os.path.join(raspa_path, "force_field.def"), "w", newline="\n") as wf:
-            wf.write("""# rules to overwrite
-0
-# number of defined interactions
-0
-# mixing rules to overwrite
-0
-""")
-        return "force_field.def"
+        cif_name = os.path.split(cif_path)[-1]
+        raspa_path = os.path.join(
+            self.raspa_sims_root_path,
+            cif_name.replace(
+                ".cif",
+                ""))
+        os.makedirs(raspa_path, exist_ok=True)
+        pmg_fmt_label_correct_cif = os.path.join(raspa_path, "pmg_fmt.cif")
+        fix_label_cif_pmg(cif_path, pmg_fmt_label_correct_cif)
 
-    def prep_raspa_single(
+        # pacmof
+        get_charges_single_serial(pmg_fmt_label_correct_cif,
+                                  create_cif=True,
+                                  path_to_output_dir=raspa_path)
+        pacmof_charged_cif = os.path.join(raspa_path, "pmg_fmt_charged.cif")
+        pacmof_charged_cif_reduced_label = os.path.join(
+            raspa_path, "pacmof_charged_cif_reduced_label.cif")
+        fix_label_cif(pacmof_charged_cif, pacmof_charged_cif_reduced_label)
+
+        try:
+            single_conversion(pacmof_charged_cif_reduced_label,
+                              force_field=UFF4MOF,
+                              ff_string='UFF4MOF',
+                              small_molecule_force_field=None,
+                              outdir=raspa_path,
+                              charges=True,
+                              parallel=False,
+                              replication='1x1x1',
+                              read_cifs_pymatgen=True,
+                              add_molecule=None,
+                              small_molecule_file=None)
+            in_file_name = [x for x in os.listdir(raspa_path) if x.startswith(
+                "in.") and not x.startswith("in.lmp")][0]
+            data_file_name = [x for x in os.listdir(raspa_path) if x.startswith(
+                "data.") and not x.startswith("data.lmp")][0]
+            in_file_rename = "in.lmp"
+            data_file_rename = "data.lmp"
+            with io.open(os.path.join(raspa_path, in_file_rename), "w") as wf:
+                # print("Writing input file: " + os.path.join(raspa_path, in_file_rename))
+                with io.open(os.path.join(raspa_path, in_file_name), "r") as rf:
+                    # print("Reading original input file: " + os.path.join(raspa_path, in_file_name))
+                    wf.write(
+                        rf.read().replace(
+                            data_file_name,
+                            data_file_rename))
+
+            os.remove(os.path.join(raspa_path, in_file_name))
+            shutil.move(
+                os.path.join(
+                    raspa_path, data_file_name), os.path.join(
+                    raspa_path, data_file_rename))
+
+            # print("Success!!\n\n")
+            return_code = 0
+
+        except Exception:
+            # print(e)
+            # print("Failed!! Removing files...\n\n")
+            # shutil.rmtree(raspa_path)
+            return_code = -1
+            return raspa_path, return_code
+
+        # print("Reading data file for element list: " + os.path.join(raspa_path, data_file_name))
+        ff_style_dict = None
+        with io.open(os.path.join(raspa_path, in_file_rename), "r") as rf1:
+            ff_style_str = rf1.read()
+            ff_style_list = list(
+                filter(
+                    None, [
+                        x.strip() for x in ff_style_str.split("\n")]))
+            ff_style_list = [
+                pd.read_csv(
+                    io.StringIO(x),
+                    header=None,
+                    sep=r"\s+").values.tolist()[0] for x in ff_style_list]
+            ff_style_list = [[x[0], x[1:]] for x in ff_style_list]
+            ff_style_dict = dict(zip(*list(map(list, zip(*ff_style_list)))))
+
+        read_str = None
+        with io.open(os.path.join(raspa_path, data_file_rename), "r") as rf2:
+            read_str = rf2.read()
+        mass_df = read_lmp_sec_str2df(read_str.split(
+            "Masses")[1].split("Pair Coeffs")[0].strip())
+        pair_coeff_df = read_lmp_sec_str2df(read_str.split(
+            "Pair Coeffs")[1].split("Bond Coeffs")[0].strip())
+        bond_coeff_df = read_lmp_sec_str2df(read_str.split(
+            "Bond Coeffs")[1].split("Angle Coeffs")[0].strip())
+        angle_coeff_df = read_lmp_sec_str2df(read_str.split(
+            "Angle Coeffs")[1].split("Dihedral Coeffs")[0].strip())
+        dihedral_coeff_df = read_lmp_sec_str2df(read_str.split("Dihedral Coeffs")[
+                                                1].split("Improper Coeffs")[0].strip())
+        improper_coeff_df = read_lmp_sec_str2df(
+            read_str.split("Improper Coeffs")[1].split("Atoms")[0].strip())
+        cifbox = read_str.split("Atoms")[1].split("$$$atoms$$$")[0].strip()
+        atom_df = read_lmp_sec_str2df(read_str.split("$$$atoms$$$")[
+                                      1].split("Bonds")[0].strip())
+        atom_df.columns = [
+            'id',
+            'mol',
+            'type',
+            'q',
+            'x',
+            'y',
+            'z',
+            '#',
+            "comment"]
+        _atom_df = pd.read_csv(
+            io.StringIO(
+                "\n".join(
+                    atom_df["comment"].to_list())),
+            sep=r"\s+",
+            header=None,
+            index_col=None,
+            names=[
+                "comment",
+                "fx",
+                "fy",
+                "fz"])
+        atom_df = pd.concat([atom_df[['id', 'mol', 'type', 'q', 'x', 'y', 'z', '#']].reset_index(
+            drop=True), _atom_df.reset_index(drop=True)], axis=1)
+        bond_df = read_lmp_sec_str2df(
+            read_str.split("Bonds")[1].split("Angles")[0].strip())
+        angle_df = read_lmp_sec_str2df(read_str.split(
+            "Angles")[1].split("Dihedrals")[0].strip())
+        dihedral_df = read_lmp_sec_str2df(read_str.split(
+            "Dihedrals")[1].split("Impropers")[0].strip())
+        improper_df = read_lmp_sec_str2df(
+            read_str.split("Impropers")[1].strip())
+
+        raspa_cif = self.rewrite_cif(raspa_path, cif_name, atom_df, cifbox)
+        atom_fname = self.write_pseudo_atoms_def(
+            raspa_path, ff_style_dict, mass_df, atom_df)
+        mix_fname = self.write_force_field_mixing_rules_def(
+            raspa_path, ff_style_dict, pair_coeff_df, atom_df)
+        ff_fname = self.write_force_field_def(raspa_path)
+        frm_fname = self.write_framework_def(
+            raspa_path,
+            bond_coeff_df,
+            angle_coeff_df,
+            dihedral_coeff_df,
+            improper_coeff_df,
+            bond_df,
+            angle_df,
+            dihedral_df,
+            improper_df)
+
+        # void fraction
+        sim_dir = os.path.join(raspa_path, "helium_void_fraction")
+        os.makedirs(sim_dir, exist_ok=True)
+
+        shutil.copyfile(
+            os.path.join(
+                raspa_path, raspa_cif), os.path.join(sim_dir, "mof.cif"))
+        shutil.copyfile(
+            os.path.join(
+                raspa_path, atom_fname), os.path.join(
+                sim_dir, atom_fname))
+        shutil.copyfile(
+            os.path.join(
+                raspa_path, mix_fname), os.path.join(
+                sim_dir, mix_fname))
+        shutil.copyfile(
+            os.path.join(
+                raspa_path, ff_fname), os.path.join(
+                sim_dir, ff_fname))
+        shutil.copyfile(
+            os.path.join(
+                raspa_path, frm_fname), os.path.join(
+                sim_dir, frm_fname))
+
+        cell_rep = cell_replicate
+        input_str = """SimulationType                       MonteCarlo
+NumberOfCycles                       """ + "%d" % (timesteps / 5) + """
+PrintEvery                           """ + "%d" % report_frequency + """
+PrintPropertiesEvery                 """ + "%d" % report_frequency + """
+
+Forcefield                           local
+
+Framework 0
+FrameworkName mof
+UnitCells """ + "%d" % cell_rep[0] + " " + "%d" % cell_rep[1] + " " + "%d" % cell_rep[2] + """
+ExternalTemperature 300.0
+
+Component 0 MoleculeName             helium
+            MoleculeDefinition       local
+            WidomProbability         1.0
+            CreateNumberOfMolecules  0
+"""
+        with io.open(os.path.join(sim_dir, "simulation.input"), "w", newline="\n") as wf:
+            wf.write(input_str)
+
+        helium_str = """# critical constants: Temperature [T], Pressure [Pa], and Acentric factor [-]
+5.2
+228000.0
+-0.39
+# Number Of Atoms
+1
+# Number Of Groups
+1
+# Alkane-group
+flexible
+# number of atoms
+1
+# atomic positions
+0 He
+# Chiral centers Bond  BondDipoles Bend  UrayBradley InvBend  Torsion Imp. Torsion""" + " " + \
+            """Bond/Bond Stretch/Bend Bend/Bend Stretch/Torsion Bend/Torsion IntraVDW IntraCoulomb
+               0    0            0    0            0       0        0            0""" + "         " + \
+            """0            0         0               0            0        0            0
+# Number of config moves
+0
+"""
+        with io.open(os.path.join(sim_dir, "helium.def"), "w", newline="\n") as wf:
+            wf.write(helium_str)
+
+        # run void fraction now!
+
+        # args = raspa_abs_path + " simulation.input"
+        # task = subprocess.Popen(args,
+        #                         cwd=os.path.abspath(sim_dir),
+        #                         stdout=subprocess.PIPE,
+        #                         stderr=subprocess.STDOUT)
+
+        # read void fraction:
+        # outdir = os.path.join(sim_dir, "Output")
+        # outdir = os.path.join(outdir, os.listdir(outdir)[0])
+        # outfile = os.path.join(outdir, [x for x in os.listdir(outdir) if "2.2.2" in x][0])
+        # outstr = None
+        # with io.open(outfile, "r", newline="\n") as rf:
+        #     outstr = rf.read()
+        # He_Void_Faction = float(outstr.split("[helium] Average Widom Rosenbluth-weight:")[1].split("+/-")[0])
+
+        # GCMC rigid!!!
+        sim_dir = os.path.join(raspa_path, "co2_adsorption_rigid")
+        os.makedirs(sim_dir, exist_ok=True)
+        shutil.copyfile(
+            os.path.join(
+                raspa_path, atom_fname), os.path.join(
+                sim_dir, atom_fname))
+        shutil.copyfile(
+            os.path.join(
+                raspa_path, mix_fname), os.path.join(
+                sim_dir, mix_fname))
+        shutil.copyfile(
+            os.path.join(
+                raspa_path, ff_fname), os.path.join(
+                sim_dir, ff_fname))
+        shutil.copyfile(
+            os.path.join(
+                raspa_path, frm_fname), os.path.join(
+                sim_dir, frm_fname))
+        shutil.copyfile(os.path.join(
+            raspa_path, raspa_cif), os.path.join(sim_dir, "mof.cif"))
+
+        cell_rep = cell_replicate
+        input_str = """SimulationType                MonteCarlo
+NumberOfCycles                """ + "%d" % timesteps + """
+NumberOfInitializationCycles  """ + "%d" % (timesteps / 10) + """
+PrintEvery                    """ + "%d" % report_frequency + """
+PrintPropertiesEvery          """ + "%d" % report_frequency + """
+RestartFile                   no
+
+ChargeMethod                  Ewald
+CutOff                        12.0
+Forcefield                    local
+UseChargesFromCIFFile         yes
+EwaldPrecision                1e-6
+TimeStep                      """ + str(stepsize_fs / 1000) + """
+
+Framework 0
+FrameworkName mof
+UnitCells """ + "%d" % cell_rep[0] + " " + "%d" % cell_rep[1] + " " + "%d" % cell_rep[2] + """
+HeliumVoidFraction $$VOID_FRACTION$$
+ExternalTemperature 300.00
+ExternalPressure 1e4
+
+Component 0 MoleculeName              CO2
+            MoleculeDefinition        local
+            IdealGasRosenbluthWeight  1.0
+            TranslationProbability    1.0
+            RotationProbability       1.0
+            ReinsertionProbability    1.0
+            SwapProbability           1.0
+            CreateNumberOfMolecules   0
+
+"""
+        with io.open(os.path.join(sim_dir, "simulation.input"), "w", newline="\n") as wf:
+            wf.write(input_str)
+
+        co2_str = """# critical constants: Temperature [T], Pressure [Pa], and Acentric factor [-]
+304.1282
+7377300.0
+0.22394
+#Number Of Atoms
+ 3
+# Number of groups
+1
+# CO2-group
+rigid
+# number of atoms
+3
+# atomic positions
+0 O_co2     0.0           0.0           1.149
+1 C_co2     0.0           0.0           0.0
+2 O_co2     0.0           0.0          -1.149
+# Chiral centers Bond  BondDipoles Bend  UrayBradley InvBend  Torsion Imp. Torsion Bond/Bond""" + " " + \
+            """Stretch/Bend Bend/Bend Stretch/Torsion Bend/Torsion IntraVDW IntraCoulomb
+               0    2            0    0            0       0        0            0         0""" + "            " + \
+            """0         0               0            0        0            0
+# Bond stretch: atom n1-n2, type, parameters
+0 1 RIGID_BOND
+1 2 RIGID_BOND
+# Number of config moves
+0
+"""
+        with io.open(os.path.join(sim_dir, "CO2.def"), "w", newline="\n") as wf:
+            wf.write(co2_str)
+
+        slurm_str = """#!/bin/bash
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=1    # <- match to OMP_NUM_THREADS
+#SBATCH --partition=cpu      # <- or one of: gpuA100x4 gpuA40x4 gpuA100x8 gpuMI100x8
+#SBATCH --account=bbvf-delta-cpu
+#SBATCH --job-name=""" + sim_dir + """
+#SBATCH --time=48:00:00      # hh:mm:ss for the job
+#SBATCH -o delta_slurm-%j.log
+#SBATCH -e delta_slurm-%j.log
+#SBATCH --constraint="scratch&projects"
+#SBATCH --mail-user=xyan11@uic.edu
+#SBATCH --mail-type="BEGIN,END" # See sbatch or srun man pages for more email options
+echo $SLURM_JOBID > jobid
+valhost=$SLURM_JOB_NODELIST
+echo $valhost > hostname
+module purge
+module load anaconda3_cpu/23.3.1
+module list
+source /sw/external/python/anaconda3-2023.03_cpu/etc/profile.d/conda.sh
+lscpu
+free -h
+conda activate /projects/bbke/xyan11/conda-envs/gcmc2-310
+ulimit -s unlimited
+export RASPA_DIR=/projects/bbke/xyan11/conda-envs/gcmc2-310
+cd """ + os.path.join("/scratch/bbvf/xyan11/gcmc/co2_0.1bar", sim_dir) + """
+pwd
+""" + raspa_abs_path + """ simulation.input"""
+        with io.open(os.path.join(sim_dir, "run_gcmc.sbatch"), "w", newline="\n") as wf:
+            wf.write(slurm_str)
+
+        slurm_str = """#!/bin/bash
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=1    # <- match to OMP_NUM_THREADS
+#SBATCH --partition=cpu      # <- or one of: gpuA100x4 gpuA40x4 gpuA100x8 gpuMI100x8
+#SBATCH --account=bbvf-delta-cpu
+#SBATCH --job-name=""" + sim_dir + """
+#SBATCH --time=48:00:00      # hh:mm:ss for the job
+#SBATCH -o delta_slurm-%j.log
+#SBATCH -e delta_slurm-%j.log
+#SBATCH --constraint="scratch&projects"
+#SBATCH --mail-user=xyan11@uic.edu
+#SBATCH --mail-type="BEGIN,END" # See sbatch or srun man pages for more email options
+echo $SLURM_JOBID > jobid
+valhost=$SLURM_JOB_NODELIST
+echo $valhost > hostname
+module purge
+module load anaconda3_cpu/23.3.1
+module list
+source /sw/external/python/anaconda3-2023.03_cpu/etc/profile.d/conda.sh
+lscpu
+free -h
+conda activate /projects/bbke/xyan11/conda-envs/gcmc2-310
+ulimit -s unlimited
+export RASPA_DIR=/projects/bbke/xyan11/conda-envs/gcmc2-310
+cd """ + os.path.join("/scratch/bbvf/xyan11/gcmc/co2_0.1bar", raspa_path, "helium_void_fraction") + """
+pwd
+echo "Running He void fraction!"
+""" + raspa_abs_path + """ simulation.input
+echo "He void fraction is finished!"
+cd """ + os.path.join("/scratch/bbvf/xyan11/gcmc/co2_0.1bar", raspa_path) + """
+python find_vf.py
+echo "Running GCMC!"
+cd """ + os.path.join("/scratch/bbvf/xyan11/gcmc/co2_0.1bar", raspa_path, "co2_adsorption_rigid") + """
+""" + raspa_abs_path + """ simulation.input"""
+        with io.open(os.path.join(raspa_path, "run_raspa_all.sbatch"), "w", newline="\n") as wf:
+            wf.write(slurm_str)
+
+        py_str = '''import os
+import io
+sim_dir = "helium_void_fraction"
+outdir = os.path.join(sim_dir, "Output")
+outdir = os.path.join(outdir, os.listdir(outdir)[0])
+outfile = os.path.join(outdir, [x for x in os.listdir(outdir) if "output_mof" in x][0])
+outstr = None
+with io.open(outfile, "r", newline="\\n") as rf:
+    outstr = rf.read()
+He_Void_Faction = float(outstr.split("[helium] Average Widom Rosenbluth-weight:")[1].split("+/-")[0])
+read_str = None
+with io.open("co2_adsorption_rigid/simulation.input", "r", newline="\\n") as rf:
+    read_str = rf.read()
+with io.open("co2_adsorption_rigid/simulation.input", "w", newline="\\n") as wf:
+    wf.write(read_str.replace("$$VOID_FRACTION$$", "%.6f" % He_Void_Faction))
+'''
+        with io.open(os.path.join(raspa_path, "find_vf.py"), "w", newline="\n") as wf:
+            wf.write(py_str)
+
+        return raspa_path, return_code
+
+    def prep_raspa_single_flex(
             self,
             cif_path: str,
             timesteps: int,
@@ -641,7 +1217,7 @@ _atom_site_charge
                                                 1].split("Improper Coeffs")[0].strip())
         improper_coeff_df = read_lmp_sec_str2df(
             read_str.split("Improper Coeffs")[1].split("Atoms")[0].strip())
-        cifbox = read_str.split("Atoms")[1].split("$$$atoms$$$")[0].strip()
+        read_str.split("Atoms")[1].split("$$$atoms$$$")[0].strip()
         atom_df = read_lmp_sec_str2df(read_str.split("$$$atoms$$$")[
                                       1].split("Bonds")[0].strip())
         atom_df.columns = [
@@ -677,7 +1253,6 @@ _atom_site_charge
         improper_df = read_lmp_sec_str2df(
             read_str.split("Impropers")[1].strip())
 
-        cif_fname = self.rewrite_cif(raspa_path, cif_name, atom_df, cifbox)
         atom_fname = self.write_pseudo_atoms_def(
             raspa_path, ff_style_dict, mass_df, atom_df)
         mix_fname = self.write_force_field_mixing_rules_def(
@@ -729,7 +1304,7 @@ Forcefield                           local
 Framework 0
 FrameworkName mof
 UnitCells """ + "%d" % cell_rep[0] + " " + "%d" % cell_rep[1] + " " + "%d" % cell_rep[2] + """
-ExternalTemperature 298.0
+ExternalTemperature 300.0
 
 Component 0 MoleculeName             helium
             MoleculeDefinition       local
@@ -821,7 +1396,7 @@ Framework 0
 FrameworkName mof
 UnitCells """ + "%d" % cell_rep[0] + " " + "%d" % cell_rep[1] + " " + "%d" % cell_rep[2] + """
 HeliumVoidFraction """ + "%1.4f" % He_Void_Faction + """
-ExternalTemperature 298.15
+ExternalTemperature 300.00
 ExternalPressure 1e4
 
 Component 0 MoleculeName              CO2
@@ -937,7 +1512,7 @@ Framework 0
 FrameworkName mof
 UnitCells """ + "%d" % cell_rep[0] + " " + "%d" % cell_rep[1] + " " + "%d" % cell_rep[2] + """
 HeliumVoidFraction """ + "%1.4f" % He_Void_Faction + """
-ExternalTemperature 298.15
+ExternalTemperature 300.00
 ExternalPressure 1e4
 
 FrameworkDefinitions local

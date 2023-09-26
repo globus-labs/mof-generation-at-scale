@@ -436,6 +436,7 @@ def cif_read_pymatgen(filename, charges=False, coplanarity_tolerance=0.1):
 
     elems = atoms.get_chemical_symbols()
     names = [a.symbol + str(a.index) for a in atoms]
+    cif_labels = [x.label for x in struct.sites]
     ccoords = atoms.get_positions()
     fcoords = atoms.get_scaled_positions()
 
@@ -454,5 +455,5 @@ def cif_read_pymatgen(filename, charges=False, coplanarity_tolerance=0.1):
     A, B, C = unit_cell.lengths()
     alpha, beta, gamma = unit_cell.angles()
 
-    return elems, names, ccoords, fcoords, charge_list, bond_list, (
+    return elems, names, cif_labels, ccoords, fcoords, charge_list, bond_list, (
         A, B, C, alpha, beta, gamma), np.asarray(unit_cell).T

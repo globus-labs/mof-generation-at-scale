@@ -196,6 +196,7 @@ def cif_read(filename, charges=False, add_Zr_bonds=False):
         f = filter(None, f.split('\n'))
 
     names = []
+    cif_labels = []
     elems = []
     fcoords = []
     charge_list = []
@@ -218,6 +219,7 @@ def cif_read(filename, charges=False, add_Zr_bonds=False):
         if iscoord(s):
 
             names.append(s[0])
+            cif_labels.append(s[0])
             elems.append(s[1])
 
             fvec = np.array([np.round(float(v), 8) for v in s[2:5]])
@@ -292,7 +294,7 @@ def cif_read(filename, charges=False, add_Zr_bonds=False):
 
         print(count, 'Zr-Zr bonds added...')
 
-    return elems, names, ccoords, fcoords, charge_list, bonds, (
+    return elems, names, cif_labels, ccoords, fcoords, charge_list, bonds, (
         a, b, c, alpha, beta, gamma), unit_cell
 
 
@@ -303,11 +305,11 @@ def initialize_system(
         read_pymatgen=False):
 
     if not read_pymatgen:
-        elems, names, ccoords, fcoords, charge_list, bonds, uc_params, unit_cell = cif_read(
+        elems, names, cif_labels, ccoords, fcoords, charge_list, bonds, uc_params, unit_cell = cif_read(
             filename, charges=charges)
     else:
         from .pymatgen_cif2system import cif_read_pymatgen
-        elems, names, ccoords, fcoords, charge_list, bonds, uc_params, unit_cell = cif_read_pymatgen(
+        elems, names, cif_labels, ccoords, fcoords, charge_list, bonds, uc_params, unit_cell = cif_read_pymatgen(
             filename, charges=charges)
 
     A, B, C, alpha, beta, gamma = uc_params
@@ -315,14 +317,11 @@ def initialize_system(
     G = nx.Graph()
     index = 0
     index_key = {}
-    element_index_dict = {}
-    for e, n, cc, fc, charge in zip(
-            elems, names, ccoords, fcoords, charge_list):
+
+    for e, n, cif_label, cc, fc, charge in zip(
+            elems, names, cif_labels, ccoords, fcoords, charge_list):
         index += 1
-        if e in element_index_dict.keys():
-            element_index_dict[e] = element_index_dict[e] + 1
-        else:
-            element_index_dict[e] = 1
+
         G.add_node(index,
                    element_symbol=e,
                    mol_flag='1',
@@ -335,7 +334,7 @@ def initialize_system(
                                          0.0,
                                          0.0]),
                    duplicated_version_of=None,
-                   cif_label=e + ("%d" % element_index_dict[e]))
+                   cif_label=cif_label)
         index_key[n] = index
 
     for b in bonds:
