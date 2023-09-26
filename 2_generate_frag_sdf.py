@@ -5,6 +5,8 @@ import subprocess
 from subprocess import PIPE
 from utils.rdkit_conf_parallel import compute_confs_worker
 import prepare_dataset as prep
+from utils.filter_and_merge import run as fm_run
+
 
 nodes = ['CuCu']
 # change to the line below to reproduce paper result
@@ -49,3 +51,8 @@ for node in nodes:
     # filter and merge
     print(f'Filtering and merging ...')
     subprocess.run(f'python -W ignore utils/filter_and_merge.py --in-dir {OUT_DIR} --out-dir {OUT_DIR} --template {OUTPUT_TEMPLATE} --number-of-files {CORES}',shell=True)
+    fm_run(input_dir=OUT_DIR, output_dir=OUT_DIR, template=OUTPUT_TEMPLATE)
+
+
+
+
