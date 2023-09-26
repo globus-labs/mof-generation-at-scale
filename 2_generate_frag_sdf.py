@@ -19,7 +19,7 @@ for node in nodes:
     print(f'Now on node {node}')
     TARGET_DIR = f'data/sdf/{node}/'
     INPUT_SMILES=f'data/fragments_smi/frag_{node}.txt'
-    OUTPUT_TEMPLATE=f'data/fragments_all/{node}/hMOF_frag'
+    OUTPUT_TEMPLATE=f'hMOF_frag'
     OUT_DIR=f'data/fragments_all/{node}/'
     CORES='0'
     
