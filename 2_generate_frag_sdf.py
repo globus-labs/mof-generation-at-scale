@@ -4,7 +4,7 @@ import shutil
 import subprocess
 from subprocess import PIPE
 from utils.rdkit_conf_parallel import compute_confs_worker
-import prepare_dataset as prep
+import utils.prepare_dataset as prep
 from utils.filter_and_merge import run as fm_run
 
 
