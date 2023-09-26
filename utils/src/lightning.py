@@ -263,13 +263,13 @@ class DDPM(pl.LightningModule):
             'noise_0': noise_0
         }
 
-    def training_epoch_end(self, training_step_outputs):
+    def on_train_epoch_end(self, training_step_outputs):
         for metric in training_step_outputs[0].keys():
             avg_metric = self.aggregate_metric(training_step_outputs, metric)
             self.metrics.setdefault(f'{metric}/train', []).append(avg_metric)
             self.log(f'{metric}/train', avg_metric, prog_bar=True)
 
-    def validation_epoch_end(self, validation_step_outputs):
+    def on_validation_epoch_end(self, validation_step_outputs):
         for metric in validation_step_outputs[0].keys():
             avg_metric = self.aggregate_metric(validation_step_outputs, metric)
             self.metrics.setdefault(f'{metric}/val', []).append(avg_metric)
@@ -287,7 +287,7 @@ class DDPM(pl.LightningModule):
             for metric, value in best_metrics.items():
                 self.log(f'best_{metric}', value, prog_bar=True, batch_size=self.batch_size)
 
-    def test_epoch_end(self, test_step_outputs):
+    def on_test_epoch_end(self, test_step_outputs):
         for metric in test_step_outputs[0].keys():
             avg_metric = self.aggregate_metric(test_step_outputs, metric)
             self.metrics.setdefault(f'{metric}/test', []).append(avg_metric)
