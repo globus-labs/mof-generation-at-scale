@@ -44,7 +44,7 @@ for node in nodes:
     out_frag_path = os.path.join(OUT_DIR, f'{OUTPUT_TEMPLATE}_frag.sdf')
     out_link_path = os.path.join(OUT_DIR, f'{OUTPUT_TEMPLATE}_link.sdf')
     out_table_path = os.path.join(OUT_DIR, f'{OUTPUT_TEMPLATE}_table.csv')
-    prep.run(table_path=INPUT_SMILES, sdf_path=OUTPUT_TEMPLATE, out_mol_path=out_mol_path, out_frag_path=out_frag_path, out_link_path=out_link_path, out_table_path=out_table_path)
+    prep.run(table_path=INPUT_SMILES, sdf_path=sdf_path, out_mol_path=out_mol_path, out_frag_path=out_frag_path, out_link_path=out_link_path, out_table_path=out_table_path)
     
     # filter and merge
     print(f'Filtering and merging ...')
