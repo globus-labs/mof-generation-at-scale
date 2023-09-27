@@ -178,7 +178,7 @@ def main(input_path, model, output_dir, n_samples, n_steps, linker_size, anchors
 
 
 def run_dflk_sample_analyze(input_path, model, linker_size, output_dir="./", n_samples=5, n_steps=None, anchors=None):
-    main(input_path=input_path, model=model, output_dir=output_dir, n_samples=n_samples, n_steps=n_steps, linker_size=str(linker_size), anchors=anchors)
+    main(input_path=input_path, model=model, output_dir=output_dir, n_samples=n_samples, n_steps=n_steps, linker_size=linker_size, anchors=anchors)
 
 
 if __name__ == '__main__':
