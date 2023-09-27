@@ -7,7 +7,7 @@ nodes = ['CuCu']
 # change to the line below to reproduce paper result
 # nodes = [i.split('_')[1].split('.sdf')[0] for i in os.listdir('data/conformers') if 'conformers' in i]
 
-for n_atoms in [5]:
+for n_atoms in [8]:
 # change to the line below to reproduce paper result
 # for n_atoms in range(5,11):
     print(f'Sampling {n_atoms} atoms...')
