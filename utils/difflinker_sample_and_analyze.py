@@ -7,11 +7,11 @@ from tqdm import tqdm
 import torch
 from rdkit import Chem
 
-from .src import const
-from .src.datasets import collate_with_fragment_edges, get_dataloader, parse_molecule
-from .src.lightning import DDPM
-from .src.linker_size_lightning import SizeClassifier
-from .src.visualizer import save_xyz_file, visualize_chain
+from utils.src import const
+from utils.datasets import collate_with_fragment_edges, get_dataloader, parse_molecule
+from utils.lightning import DDPM
+from utils.linker_size_lightning import SizeClassifier
+from utils.visualizer import save_xyz_file, visualize_chain
 from tqdm import tqdm
 
 
