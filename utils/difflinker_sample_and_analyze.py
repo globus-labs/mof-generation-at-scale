@@ -107,14 +107,11 @@ def main(input_path, model, output_dir, n_samples, n_steps, linker_size, anchors
                 sizes.append(size_nn.linker_id2size[label])
             sizes = torch.tensor(sizes, device=samples.device, dtype=const.TORCH_INT)
             return sizes
-    print("1")
 
     ddpm = DDPM.load_from_checkpoint(model, map_location=device).eval().to(device)
-    print("2")
 
     if n_steps is not None:
         ddpm.edm.T = n_steps #otherwise, ddpm.edm.T = 1000 default
-    print("A")
 
     if ddpm.center_of_mass == 'anchors' and anchors is None:
         print(
@@ -122,25 +119,23 @@ def main(input_path, model, output_dir, n_samples, n_steps, linker_size, anchors
             'or use another DiffLinker model that does not require information about anchors'
         )
         return
-    print("B")
 
     # Reading input fragments
     extension = input_path.split('.')[-1]
     if extension not in ['sdf', 'pdb', 'mol', 'mol2']:
         print('Please upload the file in one of the following formats: .pdb, .sdf, .mol, .mol2')
         return
-    print("C")
 
     try:
-        print("abc")
         molecules = read_molecules(input_path)
-        print(4)
         # molecules = [Chem.RemoveAllHs(i) for i in molecules]
         name = '.'.join(input_path.split('/')[-1].split('.')[:-1])
-        print(5)
     except Exception as e:
         return f'Could not read the molecule: {e}'
-    print(3)
+        
+    molecules = read_molecules(input_path)
+    # molecules = [Chem.RemoveAllHs(i) for i in molecules]
+    name = '.'.join(input_path.split('/')[-1].split('.')[:-1])
     
     for n_mol,molecule in enumerate(molecules):
         positions, one_hot, charges = parse_molecule(molecule, is_geom=ddpm.is_geom)
