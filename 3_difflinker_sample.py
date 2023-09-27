@@ -17,7 +17,7 @@ for n_atoms in [5]:
             OUTPUT_DIR = f'output/n_atoms_{n_atoms}/{node}'
             os.makedirs(OUTPUT_DIR,exist_ok=True)
             # subprocess.run(f'python -W ignore utils/difflinker_sample_and_analyze.py --linker_size {n_atoms} --fragments data/fragments_all/{node}/hMOF_frag.sdf --model models/geom_difflinker.ckpt --output {OUTPUT_DIR} --n_samples 1',shell=True)
-            main_run(input_path="data/fragments_all/{node}/hMOF_frag_frag.sdf", model="models/geom_difflinker.ckpt", linker_size=n_atoms, output_dir=OUTPUT_DIR, n_samples=1, n_steps=None, anchors=None)
+            main_run(input_path="data/fragments_all/{node}/hMOF_frag_frag.sdf", model="models/geom_difflinker.ckpt", linker_size=str(n_atoms), output_dir=OUTPUT_DIR, n_samples=1, n_steps=None, anchors=None)
 
             # change to the line below to reproduce paper result
             #subprocess.run(f'python -W ignore utils/difflinker_sample_and_analyze.py --linker_size {n_atoms} --fragments data/fragments_all/{node}/hMOF_frag.sdf --model models/geom_difflinker.ckpt --output {OUTPUT_DIR} --n_samples 20',shell=True)
