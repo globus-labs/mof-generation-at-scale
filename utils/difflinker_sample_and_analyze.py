@@ -126,16 +126,16 @@ def main_run(input_path, model, output_dir, n_samples, n_steps, linker_size, anc
         print('Please upload the file in one of the following formats: .pdb, .sdf, .mol, .mol2')
         return
 
-    # try:
-    #     molecules = read_molecules(input_path)
-    #     # molecules = [Chem.RemoveAllHs(i) for i in molecules]
-    #     name = '.'.join(input_path.split('/')[-1].split('.')[:-1])
-    # except Exception as e:
-    #     return f'Could not read the molecule: {e}'
+    try:
+        molecules = read_molecules(input_path)
+        # molecules = [Chem.RemoveAllHs(i) for i in molecules]
+        name = '.'.join(input_path.split('/')[-1].split('.')[:-1])
+    except Exception as e:
+        return f'Could not read the molecule: {e}'
         
-    molecules = read_molecules(input_path)
-    # molecules = [Chem.RemoveAllHs(i) for i in molecules]
-    name = '.'.join(input_path.split('/')[-1].split('.')[:-1])
+    # molecules = read_molecules(input_path)
+    # # molecules = [Chem.RemoveAllHs(i) for i in molecules]
+    # name = '.'.join(input_path.split('/')[-1].split('.')[:-1])
     
     for n_mol,molecule in enumerate(molecules):
         positions, one_hot, charges = parse_molecule(molecule, is_geom=ddpm.is_geom)
