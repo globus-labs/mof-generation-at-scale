@@ -107,8 +107,10 @@ def main(input_path, model, output_dir, n_samples, n_steps, linker_size, anchors
                 sizes.append(size_nn.linker_id2size[label])
             sizes = torch.tensor(sizes, device=samples.device, dtype=const.TORCH_INT)
             return sizes
+    print("1")
 
     ddpm = DDPM.load_from_checkpoint(model, map_location=device).eval().to(device)
+    print("2")
 
     if n_steps is not None:
         ddpm.edm.T = n_steps #otherwise, ddpm.edm.T = 1000 default
@@ -132,7 +134,7 @@ def main(input_path, model, output_dir, n_samples, n_steps, linker_size, anchors
         name = '.'.join(input_path.split('/')[-1].split('.')[:-1])
     except Exception as e:
         return f'Could not read the molecule: {e}'
-    print(molecules)
+    print(3)
     
     for n_mol,molecule in enumerate(molecules):
         print("A")
