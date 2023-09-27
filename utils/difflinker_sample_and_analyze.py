@@ -8,10 +8,10 @@ import torch
 from rdkit import Chem
 
 from utils.src import const
-from utils.datasets import collate_with_fragment_edges, get_dataloader, parse_molecule
-from utils.lightning import DDPM
-from utils.linker_size_lightning import SizeClassifier
-from utils.visualizer import save_xyz_file, visualize_chain
+from utils.src.datasets import collate_with_fragment_edges, get_dataloader, parse_molecule
+from utils.src.lightning import DDPM
+from utils.src.linker_size_lightning import SizeClassifier
+from utils.src.visualizer import save_xyz_file, visualize_chain
 from tqdm import tqdm
 
 
