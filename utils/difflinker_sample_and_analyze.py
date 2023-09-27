@@ -81,7 +81,7 @@ def generate_animation(ddpm, chain_batch, node_mask,n_mol):
         save_xyz_file(chain_output, one_hot, positions, chain_node_mask, names=names, is_geom=ddpm.is_geom)
         visualize_chain(chain_output, wandb=None, mode=name, is_geom=ddpm.is_geom) #set wandb None for now!
 
-def main(input_path, model, output_dir, n_samples, n_steps, linker_size, anchors):
+def main_run(input_path, model, output_dir, n_samples, n_steps, linker_size, anchors):
     print(f'linker_size: {linker_size}')
     # Setup
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -181,7 +181,7 @@ def main(input_path, model, output_dir, n_samples, n_steps, linker_size, anchors
 
 
 def run_dflk_sample_analyze(input_path, model, linker_size, output_dir="./", n_samples=5, n_steps=None, anchors=None):
-    main(input_path=input_path, model=model, output_dir=output_dir, n_samples=n_samples, n_steps=n_steps, linker_size=str(linker_size), anchors=anchors)
+    main_run(input_path=input_path, model=model, output_dir=output_dir, n_samples=n_samples, n_steps=n_steps, linker_size=str(linker_size), anchors=anchors)
 
 
 if __name__ == '__main__':
