@@ -135,6 +135,7 @@ def main(input_path, model, output_dir, n_samples, n_steps, linker_size, anchors
         molecules = read_molecules(input_path)
         # molecules = [Chem.RemoveAllHs(i) for i in molecules]
         name = '.'.join(input_path.split('/')[-1].split('.')[:-1])
+        print("abc")
     except Exception as e:
         return f'Could not read the molecule: {e}'
     print(3)
