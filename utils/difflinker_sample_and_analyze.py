@@ -114,6 +114,7 @@ def main(input_path, model, output_dir, n_samples, n_steps, linker_size, anchors
 
     if n_steps is not None:
         ddpm.edm.T = n_steps #otherwise, ddpm.edm.T = 1000 default
+    print("A")
 
     if ddpm.center_of_mass == 'anchors' and anchors is None:
         print(
@@ -121,12 +122,14 @@ def main(input_path, model, output_dir, n_samples, n_steps, linker_size, anchors
             'or use another DiffLinker model that does not require information about anchors'
         )
         return
+    print("B")
 
     # Reading input fragments
     extension = input_path.split('.')[-1]
     if extension not in ['sdf', 'pdb', 'mol', 'mol2']:
         print('Please upload the file in one of the following formats: .pdb, .sdf, .mol, .mol2')
         return
+    print("C")
 
     try:
         molecules = read_molecules(input_path)
@@ -137,7 +140,6 @@ def main(input_path, model, output_dir, n_samples, n_steps, linker_size, anchors
     print(3)
     
     for n_mol,molecule in enumerate(molecules):
-        print("A")
         positions, one_hot, charges = parse_molecule(molecule, is_geom=ddpm.is_geom)
         fragment_mask = np.ones_like(charges)
         linker_mask = np.zeros_like(charges)
