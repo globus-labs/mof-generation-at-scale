@@ -1268,7 +1268,7 @@ with io.open("co2_adsorption_rigid/simulation.input", "w", newline="\\n") as wf:
             angle_df,
             dihedral_df,
             improper_df)
-
+        cif_fname = self.rewrite_cif(raspa_path, cif_name, atom_df, cifbox)
         # void fraction
         sim_dir = os.path.join(raspa_path, "helium_void_fraction")
         os.makedirs(sim_dir, exist_ok=True)
