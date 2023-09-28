@@ -1218,6 +1218,7 @@ with io.open("co2_adsorption_rigid/simulation.input", "w", newline="\\n") as wf:
         improper_coeff_df = read_lmp_sec_str2df(
             read_str.split("Improper Coeffs")[1].split("Atoms")[0].strip())
         read_str.split("Atoms")[1].split("$$$atoms$$$")[0].strip()
+        cifbox = read_str.split("Atoms")[1].split("$$$atoms$$$")[0].strip()
         atom_df = read_lmp_sec_str2df(read_str.split("$$$atoms$$$")[
                                       1].split("Bonds")[0].strip())
         atom_df.columns = [
