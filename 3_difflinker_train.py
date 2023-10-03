@@ -11,6 +11,7 @@ from utils.src.const import NUMBER_OF_ATOM_TYPES, GEOM_NUMBER_OF_ATOM_TYPES
 from utils.src.lightning import DDPM
 from utils.src.utils import disable_rdkit_logging, Logger
 
+from pytorch_lightning.callbacks import TQDMProgressBar
 
 def find_last_checkpoint(checkpoints_dir):
     epoch2fname = [
@@ -92,12 +93,12 @@ def main(args):
         anchors_context=anchors_context,
     )
     print(args.test_epochs)
-    checkpoint_callback = callbacks.ModelCheckpoint(
-        dirpath=checkpoints_dir,
-        filename=experiment + '_{epoch:02d}',
-        monitor='loss/val',
-        save_top_k=10,
-    )
+    checkpoint_callback = [callbacks.ModelCheckpoint(
+                                    dirpath=checkpoints_dir,
+                                    filename=experiment + '_{epoch:02d}',
+                                    monitor='loss/val',
+                                    save_top_k=10),
+                          TQDMProgressBar()]
     trainer = Trainer(
         max_epochs=args.n_epochs,
         # logger=wandb_logger,
