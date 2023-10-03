@@ -1,7 +1,6 @@
 """Data models for a MOF class"""
 from dataclasses import dataclass, field
 from functools import cached_property
-from typing import Sequence
 from pathlib import Path
 from io import StringIO
 
