@@ -1,9 +1,10 @@
 """Functions pertaining to training and running the generative model"""
 from pathlib import Path
 
+from ase.io import write
 import ase
 
-from mofa.model import MOFRecord
+from mofa.model import MOFRecord, LigandDescription
 
 
 def train_generator(
@@ -25,15 +26,25 @@ def train_generator(
 
 def run_generator(
         model: str | Path,
+        fragment_template: LigandDescription,
         molecule_sizes: list[int],
-        num_samples: int
+        num_samples: int,
+        fragment_spacing: float | None = None,
 ) -> list[ase.Atoms]:
     """
     Args:
         model: Path to the starting weights
-        molecule_sizes: Number of heavy atoms in the linker molecules to generate
+        fragment_template: Template to be filled with linker atoms
+        molecule_sizes: Number of heavy atoms in the linker to generate
         num_samples: Number of samples of molecules to generate
+        fragment_spacing: Starting distance between the fragments
     Returns:
         3D geometries of the generated linkers
     """
+
+    # Create the template input
+    blank_template = fragment_template.generate_template(spacing_distance=fragment_spacing)
+    write('test.sdf', blank_template)
+
+    # Run the generator
     raise NotImplementedError()

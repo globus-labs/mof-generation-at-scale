@@ -47,6 +47,17 @@ class LigandDescription:
         """All atoms which are not part of a fragment"""
         raise NotImplementedError()
 
+    def generate_template(self, spacing_distance: float | None = None) -> ase.Atoms:
+        """Generate a version of the ligand with only the fragments at the end
+
+        Args:
+            spacing_distance: Distance to enforce between the fragments. Set to ``None``
+                to keep the current distance
+        Returns:
+            The template with the desired spacing
+        """
+        raise NotImplementedError()
+
 
 @dataclass
 class MOFRecord:
