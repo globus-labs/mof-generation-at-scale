@@ -1,19 +1,18 @@
 """Functions for assembling a MOF structure"""
-import ase
+from typing import Sequence
+
+from .model import NodeDescription, LigandDescription, MOFRecord
 
 
-def assemble_mof(
-        node: object,
-        linker: str,
-        topology: object
-) -> ase.Atoms:
-    """Generate a MOF structure from a recipe
+def assemble_mof(nodes: Sequence[NodeDescription], ligands: Sequence[LigandDescription], topology: str) -> MOFRecord:
+    """Generate a new MOF from the description of the nodes, ligands and toplogy
 
     Args:
-        node: Atomic structure of the nodes
-        linker: SMILES string defining the linker object
-        topology: Description of the network structure
+        nodes: Descriptions of each node
+        ligands: Description of the ligands
+        topology: Name of the topology
+
     Returns:
-        Description of the 3D structure of the MOF
+        A new MOF record
     """
     raise NotImplementedError()

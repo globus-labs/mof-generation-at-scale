@@ -102,32 +102,7 @@ class MOFRecord:
 
         return MOFRecord(structure=Path(cif_path).read_text(), **kwargs)
 
-    def replace_ligand(self, new_ligand: ase.Atoms) -> 'MOFRecord':
-        """Create a new MOF by replacing the ligands in this MOF with new
-
-        Args:
-            new_ligand:
-
-        Returns:
-
-        """
-        return assemble_mof(self.nodes, [new_ligand], self.topology)
-
     @cached_property
     def atoms(self) -> ase.Atoms:
         """The structure as an ASE Atoms object"""
         return next(read_cif(StringIO(self.structure), index=slice(None)))
-
-
-def assemble_mof(nodes: Sequence[NodeDescription], ligands: Sequence[LigandDescription], topology: str) -> MOFRecord:
-    """Generate a new MOF from the description of the nodes, ligands and toplogy
-
-    Args:
-        nodes: Descriptions of each node
-        ligands: Description of the ligands
-        topology: Name of the topology
-
-    Returns:
-        A new MOF record
-    """
-    raise NotImplementedError()
