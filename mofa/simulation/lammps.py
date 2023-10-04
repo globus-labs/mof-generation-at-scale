@@ -3,6 +3,7 @@ import ase
 import io
 import os
 import shutil
+import logging
 import pandas as pd
 from .cif2lammps.main_conversion import single_conversion
 from .cif2lammps.UFF4MOF_construction import UFF4MOF
@@ -31,12 +32,12 @@ class LAMMPSRunner:
         """
         self.lammps_command = lammps_command
         self.lmp_sims_root_path = lmp_sims_root_path
-        print("Making LAMMPS simulation root path at: " + os.path.join(os.getcwd(), self.lmp_sims_root_path))
+        logging.info("Making LAMMPS simulation root path at: " + os.path.join(os.getcwd(), self.lmp_sims_root_path))
         os.makedirs(self.lmp_sims_root_path, exist_ok=True)
-        print("Scanning cif files at: " + os.path.join(os.getcwd(), self.cif_files_root_path))
+        logging.info("Scanning cif files at: " + os.path.join(os.getcwd(), self.cif_files_root_path))
         self.cif_files_root_path = cif_files_root_path
         self.cif_files_paths = [os.path.join(self.cif_files_root_path, x) for x in os.listdir(self.cif_files_root_path) if x.endswith(".cif")]
-        print("Found " + "%d" % len(self.cif_files_paths) + " files with .cif extension! \n")
+        logging.info("Found " + "%d" % len(self.cif_files_paths) + " files with .cif extension! \n")
 
     def prep_molecular_dynamics_single(self, cif_path: str, timesteps: int, report_frequency: int, stepsize_fs: float = 0.5) -> (str, int):
         """Use cif2lammps to assign force field to a single MOF and generate input files for lammps simulation
@@ -67,14 +68,14 @@ class LAMMPSRunner:
             data_file_name = [x for x in os.listdir(lmp_path) if x.startswith("data.") and not x.startswith("data.lmp")][0]
             in_file_rename = "in.lmp"
             data_file_rename = "data.lmp"
-            print("Reading data file for element list: " + os.path.join(lmp_path, data_file_name))
+            logging.info("Reading data file for element list: " + os.path.join(lmp_path, data_file_name))
             with io.open(os.path.join(lmp_path, data_file_name), "r") as rf:
                 df = pd.read_csv(io.StringIO(rf.read().split("Masses")[1].split("Pair Coeffs")[0]), sep=r"\s+", header=None)
                 element_list = df[3].to_list()
             with io.open(os.path.join(lmp_path, in_file_rename), "w") as wf:
-                print("Writing input file: " + os.path.join(lmp_path, in_file_rename))
+                logging.info("Writing input file: " + os.path.join(lmp_path, in_file_rename))
                 with io.open(os.path.join(lmp_path, in_file_name), "r") as rf:
-                    print("Reading original input file: " + os.path.join(lmp_path, in_file_name))
+                    logging.info("Reading original input file: " + os.path.join(lmp_path, in_file_name))
                     wf.write(rf.read().replace(data_file_name, data_file_rename) + """
 
 # simulation
@@ -101,12 +102,12 @@ write_data          relaxing.*.data
 """)
             os.remove(os.path.join(lmp_path, in_file_name))
             shutil.move(os.path.join(lmp_path, data_file_name), os.path.join(lmp_path, data_file_rename))
-            print("Success!!\n\n")
+            logging.info("Success!!\n\n")
             return_code = 0
 
         except Exception as e:
-            print(e)
-            print("Failed!! Removing files...\n\n")
+            logging.error(e)
+            logging.error("Failed!! Removing files...\n\n")
             shutil.rmtree(lmp_path)
             return_code = -1
 
@@ -126,8 +127,3 @@ write_data          relaxing.*.data
         raise NotImplementedError()
 
 
-if __name__ == "__main__":
-    LMPrunner = LAMMPSRunner(lammps_command="npt_tri", lmp_sims_root_path="lmp_sims", cif_files_root_path="cif_files")
-    test_file_index = 0
-    lmp_path = LMPrunner.prep_molecular_dynamics_single(LMPrunner.cif_file_names[test_file_index],
-                                                        timesteps=200000, report_frequency=1000, stepsize_fs=0.5)
