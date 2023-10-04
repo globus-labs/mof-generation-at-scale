@@ -25,7 +25,7 @@ class LAMMPSRunner:
         Args:
             lammps_command: lammps simulation type, default: "npt_tri"
             lmp_sims_root_path: output directory, default: "lmp_sims"
-            cif_files_root_path: input directory to look for cif files: "cif_files"
+            cif_files_root_path: input directory to look for cif files, default: "cif_files"
         Returns:
             None
         """
