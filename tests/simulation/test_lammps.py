@@ -1,6 +1,7 @@
 from mofa.simulation.lammps import LAMMPSRunner
 import logging
 
+
 def test_LMPRunner():
     lmprunner = LAMMPSRunner(lammps_command="npt_tri",
                              lmp_sims_root_path="lmp_sims",
