@@ -2,19 +2,43 @@
 
 import ase
 
+from mofa.model import MOFRecord
 
-class LinkerScorer:
-    """Scoring functions which operate on the linkers produced by the generator
+
+class Scorer:
+    """Base class for tools which score a MOF
+
+    Most implementations should be subclasses of the :class:`LigandScorer` or
+    :class:`MOFScorer`, which provide utility that - for example - extract
+    the information about the linker.
+    """
+
+    def score_mof(self, record: MOFRecord) -> float:
+        """Score a MOF given the full MOF record
+
+        Args:
+            record: Record to be scored
+        Returns:
+            Score value
+        """
+
+
+class LigandScorer(Scorer):
+    """Scoring functions which operate on the ligands between nodes in the MOF
 
     Examples:
-        - Verify the linker is chemically reasonable (e.g., SAScore, SCScore)
+        - Verify the ligand is chemically reasonable (e.g., SAScore, SCScore)
     """
 
     def __call__(self, linker: ase.Atoms) -> float:
         raise NotImplementedError()
 
+    def score_mof(self, record: MOFRecord) -> float:
+        assert len(record.ligands) == 1, 'We do not yet know how to score a MOF with >1 type of linker'  # TOOD
+        raise NotImplementedError()
 
-class MOFScorer:
+
+class MOFScorer(Scorer):
     """Scoring functions which produce a quick estimate of the quality of a MOF
 
     Examples:
@@ -24,3 +48,6 @@ class MOFScorer:
 
     def __call__(self, mof: ase.Atoms) -> float:
         raise NotImplementedError()
+
+    def score_mof(self, record: MOFRecord) -> float:
+        return self(record.atoms)
