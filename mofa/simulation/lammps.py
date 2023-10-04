@@ -15,10 +15,6 @@ class LAMMPSRunner:
     Args:
         lammps_command: Command used to launch LAMMPS
     """
-    lammps_command = "npt_tri"
-    lmp_sims_root_path = "lmp_sims"
-    cif_files_root_path = "cif_files"
-    cif_files_paths = []
 
     def __init__(self, lammps_command: str = "npt_tri", lmp_sims_root_path: str = "lmp_sims", cif_files_root_path: str = "cif_files"):
         """Read cif files from input directory, make directory for lammps simulation input files
