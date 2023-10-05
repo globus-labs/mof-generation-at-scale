@@ -121,5 +121,3 @@ write_data          relaxing.*.data
         """
 
         raise NotImplementedError()
-
-
