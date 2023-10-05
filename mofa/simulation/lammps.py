@@ -28,11 +28,11 @@ class LAMMPSRunner:
         """
         self.lammps_command = lammps_command
         self.lmp_sims_root_path = lmp_sims_root_path
+        self.cif_files_root_path = cif_files_root_path
+        self.cif_files_paths = [os.path.join(self.cif_files_root_path, x) for x in os.listdir(self.cif_files_root_path) if x.endswith(".cif")]
         logging.info("Making LAMMPS simulation root path at: " + os.path.join(os.getcwd(), self.lmp_sims_root_path))
         os.makedirs(self.lmp_sims_root_path, exist_ok=True)
         logging.info("Scanning cif files at: " + os.path.join(os.getcwd(), self.cif_files_root_path))
-        self.cif_files_root_path = cif_files_root_path
-        self.cif_files_paths = [os.path.join(self.cif_files_root_path, x) for x in os.listdir(self.cif_files_root_path) if x.endswith(".cif")]
         logging.info("Found " + "%d" % len(self.cif_files_paths) + " files with .cif extension! \n")
 
     def prep_molecular_dynamics_single(self, cif_path: str, timesteps: int, report_frequency: int, stepsize_fs: float = 0.5) -> (str, int):
