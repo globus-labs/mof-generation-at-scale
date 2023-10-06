@@ -2,6 +2,7 @@
 name = "mofa"
 version = "0.0.1"
 authors = [
+    { name = "Hyun Park", email = "hyunp2@illinois.edu" },
     { name = "Xiaoli Yan", email = "xyan11@uic.edu" },
     { name = "Eliu Huerta", email = "huerta@anl.gov" },
     { name = "Logan Ward", email = "lward@anl.gov" },
