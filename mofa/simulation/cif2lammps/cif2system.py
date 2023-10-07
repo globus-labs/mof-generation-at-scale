@@ -549,6 +549,7 @@ def duplicate_system(system, replications, small_molecule_cutoff=10):
             # this data stays the same
             element_symbol = node_data['element_symbol']
             charge = node_data['charge']
+            cif_label = node_data['cif_label']
 
             # update index
             original_atom = node_data['index']
@@ -573,7 +574,8 @@ def duplicate_system(system, replications, small_molecule_cutoff=10):
                                                      0.0]),
                         fractional_position=translated_fvec,
                         charge=charge,
-                        duplicated_version_of=original_atom)
+                        duplicated_version_of=original_atom,
+                        cif_label=cif_label)
 
     for node, data in NG.nodes(data=True):
 
