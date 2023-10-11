@@ -1,11 +1,11 @@
 """Data models for a MOF class"""
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from functools import cached_property
 from pathlib import Path
 from io import StringIO
+import json
 
-from ase.io.cif import read_cif
-
+from ase.io.vasp import read_vasp
 import ase
 
 
@@ -13,9 +13,9 @@ import ase
 class NodeDescription:
     """The inorganic components of a MOF"""
 
-    name: str = ...
-    """Human-readable name of the node (e.g., "Cu paddlewheel")"""
-    xyz: str | None = None
+    smiles: str = field()
+    """SMILES-format description of the node"""
+    xyz: str | None = field(default=None, repr=False)
     """XYZ coordinates of each atom in the node
 
     Uses At or Fr as an identifier of the the anchor points
@@ -29,14 +29,12 @@ class NodeDescription:
 class LigandDescription:
     """Description of organic sections which connect inorganic nodes"""
 
-    name: str | None = ...
-    """Human-readable name of the linker"""
-    smiles: str = ...
+    smiles: str = field()
     """SMILES-format designation of the molecule"""
-    xyz: str | None = None
+    xyz: str | None = field(default=None, repr=False)
     """XYZ coordinates of each atom in the linker"""
 
-    fragment_atoms: list[list[int]] | None = None
+    fragment_atoms: list[list[int]] | None = field(default=None, repr=True)
     """Groups of atoms which attach to the nodes
 
     There are typically two groups of fragment atoms, and these are
@@ -75,13 +73,13 @@ class MOFRecord:
     """Description of each linker within the structure"""
 
     # Information about the 3D structure of the MOF
-    structure: str = ...
+    structure: str | None = field(default=None, repr=False)
     """A representative 3D structure of the MOF in POSCAR format"""
 
     # Properties
-    gas_storage: dict[tuple[str, float], float] = field(default_factory=dict)
+    gas_storage: dict[tuple[str, float], float] = field(default_factory=dict, repr=False)
     """Storage capacity of the MOF for different gases and pressures"""
-    structure_stability: dict[str, float] = field(default_factory=dict)
+    structure_stability: dict[str, float] = field(default_factory=dict, repr=False)
     """How likely the structure is to be stable according to different assays
 
     A score of 1 equates to most likely to be stable, 0 as least likely."""
@@ -104,4 +102,15 @@ class MOFRecord:
     @cached_property
     def atoms(self) -> ase.Atoms:
         """The structure as an ASE Atoms object"""
-        return next(read_cif(StringIO(self.structure), index=slice(None)))
+        return next(read_vasp(StringIO(self.structure), index=slice(None)))
+
+    def to_json(self, **kwargs) -> str:
+        """Render the structure to a JSON string
+
+        Keyword arguments are passed to :meth:`json.dumps`
+
+        Returns:
+            JSON-format version of the object
+        """
+
+        return json.dumps(asdict(self), **kwargs)
