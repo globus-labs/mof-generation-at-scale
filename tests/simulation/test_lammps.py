@@ -12,6 +12,7 @@ def test_LMPRunner():
                                                                 timesteps=1000,
                                                                 report_frequency=100,
                                                                 stepsize_fs=0.5)
+            logging.info(lmp_path)
         except Exception as e:
             logging.error(e)
-        logging.info(lmp_path)
+        
