@@ -99,15 +99,16 @@ write_data          relaxing.*.data
             os.remove(os.path.join(lmp_path, in_file_name))
             shutil.move(os.path.join(lmp_path, data_file_name), os.path.join(lmp_path, data_file_rename))
             logging.info("Success!!\n\n")
-            return_code = 0
+            # return_code = 0
 
         except Exception as e:
             logging.error(e)
             logging.error("Failed!! Removing files...\n\n")
             shutil.rmtree(lmp_path)
-            return_code = -1
+            # return_code = -1
+            raise e
 
-        return lmp_path, return_code
+        return lmp_path # , return_code
 
     def run_molecular_dynamics(self, mof: ase.Atoms, timesteps: int, report_frequency: int) -> list[ase.Atoms]:
         """Run a molecular dynamics trajectory
