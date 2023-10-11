@@ -5,6 +5,7 @@ from pathlib import Path
 from io import StringIO
 import json
 
+from ase.io import read
 from ase.io.vasp import read_vasp
 import ase
 
@@ -85,24 +86,34 @@ class MOFRecord:
     A score of 1 equates to most likely to be stable, 0 as least likely."""
 
     @classmethod
-    def from_file(cls, cif_path: Path | str, **kwargs) -> 'MOFRecord':
-        """Create a MOF description from a CIF file on disk
+    def from_file(cls, path: Path | str, read_kwargs: dict | None = None, **kwargs) -> 'MOFRecord':
+        """Create a MOF description from a structure file on disk
+
+        The file will be read using ASE's ``read`` function.
 
         Keyword arguments can include identifiers of the MOF and
-        should be passed to the constructor.
+        will be passed to the constructor.
 
         Args:
-            cif_path: Path to the CIF file
+            path: Path to the file
+            read_kwargs: Arguments passed to the read function
         Returns:
             A MOF record before fragmentation
         """
 
-        return MOFRecord(structure=Path(cif_path).read_text(), **kwargs)
+        # Read the file from disk, then write to VASP
+        if read_kwargs is None:
+            read_kwargs = {}
+        atoms = read(path, **read_kwargs)
+        fp = StringIO()
+        atoms.write(fp, format='vasp')
+
+        return MOFRecord(structure=fp.getvalue(), **kwargs)
 
     @cached_property
     def atoms(self) -> ase.Atoms:
         """The structure as an ASE Atoms object"""
-        return next(read_vasp(StringIO(self.structure), index=slice(None)))
+        return read_vasp(StringIO(self.structure))
 
     def to_json(self, **kwargs) -> str:
         """Render the structure to a JSON string
