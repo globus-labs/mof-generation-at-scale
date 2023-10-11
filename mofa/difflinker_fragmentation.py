@@ -7,7 +7,7 @@ import rdkit.Chem.AllChem as Chem
 from rdkit.Chem import AllChem
 from mofa.utils.prepare_data_from_sdf import prepare_sdf
 
-def fragmentation():
+def fragmentation(nodes: List[str]=["CuCu"]):
     # data cleaning
     df_info = pd.read_csv('data/hMOF_CO2_info.csv')
     df_info = df_info.dropna() # drop entries containing 'NaN'
@@ -55,7 +55,7 @@ def fragmentation():
         df_info_select_node.to_csv(f'data/data_by_node/{n_name}.csv',index=False)
     
     # load data
-    for node in ['CuCu']: # change to ['CuCu','ZnZn','ZnOZnZnZn'] to reproduce paper result
+    for node in nodes: # change to ['CuCu','ZnZn','ZnOZnZnZn'] to reproduce paper result
         node_name = node.replace('[','').replace(']','').replace('(','').replace(')','')
         print(f'Now on node {node_name} ... ')
         input_data_path = f'data/data_by_node/{node_name}.csv' 
