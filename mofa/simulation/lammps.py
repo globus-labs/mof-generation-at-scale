@@ -108,7 +108,7 @@ write_data          relaxing.*.data
             # return_code = -1
             raise e
 
-        return lmp_path # , return_code
+        return lmp_path  # , return_code
 
     def run_molecular_dynamics(self, mof: ase.Atoms, timesteps: int, report_frequency: int) -> list[ase.Atoms]:
         """Run a molecular dynamics trajectory
