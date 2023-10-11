@@ -4,7 +4,7 @@ from pathlib import Path
 import ase
 
 from mofa.model import MOFRecord
-from mofa import 
+from mofa.difflinker_sample import 
 
 
 def train_generator(
