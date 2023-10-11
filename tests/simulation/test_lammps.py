@@ -15,4 +15,3 @@ def test_LMPRunner():
             logging.info(lmp_path)
         except Exception as e:
             logging.error(e)
-
