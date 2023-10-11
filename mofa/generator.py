@@ -4,6 +4,7 @@ from pathlib import Path
 import ase
 
 from mofa.model import MOFRecord
+from mofa import 
 
 
 def train_generator(
