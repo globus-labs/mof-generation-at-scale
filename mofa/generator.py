@@ -28,7 +28,8 @@ def train_generator(
         
     args = get_args()
     args.config = config
-
+    print(args.config, config)
+        
     if args.config:
         config_dict = yaml.load(args.config, Loader=yaml.FullLoader)
         arg_dict = args.__dict__
