@@ -9,7 +9,7 @@ from difflinker_train import get_args, main
 import yaml
 import os
 
-def train_generator
+def train_generator(
         config: str="config.yaml",
         # starting_model: str | Path,
         examples: str|list[MOFRecord]="../argonne_gnn_gitlab/DiffLinker/data/geom/datasets",
