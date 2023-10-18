@@ -9,7 +9,8 @@ from difflinker_train import get_args, main
 import yaml
 import os
 
-def train_generator(
+def train_generator
+        config: str="config.yaml"
         # starting_model: str | Path,
         examples: str|list[MOFRecord]="../argonne_gnn_gitlab/DiffLinker/data/geom/datasets",
         num_epochs: int=10
@@ -26,6 +27,7 @@ def train_generator(
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
         
     args = get_args()
+    args.config = config
 
     if args.config:
         config_dict = yaml.load(args.config, Loader=yaml.FullLoader)
@@ -39,6 +41,7 @@ def train_generator(
         args.config = args.config.name
     else:
         config_dict = {}
+            
     args.n_epochs = num_epochs
     main(args=args)
 
