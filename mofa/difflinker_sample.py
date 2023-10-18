@@ -3,7 +3,7 @@ import argparse
 import subprocess
 from utils.difflinker_sample_and_analyze import main_run, run_dflk_sample_analyze
 from typing import *
-from pathilb import Path
+from pathlib import Path
 
 def sampler(nodes: List[str]=['CuCu'], n_atoms_list: List[int]=[8]):
     # nodes = ['CuCu']
