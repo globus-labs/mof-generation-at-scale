@@ -3,6 +3,7 @@ import argparse
 import subprocess
 from utils.difflinker_sample_and_analyze import main_run, run_dflk_sample_analyze
 from typing import *
+from pathilb import Path
 
 def sampler(nodes: List[str]=['CuCu'], n_atoms_list: List[int]=[8]):
     # nodes = ['CuCu']
@@ -24,14 +25,19 @@ def sampler(nodes: List[str]=['CuCu'], n_atoms_list: List[int]=[8]):
                 # change to the line below to reproduce paper result
                 #subprocess.run(f'python -W ignore utils/difflinker_sample_and_analyze.py --linker_size {n_atoms} --fragments data/fragments_all/{node}/hMOF_frag.sdf --model models/geom_difflinker.ckpt --output {OUTPUT_DIR} --n_samples 20',shell=True)
 
-def sample_from_sdf(node: str='CuCu', n_atoms: int=8, input_path: str|Path = ):
+def sample_from_sdf(node: str='CuCu', 
+                    n_atoms: int=8, 
+                    input_path: str|Path=f"mofa/data/fragments_all/CuCu/hMOF_frag_frag.sdf", 
+                    model: str|Path="mofa/models/geom_difflinker.ckpt",
+                    n_samples: int=1,
+                    n_steps: int=None
+                    ):
     print(f'Sampling {n_atoms} atoms...')
     if node != 'V':
         print(f'Now on node: {node}')
         OUTPUT_DIR = f'mofa/output/n_atoms_{n_atoms}/{node}'
-        os.makedirs(OUTPUT_DIR,exist_ok=True)
-        # subprocess.run(f'python -W ignore utils/difflinker_sample_and_analyze.py --linker_size {n_atoms} --fragments data/fragments_all/{node}/hMOF_frag.sdf --model models/geom_difflinker.ckpt --output {OUTPUT_DIR} --n_samples 1',shell=True)
-        main_run(input_path=f"mofa/data/fragments_all/{node}/hMOF_frag_frag.sdf", model="mofa/models/geom_difflinker.ckpt", linker_size=str(n_atoms), output_dir=OUTPUT_DIR, n_samples=1, n_steps=None, anchors=None)
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
+        main_run(input_path=input_path, model=model, linker_size=str(n_atoms), output_dir=OUTPUT_DIR, n_samples=n_samples, n_steps=n_steps, anchors=None)
     else:
         raise NotAllowedElementError()
 
