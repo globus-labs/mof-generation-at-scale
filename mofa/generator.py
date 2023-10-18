@@ -27,8 +27,6 @@ def train_generator(
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
         
     args = get_args()
-    args.config = config
-    print(args.config, config)
         
     if args.config:
         config_dict = yaml.load(args.config, Loader=yaml.FullLoader)
