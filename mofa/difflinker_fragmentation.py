@@ -5,7 +5,7 @@ from tqdm import tqdm
 import pandas as pd
 import rdkit.Chem.AllChem as Chem
 from rdkit.Chem import AllChem
-from mofa.utils.prepare_data_from_sdf import prepare_sdf
+from utils.prepare_data_from_sdf import prepare_sdf
 
 def fragmentation(nodes: List[str]=["CuCu"]):
     # data cleaning
