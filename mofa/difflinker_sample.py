@@ -51,4 +51,4 @@ if __name__ == "__main__":
     # n_atoms_list = [8]
     # sampler(nodes, n_atoms_list)
 
-    sample_from_sdf('V')
+    sample_from_sdf('CuCu')
