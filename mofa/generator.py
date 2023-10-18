@@ -10,7 +10,7 @@ import yaml
 
 def train_generator(
         # starting_model: str | Path,
-        examples: list[MOFRecord]="../argonne_gnn_gitlab/DiffLinker/data/geom/datasets",
+        examples: str|list[MOFRecord]="../argonne_gnn_gitlab/DiffLinker/data/geom/datasets",
         num_epochs: int=10
 ) -> Path:
     """Retrain a generative model for MOFs
@@ -36,7 +36,7 @@ def train_generator(
         args.config = args.config.name
     else:
         config_dict = {}
-    args
+    args.n_epochs = num_epochs
     main(args=args)
 
 def run_generator(
