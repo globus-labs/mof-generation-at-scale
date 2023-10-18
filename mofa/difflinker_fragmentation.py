@@ -6,10 +6,11 @@ import pandas as pd
 import rdkit.Chem.AllChem as Chem
 from rdkit.Chem import AllChem
 from utils.prepare_data_from_sdf import prepare_sdf
+from typing import *
 
 def fragmentation(nodes: List[str]=["CuCu"]):
     # data cleaning
-    df_info = pd.read_csv('data/hMOF_CO2_info.csv')
+    df_info = pd.read_csv('mofa/data/hMOF_CO2_info.csv')
     df_info = df_info.dropna() # drop entries containing 'NaN'
     df_info = df_info[df_info.CO2_capacity_001>0] # only keep entries with positive CO2 working capacity
     df_info = df_info[~df_info.MOFid.str.contains('ERROR')] # drop entries with error
@@ -44,21 +45,21 @@ def fragmentation(nodes: List[str]=["CuCu"]):
     df_info_select = df_info[df_info['metal_node'].isin(unique_node_select)] # select df_info with node only in list(unique_node_select)
     
     # create necessary folders
-    os.makedirs(f'data/conformers',exist_ok=True)
-    os.makedirs(f'data/data_by_node',exist_ok=True)
-    os.makedirs(f'data/fragments_smi',exist_ok=True)
+    os.makedirs(f'mofa/data/conformers',exist_ok=True)
+    os.makedirs(f'mofa/data/data_by_node',exist_ok=True)
+    os.makedirs(f'mofa/data/fragments_smi',exist_ok=True)
     
     # output each node to a separate csv files
     for n in unique_node_select:
         n_name = n.replace('[','').replace(']','').replace('(','').replace(')','')
         df_info_select_node = df_info[df_info.metal_node == n]
-        df_info_select_node.to_csv(f'data/data_by_node/{n_name}.csv',index=False)
+        df_info_select_node.to_csv(f'mofa/data/data_by_node/{n_name}.csv',index=False)
     
     # load data
     for node in nodes: # change to ['CuCu','ZnZn','ZnOZnZnZn'] to reproduce paper result
         node_name = node.replace('[','').replace(']','').replace('(','').replace(')','')
         print(f'Now on node {node_name} ... ')
-        input_data_path = f'data/data_by_node/{node_name}.csv' 
+        input_data_path = f'mofa/data/data_by_node/{node_name}.csv' 
     
         df = pd.read_csv(input_data_path)
     
@@ -87,7 +88,7 @@ def fragmentation(nodes: List[str]=["CuCu"]):
     
         # output to sdf
         print('Outputting conformers to sdf ... ')
-        conformer_sdf_path = f'data/conformers/conformers_{node_name}.sdf'
+        conformer_sdf_path = f'mofa/data/conformers/conformers_{node_name}.sdf'
         if not os.path.isfile(conformer_sdf_path):
             writer = Chem.SDWriter(conformer_sdf_path)
             for smile in tqdm(all_smiles_unique): # change to tqdm(all_smiles_unique) to reproduce paper result
@@ -99,10 +100,10 @@ def fragmentation(nodes: List[str]=["CuCu"]):
                         writer.write(mol, confId=cid)
                 except:
                     pass
-        if not os.path.isfile(f'data/fragments_smi/frag_{node_name}.txt'):
+        if not os.path.isfile(f'mofa/data/fragments_smi/frag_{node_name}.txt'):
             # generate fragment SMILES
             print('Generating SMILES ... ')
-            prepare_sdf(sdf_path=f"data/conformers/conformers_{node_name}.sdf", output_path=f"data/fragments_smi/frag_{node_name}.txt", verbose=True)
+            prepare_sdf(sdf_path=f"mofa/data/conformers/conformers_{node_name}.sdf", output_path=f"mofa/data/fragments_smi/frag_{node_name}.txt", verbose=True)
             # subprocess.run(f'python utils/prepare_data_from_sdf.py --sdf_path data/conformers/conformers_{node_name}.sdf --output_path data/fragments_smi/frag_{node_name}.txt --verbose',shell=True)
 
 if __name__ == "__main__":
