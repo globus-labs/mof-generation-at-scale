@@ -4,7 +4,7 @@ from pathlib import Path
 import ase
 
 from model import MOFRecord
-from difflinker_sample import sampler
+from difflinker_sample import sample_from_sdf
 
 def train_generator(
         starting_model: str | Path,
@@ -24,18 +24,29 @@ def train_generator(
 
 
 def run_generator(
-        model: str | Path,
-        molecule_sizes: list[int],
-        num_samples: int
+        node: str='CuCu', 
+        n_atoms: int|str=8, 
+        input_path: str|Path=f"mofa/data/fragments_all/CuCu/hMOF_frag_frag.sdf", 
+        model: str|Path="mofa/models/geom_difflinker.ckpt",
+        n_samples: int=1,
+        n_steps: int=None
 ) -> list[ase.Atoms]:
     """
     Args:
         model: Path to the starting weights
-        molecule_sizes: Number of heavy atoms in the linker molecules to generate
-        num_samples: Number of samples of molecules to generate
+        n_atoms: Number of heavy atoms in the linker molecules to generate
+        n_samples: Number of samples of molecules to generate
     Returns:
         3D geometries of the generated linkers
     """
-    sampler(nodes: List[str]=['CuCu'], n_atoms_list)
-        
-    raise NotImplementedError()
+    assert node in input_path, "node must be in input_path name"
+    sample_from_sdf(node=node, 
+                    n_atoms=n_atoms, 
+                    input_path=input_path, 
+                    model=model,
+                    n_samples=n_samples,
+                    n_steps=n_steps
+                    )   
+
+if __name__ == "__main__":
+    run_generator()
