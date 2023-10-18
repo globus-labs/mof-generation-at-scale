@@ -184,7 +184,7 @@ def calc_2d_filters(toks, pains_smarts):
 
 
 def calc_filters_2d_dataset(data):
-    with open('utils/src/delinker_utils/wehi_pains.csv', 'r') as f:
+    with open('mofa/utils/src/delinker_utils/wehi_pains.csv', 'r') as f:
         pains_smarts = [Chem.MolFromSmarts(line[0], mergeHs=True) for line in csv.reader(f)]
 
     pass_all = pass_SA = pass_RA = pass_PAINS = 0
