@@ -4,8 +4,7 @@ from pathlib import Path
 import ase
 
 from model import MOFRecord
-from difflinker_sample import 
-
+from difflinker_sample import sampler
 
 def train_generator(
         starting_model: str | Path,
@@ -37,4 +36,6 @@ def run_generator(
     Returns:
         3D geometries of the generated linkers
     """
+    sampler(nodes: List[str]=['CuCu'], n_atoms_list)
+        
     raise NotImplementedError()
