@@ -3,8 +3,8 @@ from pathlib import Path
 
 import ase
 
-from mofa.model import MOFRecord
-from mofa.difflinker_sample import 
+from model import MOFRecord
+from difflinker_sample import 
 
 
 def train_generator(
