@@ -33,9 +33,11 @@ def run_generator(
 ) -> list[ase.Atoms]:
     """
     Args:
+        node: Which node to use: CuCu, 
         model: Path to the starting weights
         n_atoms: Number of heavy atoms in the linker molecules to generate
         n_samples: Number of samples of molecules to generate
+        
     Returns:
         3D geometries of the generated linkers
     """
