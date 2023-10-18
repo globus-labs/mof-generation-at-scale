@@ -5,6 +5,8 @@ import ase
 
 from model import MOFRecord
 from difflinker_sample import sample_from_sdf
+from difflinker_train import get_args, main
+import yaml
 
 def train_generator(
         starting_model: str | Path,
@@ -20,8 +22,22 @@ def train_generator(
     Returns:
         Path to the new model weights
     """
-    raise NotImplementedError()
+    args = get_args()
 
+    if args.config:
+        config_dict = yaml.load(args.config, Loader=yaml.FullLoader)
+        arg_dict = args.__dict__
+        for key, value in config_dict.items():
+            if isinstance(value, list) and key != 'normalize_factors':
+                for v in value:
+                    arg_dict[key].append(v)
+            else:
+                arg_dict[key] = value
+        args.config = args.config.name
+    else:
+        config_dict = {}
+    
+    main(args=args)
 
 def run_generator(
         node: str='CuCu', 
