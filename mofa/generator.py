@@ -9,14 +9,14 @@ from difflinker_train import get_args, main
 import yaml
 
 def train_generator(
-        starting_model: str | Path,
-        examples: list[MOFRecord],
-        num_epochs: int
+        # starting_model: str | Path,
+        examples: list[MOFRecord]="../argonne_gnn_gitlab/DiffLinker/data/geom/datasets",
+        num_epochs: int=10
 ) -> Path:
     """Retrain a generative model for MOFs
 
     Args:
-        starting_model: Path to the starting weights of the model
+        # starting_model: Path to the starting weights of the model
         examples: Seed examples of linkers (data model TBD)
         num_epochs: Number of training epochs
     Returns:
@@ -36,7 +36,7 @@ def train_generator(
         args.config = args.config.name
     else:
         config_dict = {}
-    
+    args
     main(args=args)
 
 def run_generator(
