@@ -1,9 +1,11 @@
 """Data models for a MOF class"""
 from dataclasses import dataclass, field, asdict
 from functools import cached_property
+from hashlib import sha512
 from pathlib import Path
 from io import StringIO
 import json
+from uuid import uuid4
 
 from ase.io import read
 from ase.io.vasp import read_vasp
@@ -62,6 +64,8 @@ class LigandDescription:
 class MOFRecord:
     """Information available about a certain MOF"""
     # Data describing what the MOF is
+    name: str = None
+    """Name to be used for output files associated with this MOFs"""
     identifiers: dict[str, str] = field(default_factory=dict)
     """Names of this MOFs is registries (e.g., hMOF)"""
     topology: str | None = None
@@ -84,6 +88,17 @@ class MOFRecord:
     """How likely the structure is to be stable according to different assays
 
     A score of 1 equates to most likely to be stable, 0 as least likely."""
+
+    def __post_init__(self):
+        if self.name is None:
+            # Make a name by hashing
+            hasher = sha512()
+            if self.structure is not None:
+                hasher.update(self.structure.encode())
+            else:
+                hasher.update(str(uuid4()).encode())
+
+            self.name = f'mof-{hasher.hexdigest()[-8:]}'
 
     @classmethod
     def from_file(cls, path: Path | str, read_kwargs: dict | None = None, **kwargs) -> 'MOFRecord':
