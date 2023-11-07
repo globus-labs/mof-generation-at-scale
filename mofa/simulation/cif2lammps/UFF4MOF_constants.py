@@ -301,4 +301,4 @@ UFF4MOF_bond_orders_0 = {
 # radii = set(radii)
 #
 # for l in sorted(radii):
-# print('{:4} {:5.3f}'.format(l[0], l[1]))
+# logger.debug('{:4} {:5.3f}'.format(l[0], l[1]))

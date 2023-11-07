@@ -1,4 +1,6 @@
 """Simulation operations that involve LAMMPS"""
+from pathlib import Path
+
 import ase
 import io
 import os
@@ -24,17 +26,21 @@ class LAMMPSRunner:
         self.lmp_sims_root_path = lmp_sims_root_path
         os.makedirs(self.lmp_sims_root_path, exist_ok=True)
 
-    def prep_molecular_dynamics_single(self, cif_path: str, timesteps: int, report_frequency: int, stepsize_fs: float = 0.5) -> (str, int):
+    def prep_molecular_dynamics_single(self, cif_path: str | Path, timesteps: int, report_frequency: int, stepsize_fs: float = 0.5) -> (str, int):
         """Use cif2lammps to assign force field to a single MOF and generate input files for lammps simulation
 
         Args:
             cif_path: starting structure's cif file path
             timesteps: Number of timesteps to run
             report_frequency: How often to report structures
+            stepsize_fs: Timestep size
         Returns:
             lmp_path: a directory with the lammps simulation input files
-            return_code: cif2lammps running status, 0 means success (directory lmp_path will be kept), -1 means failure (directory lmp_path will be destroyed)
         """
+
+        # Convert the cif_path to string, as that's what the underlying library uses
+        cif_path = str(cif_path)
+
         cif_name = os.path.split(cif_path)[-1]
         lmp_path = os.path.join(self.lmp_sims_root_path, cif_name.replace(".cif", ""))
         os.makedirs(lmp_path, exist_ok=True)
@@ -62,25 +68,25 @@ class LAMMPSRunner:
                 logging.info("Writing input file: " + os.path.join(lmp_path, in_file_rename))
                 with io.open(os.path.join(lmp_path, in_file_name), "r") as rf:
                     logging.info("Reading original input file: " + os.path.join(lmp_path, in_file_name))
-                    wf.write(rf.read().replace(data_file_name, data_file_rename) + """
+                    wf.write(rf.read().replace(data_file_name, data_file_rename) + f"""
 
 # simulation
 
 fix                 fxnpt all npt temp 300.0 300.0 $(200.0*dt) tri 1.0 1.0 $(800.0*dt)
-variable            Nevery equal """ + "%d" % report_frequency + """
+variable            Nevery equal {report_frequency}
 
-thermo              ${Nevery}
+thermo              ${{Nevery}}
 thermo_style        custom step cpu dt time temp press pe ke etotal density xlo ylo zlo cella cellb cellc cellalpha cellbeta cellgamma
 thermo_modify       flush yes
 
 minimize            1.0e-10 1.0e-10 10000 100000
 reset_timestep      0
 
-dump                trajectAll all custom ${Nevery} dump.lammpstrj.all id type element x y z q
-dump_modify         trajectAll element """ + " ".join(element_list) + """
+dump                trajectAll all custom ${{Nevery}} dump.lammpstrj.all id type element x y z q
+dump_modify         trajectAll element {" ".join(element_list)}
 
-timestep            0.5
-run                 """ + "%d" % timesteps + """
+timestep            {stepsize_fs}
+run                 {timesteps}
 undump              trajectAll
 write_restart       relaxing.*.restart
 write_data          relaxing.*.data
@@ -88,17 +94,14 @@ write_data          relaxing.*.data
 """)
             os.remove(os.path.join(lmp_path, in_file_name))
             shutil.move(os.path.join(lmp_path, data_file_name), os.path.join(lmp_path, data_file_rename))
-            logging.info("Success!!\n\n")
-            # return_code = 0
+            logging.info("Success!!")
 
         except Exception as e:
-            logging.error(e)
-            logging.error("Failed!! Removing files...\n\n")
+            logging.error("Failed!! Removing files...")
             shutil.rmtree(lmp_path)
-            # return_code = -1
             raise e
 
-        return lmp_path  # , return_code
+        return lmp_path
 
     def run_molecular_dynamics(self, mof: MOFRecord, timesteps: int, report_frequency: int) -> list[ase.Atoms]:
         """Run a molecular dynamics trajectory

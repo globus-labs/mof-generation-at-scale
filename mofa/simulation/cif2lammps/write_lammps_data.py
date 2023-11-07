@@ -1,21 +1,20 @@
-from __future__ import print_function
-# , write_cif_from_system
 from .cif2system import initialize_system, replication_determination
 from .small_molecule_construction import add_small_molecules, include_molecule_file, read_small_molecule_file
 from . import atomic_data
+import logging
 import os
 import numpy as np
 import datetime
 import math
 import warnings
 import networkx as nx
-# from ase import Atoms, Atom
-# from ase.io import write
 from itertools import combinations
 
 from . import UFF4MOF_constants
 from . import UFF_constants
 from . import Dreiding_constants
+
+logger = logging.getLogger(__name__)
 
 # add more force field classes here as they are made
 
@@ -86,7 +85,7 @@ def lammps_inputs(args):
     system, replication = replication_determination(
         system, replication, cutoff)
 
-    print('system initialized...')
+    logger.debug('system initialized...')
 
     FF = force_field(system, cutoff, FF_args)
     FF.compile_force_field(charges=charges)

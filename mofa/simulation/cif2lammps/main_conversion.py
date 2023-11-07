@@ -6,6 +6,7 @@ import numpy as np
 import glob
 import os
 import time
+import logging
 from .write_lammps_data import lammps_inputs
 from .write_GULP_inputs import GULP_inputs
 
@@ -14,7 +15,10 @@ from .UFF_construction import UFF
 from .Dreiding_construction import Dreiding
 from .zeoliteFFs_construction import MZHB
 from .ZIFFF_construction import ZIFFF
+
 # add more force field classes here as they are made
+
+logger = logging.getLogger(__name__)
 
 
 def single_conversion(
@@ -29,8 +33,7 @@ def single_conversion(
         read_cifs_pymatgen=False,
         add_molecule=None,
         small_molecule_file=None):
-
-    print('converting ', cif, '...')
+    logger.debug('converting ', cif, '...')
     lammps_inputs([cif,
                    force_field,
                    ff_string,
@@ -55,17 +58,16 @@ def serial_conversion(
         read_cifs_pymatgen=False,
         add_molecule=None,
         small_molecule_file=None):
-
     try:
         os.mkdir(outdir)
     except OSError:
         pass
 
-    print('conversion running serial on a single core')
+    logger.debug('conversion running serial on a single core')
 
     cifs = sorted(glob.glob(directory + os.sep + '*.cif'))
     for cif in cifs:
-        print('converting ', cif, '...')
+        logger.debug('converting ', cif, '...')
         lammps_inputs([cif,
                        force_field,
                        ff_string,
@@ -77,7 +79,7 @@ def serial_conversion(
                        add_molecule,
                        small_molecule_file])
 
-    print('--- cifs in', directory, 'converted and placed in', outdir, '---')
+    logger.debug('--- cifs in', directory, 'converted and placed in', outdir, '---')
 
 
 def parallel_conversion(
@@ -92,13 +94,12 @@ def parallel_conversion(
         read_cifs_pymatgen=False,
         add_molecule=None,
         small_molecule_file=None):
-
     try:
         os.mkdir(outdir)
     except OSError:
         pass
 
-    print('conversion running on ' + str(multiprocessing.cpu_count()) + ' cores')
+    logger.debug('conversion running on ' + str(multiprocessing.cpu_count()) + ' cores')
 
     cifs = sorted(glob.glob(directory + os.sep + '*.cif'))
     args = [[cif,
@@ -117,7 +118,7 @@ def parallel_conversion(
     pool.close()
     pool.join()
 
-    print('--- cifs in', directory, 'converted and placed in', outdir, '---')
+    logger.debug('--- cifs in', directory, 'converted and placed in', outdir, '---')
 
 
 def parallel_GULP_conversion(
@@ -129,13 +130,12 @@ def parallel_GULP_conversion(
         replication='1x1x1',
         GULP=True,
         noautobond=True):
-
     try:
         os.mkdir(outdir)
     except OSError:
         pass
 
-    print('conversion running on ' + str(multiprocessing.cpu_count()) + ' cores')
+    logger.debug('conversion running on ' + str(multiprocessing.cpu_count()) + ' cores')
 
     cifs = sorted(glob.glob(directory + os.sep + '*.cif'))
     args = [[cif, force_field, outdir, charges, replication, noautobond]
@@ -146,11 +146,10 @@ def parallel_GULP_conversion(
     pool.close()
     pool.join()
 
-    print('--- cifs in', directory, 'converted and placed in', outdir, '---')
+    logger.debug('--- cifs in', directory, 'converted and placed in', outdir, '---')
 
 
 def run_conversion():
-
     parser = argparse.ArgumentParser(
         description='Optional arguments for running cif2lammps')
     parser.add_argument(
@@ -237,7 +236,7 @@ def run_conversion():
         help='a cif, xyz, or pdb of small molecules to be added, should be in cifs folder')
 
     args = parser.parse_args()
-    print(args)
+    logger.debug(args)
 
     if args.add_molecule is not None:
         # should be name of molecule, model, number to add
@@ -266,7 +265,7 @@ def run_conversion():
         'small_molecule_file': args.sm_file}
 
     if args.GULP:
-        print('converting to GULP format...')
+        logger.debug('converting to GULP format...')
         parallel_GULP_conversion(args.directory, **optional_arguments)
 
     if args.parallel:
@@ -278,5 +277,5 @@ def run_conversion():
 if __name__ == '__main__':
     start_time = time.time()
     run_conversion()
-    print("conversion took %s seconds " %
-          np.round((time.time() - start_time), 3))
+    logger.debug("conversion took %s seconds " %
+                 np.round((time.time() - start_time), 3))

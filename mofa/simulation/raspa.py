@@ -1,6 +1,7 @@
 import os
 import io
 import re
+import logging
 import shutil
 import pandas as pd
 import numpy as np
@@ -8,6 +9,8 @@ from cif2lammps.main_conversion import single_conversion
 from cif2lammps.UFF4MOF_construction import UFF4MOF
 from pymatgen.core import IStructure
 from pacmof import get_charges_single_serial
+
+logger = logging.getLogger(__name__)
 
 
 def read_lmp_sec_str2df(df_str, comment_char="#"):
@@ -30,8 +33,7 @@ def fix_label_cif_pmg(incif, outcif):
             label_dict[curr_symbol] = label_dict[curr_symbol] + 1
         else:
             label_dict[curr_symbol] = 0
-        pmg_structure.sites[i].label = curr_symbol + \
-            "%d" % label_dict[curr_symbol]
+        pmg_structure.sites[i].label = curr_symbol + "%d" % label_dict[curr_symbol]
     pmg_structure.to(filename=outcif, fmt="cif")
 
 
@@ -61,8 +63,7 @@ def fix_label_cif(incif, outcif):
                     label_dict[curr_symbol] = label_dict[curr_symbol] + 1
                 else:
                     label_dict[curr_symbol] = 0
-                atom_df.at[i, "_atom_site_label"] = curr_symbol + \
-                    "%d" % label_dict[curr_symbol]
+                atom_df.at[i, "_atom_site_label"] = curr_symbol + "%d" % label_dict[curr_symbol]
             atom_str = atom_df.to_string(
                 header=None, index=None, justify="left")
             ls = "\n".join(header) + "\n" + atom_str
@@ -124,8 +125,7 @@ def pacmof_cif2raspa_cif(incif, outcif, extra_info=""):
             label_dict[curr_symbol] = label_dict[curr_symbol] + 1
         else:
             label_dict[curr_symbol] = 0
-        atom_df.at[i, "_atom_site_label"] = curr_symbol + \
-            "%d" % label_dict[curr_symbol]
+        atom_df.at[i, "_atom_site_label"] = curr_symbol + "%d" % label_dict[curr_symbol]
     atom_str = atom_df.to_string(
         header=None, index=None, col_space=[
             10, 8, 20, 20, 20, 20], justify="left")
@@ -190,10 +190,10 @@ class RASPARunner:
         """
         self.lmp_command = raspa_command
         self.raspa_sims_root_path = raspa_sims_root_path
-        print("Making RASPA simulation root path at: " +
-              os.path.join(os.getcwd(), self.raspa_sims_root_path))
+        logger.debug("Making RASPA simulation root path at: " +
+                     os.path.join(os.getcwd(), self.raspa_sims_root_path))
         os.makedirs(self.raspa_sims_root_path, exist_ok=True)
-        print(
+        logger.debug(
             "Scanning cif files at: " +
             os.path.join(
                 os.getcwd(),
@@ -204,10 +204,10 @@ class RASPARunner:
                 self.cif_files_root_path,
                 x) for x in os.listdir(
                 self.cif_files_root_path) if x.endswith(".cif")]
-        print("Found " +
-              "%d" %
-              len(self.cif_files_paths) +
-              " files with .cif extension! \n")
+        logger.debug("Found " +
+                     "%d" %
+                     len(self.cif_files_paths) +
+                     " files with .cif extension! \n")
 
     def write_pseudo_atoms_def(
             self,
@@ -262,7 +262,7 @@ C      yes  C  C  0  12.0        0.0      0.0    1.0   1.00   0     0   relative
                 "anisotropic-type",
                 "tinker-type"])
         pseudo_atoms_df_header_str = "#type      print   as    chem  oxidation   mass" + "        " + \
-            "charge   polarization B-factor radii  connectivity anisotropic anisotropic-type   tinker-type"
+                                     "charge   polarization B-factor radii  connectivity anisotropic anisotropic-type   tinker-type"
         pseudo_atoms_df = atom_df[["comment", "element", "element", "mass", "q"]].copy(
             deep=True).reset_index(drop=True)
         pseudo_atoms_df.columns = ["#type", "as", "chem", "mass", "charge"]
@@ -279,21 +279,21 @@ C      yes  C  C  0  12.0        0.0      0.0    1.0   1.00   0     0   relative
         pseudo_atoms_df = pd.concat(
             [pseudo_atoms_df, _pseudo_atoms_df], axis=0).reset_index(drop=True)
         pseudo_atoms_str = "#number of pseudo atoms\n" + "%d" % len(pseudo_atoms_df) + "\n" + pseudo_atoms_df_header_str + "\n" + \
-            "\n".join(["{:<10} {:<7} {:<5} {:<5} {:<11} {:<10} {:<9} {:<12} {:<8} {:<6} {:<12} {:<11} {:<18} {:<11}".format(
-                pseudo_atoms_df.at[x, "#type"].strip(),
-                pseudo_atoms_df.at[x, "print"],
-                pseudo_atoms_df.at[x, "as"],
-                pseudo_atoms_df.at[x, "chem"],
-                pseudo_atoms_df.at[x, "oxidation"],
-                pseudo_atoms_df.at[x, "mass"],
-                "%1.4f" % pseudo_atoms_df.at[x, "charge"],
-                pseudo_atoms_df.at[x, "polarization"],
-                pseudo_atoms_df.at[x, "B-factor"],
-                pseudo_atoms_df.at[x, "radii"],
-                pseudo_atoms_df.at[x, "connectivity"],
-                pseudo_atoms_df.at[x, "anisotropic"],
-                pseudo_atoms_df.at[x, "anisotropic-type"],
-                pseudo_atoms_df.at[x, "tinker-type"]) for x in pseudo_atoms_df.index])
+                           "\n".join(["{:<10} {:<7} {:<5} {:<5} {:<11} {:<10} {:<9} {:<12} {:<8} {:<6} {:<12} {:<11} {:<18} {:<11}".format(
+                               pseudo_atoms_df.at[x, "#type"].strip(),
+                               pseudo_atoms_df.at[x, "print"],
+                               pseudo_atoms_df.at[x, "as"],
+                               pseudo_atoms_df.at[x, "chem"],
+                               pseudo_atoms_df.at[x, "oxidation"],
+                               pseudo_atoms_df.at[x, "mass"],
+                               "%1.4f" % pseudo_atoms_df.at[x, "charge"],
+                               pseudo_atoms_df.at[x, "polarization"],
+                               pseudo_atoms_df.at[x, "B-factor"],
+                               pseudo_atoms_df.at[x, "radii"],
+                               pseudo_atoms_df.at[x, "connectivity"],
+                               pseudo_atoms_df.at[x, "anisotropic"],
+                               pseudo_atoms_df.at[x, "anisotropic-type"],
+                               pseudo_atoms_df.at[x, "tinker-type"]) for x in pseudo_atoms_df.index])
 
         # pseudo_atoms_str = "#number of pseudo atoms\n" + "%d" % len(pseudo_atoms_df) + "\n" + \
         # pseudo_atoms_df.to_string(header=True, index=None, justify="left",
@@ -354,8 +354,8 @@ C              lennard-jones     0.8      6.38         // idem
         pair_coeff_df["eps(K)"] = [
             "%.4f" %
             x for x in (
-                pair_coeff_df["eps(kCal/mol)"] *
-                lammps2raspa_energy)]
+                    pair_coeff_df["eps(kCal/mol)"] *
+                    lammps2raspa_energy)]
         pair_coeff_df["sig(Ang)"] = ["%.4f" %
                                      x for x in pair_coeff_df["sig(Ang)"]]
         atom_df["eps(K)"] = atom_df["type"].map(
@@ -432,8 +432,7 @@ yes
             "r0(ang)",
             "#",
             "comment"]
-        bond_coeff_df["k(K/ang^2)"] = bond_coeff_df["k(kCal/mol/ang^2)"] * \
-            lammps2raspa_energy
+        bond_coeff_df["k(K/ang^2)"] = bond_coeff_df["k(kCal/mol/ang^2)"] * lammps2raspa_energy
         bond_df.columns = ["id", "type", "at1", "at2", "#", "comment"]
         bond_df["k(K/ang^2)"] = bond_df["type"].map(
             dict(zip(bond_coeff_df["type"], bond_coeff_df["k(K/ang^2)"])))
@@ -465,21 +464,19 @@ yes
                                             "cosine/periodic"].copy(deep=True).reset_index(drop=True)
         angle_coeff_cos_df.columns = [
             "type_id", "type", "C", "B", "n", "", "#", "comment"]
-        angle_coeff_cos_df["p0"] = 2. * angle_coeff_cos_df["C"] / \
-            angle_coeff_cos_df["n"] / angle_coeff_cos_df["n"] * lammps2raspa_energy
+        angle_coeff_cos_df["p0"] = 2. * angle_coeff_cos_df["C"] / angle_coeff_cos_df["n"] / angle_coeff_cos_df["n"] * lammps2raspa_energy
         angle_coeff_cos_df["p1"] = angle_coeff_cos_df["n"]
         angle_coeff_cos_df["p2"] = 0. - (90. * angle_coeff_cos_df["B"]
                                          * ((-1) ** (angle_coeff_cos_df["n"] + 1))) + 90.
         angle_coeff_cos_df["p3"] = np.nan
         angle_coeff_cos_df["type"] = "COSINE_BEND"
-        angle_coeff_fourier_df["p0"] = angle_coeff_fourier_df["K"] * \
-            lammps2raspa_energy
+        angle_coeff_fourier_df["p0"] = angle_coeff_fourier_df["K"] * lammps2raspa_energy
         angle_coeff_fourier_df["p1"] = angle_coeff_fourier_df["C0"]
         angle_coeff_fourier_df["p2"] = angle_coeff_fourier_df["C1"]
         angle_coeff_fourier_df["p3"] = angle_coeff_fourier_df["C2"]
         angle_coeff_fourier_df["type"] = "FOURIER_SERIES_BEND"
-        angle_coeff_df = pd.concat([angle_coeff_cos_df[["type_id", "type", "p0", "p1", "p2", "p3"]], angle_coeff_fourier_df[[
-                                   "type_id", "type", "p0", "p1", "p2", "p3"]]], axis=0).sort_values(by="type_id")
+        angle_coeff_df = pd.concat([angle_coeff_cos_df[["type_id", "type", "p0", "p1", "p2", "p3"]],
+                                    angle_coeff_fourier_df[["type_id", "type", "p0", "p1", "p2", "p3"]]], axis=0).sort_values(by="type_id")
         angle_df = angle_df.reset_index(drop=True)
         angle_df.columns = ["id", "type", "at1", "at2", "at3", "#", "comment"]
         angle_df["p0"] = angle_df["type"].map(
@@ -537,8 +534,7 @@ yes
                 "atK",
                 "atL"])
         imp_df = imp_df[["atJ", "atI", "atK", "atL"]]
-        improper_df["comment"] = imp_df["atJ"] + "   " + \
-            imp_df["atI"] + "   " + imp_df["atK"] + "   " + imp_df["atL"]
+        improper_df["comment"] = imp_df["atJ"] + "   " + imp_df["atI"] + "   " + imp_df["atK"] + "   " + imp_df["atL"]
         improper_df.columns = [
             "id",
             "type_id",
@@ -557,8 +553,7 @@ yes
             dict(zip(improper_coeff_df["type_id"], improper_coeff_df["C1"])))
         improper_df["C2"] = improper_df["type_id"].map(
             dict(zip(improper_coeff_df["type_id"], improper_coeff_df["C2"])))
-        improper_df["p0"] = improper_df["K"] * \
-            (improper_df["C0"] - improper_df["C1"] + improper_df["C2"])
+        improper_df["p0"] = improper_df["K"] * (improper_df["C0"] - improper_df["C1"] + improper_df["C2"])
         improper_df["p1"] = improper_df["K"] * improper_df["C1"]
         improper_df["p2"] = 0. - (improper_df["K"] * improper_df["C2"])
         improper_df["p3"] = 0.
@@ -691,7 +686,7 @@ _atom_site_charge
                 2,
                 2],
             raspa_abs_path: str = "/projects/bbke/xyan11/conda-envs/gcmc2-310/bin/simulate") -> (
-                str,
+            str,
             int):
         """Use cif2lammps to assign force field to a single MOF and generate input files for raspa simulation
 
@@ -742,9 +737,9 @@ _atom_site_charge
             in_file_rename = "in.lmp"
             data_file_rename = "data.lmp"
             with io.open(os.path.join(raspa_path, in_file_rename), "w") as wf:
-                # print("Writing input file: " + os.path.join(raspa_path, in_file_rename))
+                # logger.debug("Writing input file: " + os.path.join(raspa_path, in_file_rename))
                 with io.open(os.path.join(raspa_path, in_file_name), "r") as rf:
-                    # print("Reading original input file: " + os.path.join(raspa_path, in_file_name))
+                    # logger.debug("Reading original input file: " + os.path.join(raspa_path, in_file_name))
                     wf.write(
                         rf.read().replace(
                             data_file_name,
@@ -756,17 +751,17 @@ _atom_site_charge
                     raspa_path, data_file_name), os.path.join(
                     raspa_path, data_file_rename))
 
-            # print("Success!!\n\n")
+            # logger.debug("Success!!\n\n")
             return_code = 0
 
         except Exception:
-            # print(e)
-            # print("Failed!! Removing files...\n\n")
+            # logger.debug(e)
+            # logger.debug("Failed!! Removing files...\n\n")
             # shutil.rmtree(raspa_path)
             return_code = -1
             return raspa_path, return_code
 
-        # print("Reading data file for element list: " + os.path.join(raspa_path, data_file_name))
+        # logger.debug("Reading data file for element list: " + os.path.join(raspa_path, data_file_name))
         ff_style_dict = None
         with io.open(os.path.join(raspa_path, in_file_rename), "r") as rf1:
             ff_style_str = rf1.read()
@@ -794,12 +789,12 @@ _atom_site_charge
         angle_coeff_df = read_lmp_sec_str2df(read_str.split(
             "Angle Coeffs")[1].split("Dihedral Coeffs")[0].strip())
         dihedral_coeff_df = read_lmp_sec_str2df(read_str.split("Dihedral Coeffs")[
-                                                1].split("Improper Coeffs")[0].strip())
+                                                    1].split("Improper Coeffs")[0].strip())
         improper_coeff_df = read_lmp_sec_str2df(
             read_str.split("Improper Coeffs")[1].split("Atoms")[0].strip())
         cifbox = read_str.split("Atoms")[1].split("$$$atoms$$$")[0].strip()
         atom_df = read_lmp_sec_str2df(read_str.split("$$$atoms$$$")[
-                                      1].split("Bonds")[0].strip())
+                                          1].split("Bonds")[0].strip())
         atom_df.columns = [
             'id',
             'mol',
@@ -910,12 +905,12 @@ flexible
 # atomic positions
 0 He
 # Chiral centers Bond  BondDipoles Bend  UrayBradley InvBend  Torsion Imp. Torsion""" + " " + \
-            """Bond/Bond Stretch/Bend Bend/Bend Stretch/Torsion Bend/Torsion IntraVDW IntraCoulomb
-               0    0            0    0            0       0        0            0""" + "         " + \
-            """0            0         0               0            0        0            0
-# Number of config moves
-0
-"""
+                     """Bond/Bond Stretch/Bend Bend/Bend Stretch/Torsion Bend/Torsion IntraVDW IntraCoulomb
+                        0    0            0    0            0       0        0            0""" + "         " + \
+                     """0            0         0               0            0        0            0
+         # Number of config moves
+         0
+         """
         with io.open(os.path.join(sim_dir, "helium.def"), "w", newline="\n") as wf:
             wf.write(helium_str)
 
@@ -1010,15 +1005,15 @@ rigid
 1 C_co2     0.0           0.0           0.0
 2 O_co2     0.0           0.0          -1.149
 # Chiral centers Bond  BondDipoles Bend  UrayBradley InvBend  Torsion Imp. Torsion Bond/Bond""" + " " + \
-            """Stretch/Bend Bend/Bend Stretch/Torsion Bend/Torsion IntraVDW IntraCoulomb
-               0    2            0    0            0       0        0            0         0""" + "            " + \
-            """0         0               0            0        0            0
-# Bond stretch: atom n1-n2, type, parameters
-0 1 RIGID_BOND
-1 2 RIGID_BOND
-# Number of config moves
-0
-"""
+                  """Stretch/Bend Bend/Bend Stretch/Torsion Bend/Torsion IntraVDW IntraCoulomb
+                     0    2            0    0            0       0        0            0         0""" + "            " + \
+                  """0         0               0            0        0            0
+      # Bond stretch: atom n1-n2, type, parameters
+      0 1 RIGID_BOND
+      1 2 RIGID_BOND
+      # Number of config moves
+      0
+      """
         with io.open(os.path.join(sim_dir, "CO2.def"), "w", newline="\n") as wf:
             wf.write(co2_str)
 
@@ -1123,7 +1118,7 @@ with io.open("co2_adsorption_rigid/simulation.input", "w", newline="\\n") as wf:
                 2,
                 2],
             raspa_abs_path: str = "/projects/bbke/xyan11/conda-envs/gcmc2-310/bin/simulate") -> (
-                str,
+            str,
             int):
         """Use cif2lammps to assign force field to a single MOF and generate input files for raspa simulation
 
@@ -1162,9 +1157,9 @@ with io.open("co2_adsorption_rigid/simulation.input", "w", newline="\\n") as wf:
             in_file_rename = "in.lmp"
             data_file_rename = "data.lmp"
             with io.open(os.path.join(raspa_path, in_file_rename), "w") as wf:
-                # print("Writing input file: " + os.path.join(raspa_path, in_file_rename))
+                # logger.debug("Writing input file: " + os.path.join(raspa_path, in_file_rename))
                 with io.open(os.path.join(raspa_path, in_file_name), "r") as rf:
-                    # print("Reading original input file: " + os.path.join(raspa_path, in_file_name))
+                    # logger.debug("Reading original input file: " + os.path.join(raspa_path, in_file_name))
                     wf.write(
                         rf.read().replace(
                             data_file_name,
@@ -1176,17 +1171,17 @@ with io.open("co2_adsorption_rigid/simulation.input", "w", newline="\\n") as wf:
                     raspa_path, data_file_name), os.path.join(
                     raspa_path, data_file_rename))
 
-            # print("Success!!\n\n")
+            # logger.debug("Success!!\n\n")
             return_code = 0
 
         except Exception as e:
-            print(e)
-            # print("Failed!! Removing files...\n\n")
+            logger.debug(e)
+            # logger.debug("Failed!! Removing files...\n\n")
             shutil.rmtree(raspa_path)
             return_code = -1
             return raspa_path, return_code
 
-        # print("Reading data file for element list: " + os.path.join(raspa_path, data_file_name))
+        # logger.debug("Reading data file for element list: " + os.path.join(raspa_path, data_file_name))
         ff_style_dict = None
         with io.open(os.path.join(raspa_path, in_file_rename), "r") as rf1:
             ff_style_str = rf1.read()
@@ -1214,13 +1209,13 @@ with io.open("co2_adsorption_rigid/simulation.input", "w", newline="\\n") as wf:
         angle_coeff_df = read_lmp_sec_str2df(read_str.split(
             "Angle Coeffs")[1].split("Dihedral Coeffs")[0].strip())
         dihedral_coeff_df = read_lmp_sec_str2df(read_str.split("Dihedral Coeffs")[
-                                                1].split("Improper Coeffs")[0].strip())
+                                                    1].split("Improper Coeffs")[0].strip())
         improper_coeff_df = read_lmp_sec_str2df(
             read_str.split("Improper Coeffs")[1].split("Atoms")[0].strip())
         read_str.split("Atoms")[1].split("$$$atoms$$$")[0].strip()
         cifbox = read_str.split("Atoms")[1].split("$$$atoms$$$")[0].strip()
         atom_df = read_lmp_sec_str2df(read_str.split("$$$atoms$$$")[
-                                      1].split("Bonds")[0].strip())
+                                          1].split("Bonds")[0].strip())
         atom_df.columns = [
             'id',
             'mol',
@@ -1330,12 +1325,12 @@ flexible
 # atomic positions
 0 He
 # Chiral centers Bond  BondDipoles Bend  UrayBradley InvBend  Torsion Imp. Torsion""" + " " + \
-            """Bond/Bond Stretch/Bend Bend/Bend Stretch/Torsion Bend/Torsion IntraVDW IntraCoulomb
-               0    0            0    0            0       0        0            0""" + "         " + \
-            """0            0         0               0            0        0            0
-# Number of config moves
-0
-"""
+                     """Bond/Bond Stretch/Bend Bend/Bend Stretch/Torsion Bend/Torsion IntraVDW IntraCoulomb
+                        0    0            0    0            0       0        0            0""" + "         " + \
+                     """0            0         0               0            0        0            0
+         # Number of config moves
+         0
+         """
         with io.open(os.path.join(sim_dir, "helium.def"), "w", newline="\n") as wf:
             wf.write(helium_str)
 
@@ -1430,15 +1425,15 @@ rigid
 1 C_co2     0.0           0.0           0.0
 2 O_co2     0.0           0.0          -1.149
 # Chiral centers Bond  BondDipoles Bend  UrayBradley InvBend  Torsion Imp. Torsion Bond/Bond""" + " " + \
-            """Stretch/Bend Bend/Bend Stretch/Torsion Bend/Torsion IntraVDW IntraCoulomb
-               0    2            0    0            0       0        0            0         0""" + "            " + \
-            """0         0               0            0        0            0
-# Bond stretch: atom n1-n2, type, parameters
-0 1 RIGID_BOND
-1 2 RIGID_BOND
-# Number of config moves
-0
-"""
+                  """Stretch/Bend Bend/Bend Stretch/Torsion Bend/Torsion IntraVDW IntraCoulomb
+                     0    2            0    0            0       0        0            0         0""" + "            " + \
+                  """0         0               0            0        0            0
+      # Bond stretch: atom n1-n2, type, parameters
+      0 1 RIGID_BOND
+      1 2 RIGID_BOND
+      # Number of config moves
+      0
+      """
         with io.open(os.path.join(sim_dir, "CO2.def"), "w", newline="\n") as wf:
             wf.write(co2_str)
 
@@ -1552,15 +1547,15 @@ rigid
 1 C_co2     0.0           0.0           0.0
 2 O_co2     0.0           0.0          -1.149
 # Chiral centers Bond  BondDipoles Bend  UrayBradley InvBend  Torsion Imp. Torsion Bond/Bond""" + " " + \
-            """Stretch/Bend Bend/Bend Stretch/Torsion Bend/Torsion IntraVDW IntraCoulomb
-               0    2            0    0            0       0        0            0         0""" + "            " + \
-            """0         0               0            0        0            0
-# Bond stretch: atom n1-n2, type, parameters
-0 1 RIGID_BOND
-1 2 RIGID_BOND
-# Number of config moves
-0
-"""
+                  """Stretch/Bend Bend/Bend Stretch/Torsion Bend/Torsion IntraVDW IntraCoulomb
+                     0    2            0    0            0       0        0            0         0""" + "            " + \
+                  """0         0               0            0        0            0
+      # Bond stretch: atom n1-n2, type, parameters
+      0 1 RIGID_BOND
+      1 2 RIGID_BOND
+      # Number of config moves
+      0
+      """
         with io.open(os.path.join(sim_dir, "CO2.def"), "w", newline="\n") as wf:
             wf.write(co2_str)
 

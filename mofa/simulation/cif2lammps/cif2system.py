@@ -1,16 +1,18 @@
-from __future__ import print_function
 import re
 import math
 import numpy as np
 import networkx as nx
 import itertools
 import datetime
+import logging
 from . import atomic_data
 import functools
 from random import choice
 import warnings
 
 from numpy.linalg import norm
+
+logger = logging.getLogger(__name__)
 
 metals = atomic_data.metals
 mass_key = atomic_data.mass_key
@@ -181,8 +183,10 @@ def PBC3DF_sym(vec1, vec2):
         applies periodic boundary to distance between vec1 and vec2 (fractional coordinates)
     """
     dist = vec1 - vec2
-    sym_dist = [(-1.0, dim - 1.0) if dim > 0.5 else (1.0, dim + 1.0)
-                if dim < -0.5 else (0, dim) for dim in dist]
+    sym_dist = [
+        (-1.0, dim - 1.0) if dim > 0.5 else (1.0, dim + 1.0)
+        if dim < -0.5 else (0, dim) for dim in dist
+    ]
     sym = np.array([s[0] for s in sym_dist])
     ndist = np.array([s[1] for s in sym_dist])
 
@@ -190,7 +194,6 @@ def PBC3DF_sym(vec1, vec2):
 
 
 def cif_read(filename, charges=False, add_Zr_bonds=False):
-
     with open(filename, 'r') as f:
         f = f.read()
         f = filter(None, f.split('\n'))
@@ -233,7 +236,6 @@ def cif_read(filename, charges=False, add_Zr_bonds=False):
             charge_list.append(float(s[-1]))
 
         if isbond(s):
-
             bonds.append((s[0], s[1], s[3], s[4], s[2]))
 
     pi = np.pi
@@ -292,7 +294,7 @@ def cif_read(filename, charges=False, add_Zr_bonds=False):
                         bonds.append(
                             [names[i], names[j], '.', 'S', np.round(dist, 3)])
 
-        print(count, 'Zr-Zr bonds added...')
+        logger.debug(count, 'Zr-Zr bonds added...')
 
     return elems, names, cif_labels, ccoords, fcoords, charge_list, bonds, (
         a, b, c, alpha, beta, gamma), unit_cell
@@ -303,7 +305,6 @@ def initialize_system(
         charges=False,
         small_molecule_cutoff=5,
         read_pymatgen=False):
-
     if not read_pymatgen:
         elems, names, cif_labels, ccoords, fcoords, charge_list, bonds, uc_params, unit_cell = cif_read(
             filename, charges=charges)
@@ -388,7 +389,7 @@ def initialize_system(
             data['bond_type'] = 'A'
 
     if print_flag:
-        print('correcting bond type to aromatic for', filename)
+        logger.debug('correcting bond type to aromatic for', filename)
 
     components = []
     SGS = [G.subgraph(c).copy() for c in nx.connected_components(G)]
@@ -408,7 +409,7 @@ def initialize_system(
         formula = ''.join([str(x) for es in comp for x in es])
         components.append((len(elems), formula, S))
 
-    print(
+    logger.debug(
         'there are',
         len(components),
         'components in the system with (  # atoms, formula unit):')
@@ -417,7 +418,7 @@ def initialize_system(
 
     for component in components:
 
-        print('{:<6} {}'.format(component[0], component[1]))
+        logger.debug('{:<6} {}'.format(component[0], component[1]))
         S = component[2]
 
         if len(S.nodes()) > small_molecule_cutoff:
@@ -434,12 +435,10 @@ def initialize_system(
             add_graph = nx.Graph()
 
             for node, elem in sort_elems:
-
                 data = G.nodes[node]
                 add_graph.add_node(sort_key[node], **data)
 
             for e0, e1, data in S.edges(data=True):
-
                 add_graph.add_edge(sort_key[e0], sort_key[e1], **data)
 
             SM = nx.compose(SM, add_graph)
@@ -473,7 +472,6 @@ def initialize_system(
 
 
 def duplicate_system(system, replications, small_molecule_cutoff=10):
-
     if replications == '1x1x1':
         return system
 
@@ -524,10 +522,10 @@ def duplicate_system(system, replications, small_molecule_cutoff=10):
                   for comb in itertools.product(dim0, dim1, dim2)]
     trans_vecs = [v for v in trans_vecs if np.any(v)]
 
-    print('The transformation vectors for the replication are:')
+    logger.debug('The transformation vectors for the replication are:')
     for vec in trans_vecs:
-        print(vec)
-    print('...')
+        logger.debug(vec)
+    logger.debug('...')
 
     if len(trans_vecs) != replications[0] * \
             replications[1] * replications[2] - 1:
@@ -543,7 +541,6 @@ def duplicate_system(system, replications, small_molecule_cutoff=10):
     for trans_vec in trans_vecs:
 
         for node, node_data in G.nodes(data=True):
-
             count += 1
 
             # this data stays the same
@@ -578,7 +575,6 @@ def duplicate_system(system, replications, small_molecule_cutoff=10):
                         cif_label=cif_label)
 
     for node, data in NG.nodes(data=True):
-
         data['cartesian_position'] = np.dot(
             unit_cell, data['fractional_position'])
 
@@ -613,7 +609,7 @@ def duplicate_system(system, replications, small_molecule_cutoff=10):
 
                     if np.any(sym_e0e1):
                         sym_code = '1_' + \
-                            ''.join(map(str, map(int, sym_e0e1 + 5)))
+                                   ''.join(map(str, map(int, sym_e0e1 + 5)))
                     else:
                         sym_code = '.'
 
@@ -628,7 +624,7 @@ def duplicate_system(system, replications, small_molecule_cutoff=10):
 
                     if np.any(sym_n0e1):
                         sym_code = '1_' + \
-                            ''.join(map(str, map(int, sym_n0e1 + 5)))
+                                   ''.join(map(str, map(int, sym_n0e1 + 5)))
                     else:
                         sym_code = '.'
 
@@ -643,7 +639,7 @@ def duplicate_system(system, replications, small_molecule_cutoff=10):
 
                     if np.any(sym_e0n1):
                         sym_code = '1_' + \
-                            ''.join(map(str, map(int, sym_e0n1 + 5)))
+                                   ''.join(map(str, map(int, sym_e0n1 + 5)))
                     else:
                         sym_code = '.'
 
@@ -679,14 +675,14 @@ def duplicate_system(system, replications, small_molecule_cutoff=10):
         formula = ''.join([str(x) for es in comp for x in es])
         components.append((len(elems), formula, S))
 
-    print(
+    logger.debug(
         'there are',
         len(components),
         'components in the system with (  # atoms, formula unit):')
     SM = nx.Graph()
     framework = nx.Graph()
     for component in components:
-        print('{:<6} {}'.format(component[0], component[1]))
+        logger.debug('{:<6} {}'.format(component[0], component[1]))
         S = component[2]
         if len(S.nodes()) > small_molecule_cutoff:
             framework = nx.compose(framework, S)
@@ -718,7 +714,6 @@ def duplicate_system(system, replications, small_molecule_cutoff=10):
 
 
 def replication_determination(system, replication, cutoff):
-
     box = system['box']
 
     pi = np.pi
@@ -768,10 +763,9 @@ def replication_determination(system, replication, cutoff):
         duplications = max(dsep, dmin)
         useable_shapes = []
 
-        print('minimum duplications allowed:', duplications)
+        logger.debug('minimum duplications allowed:', duplications)
 
         while len(useable_shapes) < 1:
-
             rvals = range(duplications + 1)[1:]
             shapes = itertools.product(rvals, rvals, rvals)
             shapes = [s for s in shapes if functools.reduce(
@@ -790,8 +784,8 @@ def replication_determination(system, replication, cutoff):
             duplications += 1
 
         duplications -= 1
-        print('final duplications:', duplications)
-        print('final number of atoms:', int(duplications * Natoms))
+        logger.debug('final duplications:', duplications)
+        logger.debug('final number of atoms:', int(duplications * Natoms))
 
         shape_deviations = [(i, np.std([useable_shapes[i][0] *
                                         a, useable_shapes[i][1] *
@@ -801,34 +795,34 @@ def replication_determination(system, replication, cutoff):
         selected_shape = useable_shapes[shape_deviations[0][0]]
 
         replication = 'x'.join(map(str, selected_shape))
-        print(
+        logger.debug(
             'replicating to a',
             replication,
             'cell (' +
             str(duplications) +
             ' duplications)...')
         system = duplicate_system(system, replication)
-        print('the minimum boundary-boundary distance is',
-              min([d * s for d, s in zip(selected_shape, (dist0, dist1, dist2))]))
+        logger.debug('the minimum boundary-boundary distance is',
+                     min([d * s for d, s in zip(selected_shape, (dist0, dist1, dist2))]))
         replication = 'ma' + str(min_atoms)
 
         a, b, c, alpha, beta, gamma = system['box']
         lx = np.round(a, 8)
         xy = np.round(b * np.cos(math.radians(gamma)), 8)
         xz = np.round(c * np.cos(math.radians(beta)), 8)
-        ly = np.round(np.sqrt(b**2 - xy**2), 8)
+        ly = np.round(np.sqrt(b ** 2 - xy ** 2), 8)
         yz = np.round((b * c * np.cos(math.radians(alpha)) - xy * xz) / ly, 8)
-        lz = np.round(np.sqrt(c**2 - xz**2 - yz**2), 8)
+        lz = np.round(np.sqrt(c ** 2 - xz ** 2 - yz ** 2), 8)
 
-        print('lx =', np.round(lx, 3), '(dim 0 separation = ' +
-              str(np.round(selected_shape[0] * dist0, 3)) + ')')
-        print('ly =', np.round(ly, 3), '(dim 1 separation = ' +
-              str(np.round(selected_shape[1] * dist1, 3)) + ')')
-        print('lz =', np.round(lz, 3), '(dim 2 separation = ' +
-              str(np.round(selected_shape[2] * dist2, 3)) + ')')
-        print('alpha =', np.round(alpha, 3))
-        print('beta  =', np.round(beta, 3))
-        print('gamma =', np.round(gamma, 3))
+        logger.debug('lx =', np.round(lx, 3), '(dim 0 separation = ' +
+                     str(np.round(selected_shape[0] * dist0, 3)) + ')')
+        logger.debug('ly =', np.round(ly, 3), '(dim 1 separation = ' +
+                     str(np.round(selected_shape[1] * dist1, 3)) + ')')
+        logger.debug('lz =', np.round(lz, 3), '(dim 2 separation = ' +
+                     str(np.round(selected_shape[2] * dist2, 3)) + ')')
+        logger.debug('alpha =', np.round(alpha, 3))
+        logger.debug('beta  =', np.round(beta, 3))
+        logger.debug('gamma =', np.round(gamma, 3))
 
     elif 'cutoff' in replication:
 
@@ -840,10 +834,9 @@ def replication_determination(system, replication, cutoff):
         duplications = dsep
         useable_shapes = []
 
-        print('minimum duplications allowed:', duplications)
+        logger.debug('minimum duplications allowed:', duplications)
 
         while len(useable_shapes) < 1:
-
             rvals = range(duplications + 1)[1:]
             shapes = itertools.product(rvals, rvals, rvals)
             shapes = [s for s in shapes if functools.reduce(
@@ -856,7 +849,7 @@ def replication_determination(system, replication, cutoff):
             duplications += 1
 
         duplications -= 1
-        print('final duplications:', duplications)
+        logger.debug('final duplications:', duplications)
 
         shape_deviations = [(i, np.std([useable_shapes[i][0] *
                                         a, useable_shapes[i][1] *
@@ -866,33 +859,33 @@ def replication_determination(system, replication, cutoff):
         selected_shape = useable_shapes[shape_deviations[0][0]]
 
         replication = 'x'.join(map(str, selected_shape))
-        print(
+        logger.debug(
             'replicating to a',
             replication,
             'cell (' +
             str(duplications) +
             ' duplications)...')
         system = duplicate_system(system, replication)
-        print('the minimum boundary-boundary distance is',
-              min([d * s for d, s in zip(selected_shape, (dist0, dist1, dist2))]))
+        logger.debug('the minimum boundary-boundary distance is',
+                     min([d * s for d, s in zip(selected_shape, (dist0, dist1, dist2))]))
 
         a, b, c, alpha, beta, gamma = system['box']
         lx = np.round(a, 8)
         xy = np.round(b * np.cos(math.radians(gamma)), 8)
         xz = np.round(c * np.cos(math.radians(beta)), 8)
-        ly = np.round(np.sqrt(b**2 - xy**2), 8)
+        ly = np.round(np.sqrt(b ** 2 - xy ** 2), 8)
         yz = np.round((b * c * np.cos(math.radians(alpha)) - xy * xz) / ly, 8)
-        lz = np.round(np.sqrt(c**2 - xz**2 - yz**2), 8)
+        lz = np.round(np.sqrt(c ** 2 - xz ** 2 - yz ** 2), 8)
 
-        print('lx =', np.round(lx, 3), '(dim 0 separation = ' +
-              str(np.round(selected_shape[0] * dist0, 3)) + ')')
-        print('ly =', np.round(ly, 3), '(dim 1 separation = ' +
-              str(np.round(selected_shape[1] * dist1, 3)) + ')')
-        print('lz =', np.round(lz, 3), '(dim 2 separation = ' +
-              str(np.round(selected_shape[2] * dist2, 3)) + ')')
-        print('alpha =', np.round(alpha, 3))
-        print('beta  =', np.round(beta, 3))
-        print('gamma =', np.round(gamma, 3))
+        logger.debug('lx =', np.round(lx, 3), '(dim 0 separation = ' +
+                     str(np.round(selected_shape[0] * dist0, 3)) + ')')
+        logger.debug('ly =', np.round(ly, 3), '(dim 1 separation = ' +
+                     str(np.round(selected_shape[1] * dist1, 3)) + ')')
+        logger.debug('lz =', np.round(lz, 3), '(dim 2 separation = ' +
+                     str(np.round(selected_shape[2] * dist2, 3)) + ')')
+        logger.debug('alpha =', np.round(alpha, 3))
+        logger.debug('beta  =', np.round(beta, 3))
+        logger.debug('gamma =', np.round(gamma, 3))
 
     elif 'x' in replication and replication != '1x1x1':
 
@@ -914,7 +907,6 @@ def replication_determination(system, replication, cutoff):
 
 
 def write_cif_from_system(system, filename):
-
     box = system['box']
     G = system['graph']
     a, b, c, alpha, beta, gamma = box
@@ -964,7 +956,6 @@ def write_cif_from_system(system, filename):
         out.write('_ccdc_geom_bond_type' + '\n')
 
         for n0, n1, data in G.edges(data=True):
-
             ind0 = index_dict[n0]
             ind1 = index_dict[n1]
             dist = np.round(data['length'], 3)

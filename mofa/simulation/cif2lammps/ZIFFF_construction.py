@@ -1,4 +1,4 @@
-from __future__ import print_function
+import logging
 import itertools
 import warnings
 from . import atomic_data
@@ -15,9 +15,10 @@ from . import ZIFFF_constants
 metals = atomic_data.metals
 mass_key = atomic_data.mass_key
 
+logger = logging.getLogger(__name__)
+
 
 def parameter_loop(options, type_dict):
-
     params = None
     for option in options:
 
@@ -34,7 +35,6 @@ def parameter_loop(options, type_dict):
 
 
 def dihedral_parameter_loop(options, type_dict):
-
     params = None
     for option in options:
 
@@ -53,7 +53,6 @@ def dihedral_parameter_loop(options, type_dict):
 
 
 def read_gaffdat(mode='gaff'):
-
     if mode == 'gaff':
 
         gaff_atom_types = gaff.gaff_atom_types
@@ -356,7 +355,7 @@ class ZIFFF(force_field):
             SG = NMG.subgraph(linker)
             all_cycles = nx.simple_cycles(nx.to_directed(SG))
             all_cycles = set([tuple(sorted(cy))
-                             for cy in all_cycles if len(cy) > 4])
+                              for cy in all_cycles if len(cy) > 4])
 
             for cycle in all_cycles:
 
@@ -473,8 +472,7 @@ class ZIFFF(force_field):
                             n in imidazolate_ring_atoms for n in nbors):
                         # special case for ZIF-8 -CH3 group which has an
                         # explicit type in ZIF-FF
-                        if element_symbol == 'C' and sorted(nbor_symbols) == [
-                                'C', 'H', 'H', 'H'] and 'C1' in nbor_symbols:
+                        if element_symbol == 'C' and sorted(nbor_symbols) == ['C', 'H', 'H', 'H'] and 'C1' in nbor_symbols:
                             ty = 'C1'
                             hyb = 'sp3'
                         # other functionalizations are typed for GAFF
@@ -530,7 +528,7 @@ class ZIFFF(force_field):
         # nbor_symbols = [SG.nodes[n]['element_symbol'] for n in nbors]
         #
         # if n in self.pure_aromatic_atoms:
-        # print(sym, nbor_symbols, data['force_field_type'])
+        # logger.debug(sym, nbor_symbols, data['force_field_type'])
 
         self.system['graph'] = SG
         self.atom_types = atom_types
@@ -573,11 +571,11 @@ class ZIFFF(force_field):
         else:
 
             new_angle = tuple([self.imidazolate_gaff_types[ty]
-                              if ty in self.imidazolate_gaff_types else ty for ty in angle])
+                               if ty in self.imidazolate_gaff_types else ty for ty in angle])
             K, theta0 = parameter_loop(
                 [angle, angle[::-1], new_angle, new_angle[::-1]], gaff_angles)
             if K is None:
-                print(new_angle)
+                logger.debug(new_angle)
             params = ('harmonic', K, theta0)
 
         return params
@@ -593,7 +591,6 @@ class ZIFFF(force_field):
                 [dihedral, dihedral[::-1]], ZIFFF_constants.ZIFFF_dihedrals)
 
             if params is not None:
-
                 K, n, d = params
                 params = ('fourier', 1, K, n, d)
 
@@ -603,7 +600,7 @@ class ZIFFF(force_field):
             new_X_dihedral = tuple(
                 [self.imidazolate_gaff_types[ty] if ty in self.imidazolate_gaff_types else ty for ty in X_dihedral])
             new_dihedral = tuple([self.imidazolate_gaff_types[ty]
-                                 if ty in self.imidazolate_gaff_types else ty for ty in dihedral])
+                                  if ty in self.imidazolate_gaff_types else ty for ty in dihedral])
 
             options = [X_dihedral,
                        X_dihedral[::-1],
@@ -616,7 +613,6 @@ class ZIFFF(force_field):
             params = dihedral_parameter_loop(options, gaff_dihedrals)
 
             if params is not None:
-
                 Nterms = len(params) % 3
                 params = tuple(['fourier', Nterms] + params)
 
@@ -675,7 +671,6 @@ class ZIFFF(force_field):
                                   (LL, j, i, k)]
 
                 if i in ('c', 'ca', 'n', 'n2', 'na'):
-
                     ximps = [('X', k, i, LL),
                              ('X', LL, i, k),
                              ('X', j, i, LL),
@@ -731,7 +726,7 @@ class ZIFFF(force_field):
 
             else:
                 eps, rmin = gaff_LJ_parameters[a]
-                params = (eps, 2 * rmin * (2**(-1.0 / 6.0)))
+                params = (eps, 2 * rmin * (2 ** (-1.0 / 6.0)))
                 all_params[a] = params
 
             comments[a] = [a, a]
@@ -767,7 +762,6 @@ class ZIFFF(force_field):
         count = 0
         # index bonds by ID
         for b in bonds:
-
             ID += 1
             bond = (b[0], b[1])
             params = self.bond_parameters(bond)
@@ -826,7 +820,6 @@ class ZIFFF(force_field):
 
         # index angles by ID
         for a in angles:
-
             ID += 1
             fft_i, fft_j, fft_k = a
             angle = (fft_i, fft_j, fft_k)
@@ -891,7 +884,6 @@ class ZIFFF(force_field):
         count = 0
 
         for d in dihedrals:
-
             ID += 1
             params = dihedral_params[d]
             all_dihedrals[ID] = dihedrals[d]
@@ -921,7 +913,7 @@ class ZIFFF(force_field):
             if len(nbors) == 3:
 
                 nbors = sorted([(m, SG.node[m]['force_field_type'])
-                               for m in nbors], key=lambda x: x[1])
+                                for m in nbors], key=lambda x: x[1])
                 fft_nbors = [m[1] for m in nbors]
                 nbors = [m[0] for m in nbors]
 

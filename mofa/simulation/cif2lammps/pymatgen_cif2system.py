@@ -1,6 +1,7 @@
 import re
 import networkx as nx
 import numpy as np
+import logging
 from itertools import chain
 import warnings
 from ase import neighborlist
@@ -13,6 +14,8 @@ from numpy.linalg import norm, inv
 from scipy.linalg import expm
 from .atomic_data import metals
 from .cif2system import PBC3DF_sym
+
+logger = logging.getLogger(__name__)
 
 
 def R(axis, theta):
@@ -167,7 +170,6 @@ def read_cif(self):
 
 
 def cif_read_pymatgen(filename, charges=False, coplanarity_tolerance=0.1):
-
     valencies = {'C': 4.0, 'Si': 4.0, 'Ge': 4.0, 'N': 3.0,
                  'P': 3.0, 'As': 3.0, 'Sb': 3.0, 'O': 2.0,
                  'S': 2.0, 'Se': 2.0, 'Te': 2.0, 'F': 1.0,
@@ -227,7 +229,7 @@ def cif_read_pymatgen(filename, charges=False, coplanarity_tolerance=0.1):
     else:
         skin = 0.20
 
-    print('skin for bond calculation is', skin)
+    logger.debug('skin for bond calculation is', skin)
 
     if not charges:
         charge_list = [0.0 for a in atoms]
@@ -304,8 +306,7 @@ def cif_read_pymatgen(filename, charges=False, coplanarity_tolerance=0.1):
         # remove C-M bonds if C is also bonded to carboxylate atoms, these are
         # almost always wrong
         for n, nsym in zip(nbors, nbor_symbols):
-            if isym == 'C' and sorted(nonmetal_nbor_symbols) == [
-                    'C', 'O', 'O'] and nsym in metals:
+            if isym == 'C' and sorted(nonmetal_nbor_symbols) == ['C', 'O', 'O'] and nsym in metals:
                 G.remove_edge(i, n)
 
     # intial bond typing, guessed from rounding pymatgen bond orders
@@ -383,7 +384,7 @@ def cif_read_pymatgen(filename, charges=False, coplanarity_tolerance=0.1):
 
         all_cycles = nx.simple_cycles(nx.to_directed(SG))
         all_cycles = set([tuple(sorted(cy))
-                         for cy in all_cycles if len(cy) > 4])
+                          for cy in all_cycles if len(cy) > 4])
 
         # # assign aromatic bond orders as 1.5 (in most cases they will be already)
         for cycle in all_cycles:
@@ -394,7 +395,7 @@ def cif_read_pymatgen(filename, charges=False, coplanarity_tolerance=0.1):
             fcoords = np.dot(inv_uc, coords.T).T
             anchor = fcoords[0]
             fcoords = np.array([vec - PBC3DF_sym(anchor, vec)[1]
-                               for vec in fcoords])
+                                for vec in fcoords])
             coords = np.dot(unit_cell.T, fcoords.T).T
 
             coords -= np.average(coords, axis=0)
@@ -423,7 +424,7 @@ def cif_read_pymatgen(filename, charges=False, coplanarity_tolerance=0.1):
         total_bond_order = np.sum(bond_orders)
         bond_orders = [str(o) for o in bond_orders]
         nbor_symbols = ' '.join([G.nodes[n]['element_symbol']
-                                for n in G.neighbors(i)])
+                                 for n in G.neighbors(i)])
 
         if isym not in metals and total_bond_order != valencies[isym]:
             message = ' '.join([str(isym),
@@ -442,7 +443,6 @@ def cif_read_pymatgen(filename, charges=False, coplanarity_tolerance=0.1):
 
     bond_list = []
     for e0, e1, data in G.edges(data=True):
-
         sym0 = G.nodes[e0]['element_symbol']
         sym1 = G.nodes[e1]['element_symbol']
 
