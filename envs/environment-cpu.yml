@@ -30,5 +30,5 @@ dependencies:
 
   - pip
   - pip:
-    # Need torch for BOTorch
+    - git+https://gitlab.com/ase/ase.git
     - -e ..[test]
