@@ -134,7 +134,7 @@ write_data          relaxing.*.data
 
         # Read the output file
         with open(Path(lmp_path) / 'dump.lammpstrj.all') as fp:
-            return read_lammps_dump_text(fp)
+            return read_lammps_dump_text(fp, slice(None))
 
     def invoke_lammps(self, lmp_path: str | Path) -> CompletedProcess:
         """Invoke LAMMPS in a specific run directory
