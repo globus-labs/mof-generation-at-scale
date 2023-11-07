@@ -2,6 +2,7 @@ from pathlib import Path
 
 from pytest import mark
 
+from mofa.model import MOFRecord
 from mofa.simulation.lammps import LAMMPSRunner
 
 
@@ -22,6 +23,11 @@ def test_lammps_runner(cif_name, cif_dir, tmpdir):
 
     assert Path(lmp_path).exists()
 
-    # Run it
+    # Make sure that it runs
     ret = lmprunner.invoke_lammps(lmp_path)
     assert ret.returncode == 0
+
+    # Test the full pipeline
+    record = MOFRecord.from_file(test_file)
+    traj = lmprunner.run_molecular_dynamics(record, timesteps=200, report_frequency=100)
+    assert len(traj) == 3

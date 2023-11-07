@@ -1,4 +1,5 @@
 """Simulation operations that involve LAMMPS"""
+from tempfile import TemporaryDirectory
 from typing import Sequence
 from subprocess import run, CompletedProcess
 from pathlib import Path
@@ -9,6 +10,7 @@ import os
 import shutil
 import logging
 import pandas as pd
+from ase.io.lammpsrun import read_lammps_dump_text
 
 from .cif2lammps.main_conversion import single_conversion
 from .cif2lammps.UFF4MOF_construction import UFF4MOF
@@ -29,7 +31,7 @@ class LAMMPSRunner:
         self.lmp_sims_root_path = lmp_sims_root_path
         os.makedirs(self.lmp_sims_root_path, exist_ok=True)
 
-    def prep_molecular_dynamics_single(self, cif_path: str | Path, timesteps: int, report_frequency: int, stepsize_fs: float = 0.5) -> (str, int):
+    def prep_molecular_dynamics_single(self, cif_path: str | Path, timesteps: int, report_frequency: int, stepsize_fs: float = 0.5) -> str:
         """Use cif2lammps to assign force field to a single MOF and generate input files for lammps simulation
 
         Args:
@@ -117,13 +119,30 @@ write_data          relaxing.*.data
             Structures produced at specified intervals
         """
 
-        raise NotImplementedError()
+        # Generate a CIF file form the current MOF structure
+        with TemporaryDirectory() as tmpdir:
+            cif_path = Path(tmpdir) / f'{mof.name}.cif'
+            mof.atoms.write(cif_path, 'cif')
+
+            # Generate the input files
+            lmp_path = self.prep_molecular_dynamics_single(cif_path, timesteps, report_frequency)
+
+        # Invoke lammps
+        ret = self.invoke_lammps(lmp_path)
+        if ret.returncode != 0:
+            raise ValueError(f'LAMMPS failed. Check the log files in: {lmp_path}')
+
+        # Read the output file
+        with open(Path(lmp_path) / 'dump.lammpstrj.all') as fp:
+            return read_lammps_dump_text(fp)
 
     def invoke_lammps(self, lmp_path: str | Path) -> CompletedProcess:
         """Invoke LAMMPS in a specific run directory
 
         Args:
             lmp_path: Path to the LAMMPS run directory
+        Returns:
+            Log from the completed process
         """
 
         lmp_path = Path(lmp_path)
