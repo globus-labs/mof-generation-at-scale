@@ -1,4 +1,6 @@
 """Simulation operations that involve LAMMPS"""
+from typing import Sequence
+from subprocess import run, CompletedProcess
 from pathlib import Path
 
 import ase
@@ -7,6 +9,7 @@ import os
 import shutil
 import logging
 import pandas as pd
+
 from .cif2lammps.main_conversion import single_conversion
 from .cif2lammps.UFF4MOF_construction import UFF4MOF
 
@@ -21,7 +24,7 @@ class LAMMPSRunner:
         lmp_sims_root_path: Scratch directory for LAMMPS simulations
     """
 
-    def __init__(self, lammps_command: str = "npt_tri", lmp_sims_root_path: str = "lmp_sims"):
+    def __init__(self, lammps_command: Sequence[str] = ("lmp_serial",), lmp_sims_root_path: str = "lmp_sims"):
         self.lammps_command = lammps_command
         self.lmp_sims_root_path = lmp_sims_root_path
         os.makedirs(self.lmp_sims_root_path, exist_ok=True)
@@ -115,3 +118,14 @@ write_data          relaxing.*.data
         """
 
         raise NotImplementedError()
+
+    def invoke_lammps(self, lmp_path: str | Path) -> CompletedProcess:
+        """Invoke LAMMPS in a specific run directory
+
+        Args:
+            lmp_path: Path to the LAMMPS run directory
+        """
+
+        lmp_path = Path(lmp_path)
+        with open(lmp_path / 'stdout.lmp', 'w') as fp, open(lmp_path / 'stderr.lmp', 'w') as fe:
+            return run(list(self.lammps_command) + ['-i', 'in.lmp'], cwd=lmp_path, stdout=fp, stderr=fe)
