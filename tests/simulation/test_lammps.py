@@ -6,10 +6,9 @@ def test_lammps_runner(cif_files):
     lmprunner = LAMMPSRunner(
         lammps_command="npt_tri",
         lmp_sims_root_path="lmp_sims",
-        cif_files_root_path=cif_files
     )
 
-    for test_file in lmprunner.cif_files_paths:
+    for test_file in cif_files.glob("*.cif"):
         try:
             lmp_path = lmprunner.prep_molecular_dynamics_single(test_file,
                                                                 timesteps=1000,

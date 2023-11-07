@@ -16,29 +16,17 @@ class LAMMPSRunner:
 
     Args:
         lammps_command: Command used to launch LAMMPS
+        lmp_sims_root_path: Scratch directory for LAMMPS simulations
     """
 
-    def __init__(self, lammps_command: str = "npt_tri", lmp_sims_root_path: str = "lmp_sims", cif_files_root_path: str = "cif_files"):
-        """Read cif files from input directory, make directory for lammps simulation input files
-
-        Args:
-            lammps_command: lammps simulation type, default: "npt_tri"
-            lmp_sims_root_path: output directory, default: "lmp_sims"
-            cif_files_root_path: input directory to look for cif files, default: "cif_files"
-        Returns:
-            None
-        """
+    def __init__(self, lammps_command: str = "npt_tri", lmp_sims_root_path: str = "lmp_sims"):
         self.lammps_command = lammps_command
         self.lmp_sims_root_path = lmp_sims_root_path
-        self.cif_files_root_path = cif_files_root_path
-        self.cif_files_paths = [os.path.join(self.cif_files_root_path, x) for x in os.listdir(self.cif_files_root_path) if x.endswith(".cif")]
-        logging.info("Making LAMMPS simulation root path at: " + os.path.join(os.getcwd(), self.lmp_sims_root_path))
         os.makedirs(self.lmp_sims_root_path, exist_ok=True)
-        logging.info("Scanning cif files at: " + os.path.join(os.getcwd(), self.cif_files_root_path))
-        logging.info("Found " + "%d" % len(self.cif_files_paths) + " files with .cif extension! \n")
 
     def prep_molecular_dynamics_single(self, cif_path: str, timesteps: int, report_frequency: int, stepsize_fs: float = 0.5) -> (str, int):
         """Use cif2lammps to assign force field to a single MOF and generate input files for lammps simulation
+
         Args:
             cif_path: starting structure's cif file path
             timesteps: Number of timesteps to run
