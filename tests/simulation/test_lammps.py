@@ -6,7 +6,7 @@ from mofa.model import MOFRecord
 from mofa.simulation.lammps import LAMMPSRunner
 
 
-@mark.parametrize('cif_name', ['hMOF-0'])
+@mark.parametrize('cif_name', ['hMOF-0', 'hMOF-5000000'])
 def test_lammps_runner(cif_name, cif_dir, tmpdir):
     # Make a LAMMPS simulator that reads and writes to a
     lmprunner = LAMMPSRunner(
