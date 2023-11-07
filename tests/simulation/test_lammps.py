@@ -1,5 +1,5 @@
+from pathlib import Path
 from mofa.simulation.lammps import LAMMPSRunner
-import logging
 
 
 def test_lammps_runner(cif_files):
@@ -13,3 +13,4 @@ def test_lammps_runner(cif_files):
                                                             timesteps=1000,
                                                             report_frequency=100,
                                                             stepsize_fs=0.5)
+        assert Path(lmp_path).exists()
