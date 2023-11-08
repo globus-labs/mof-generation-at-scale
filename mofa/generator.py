@@ -3,7 +3,7 @@ from pathlib import Path
 
 import ase
 
-from model import MOFRecord
+from mofa.model import MOFRecord
 from difflinker_sample import sample_from_sdf
 from difflinker_train import get_args, main
 import yaml
