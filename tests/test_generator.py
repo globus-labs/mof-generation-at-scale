@@ -3,7 +3,7 @@ from pytest import fixture
 from mofa.generator import train_generator, run_generator
 import numpy as np
 
-@fixture
+@fixture()
 def load_model():
     ...
 
