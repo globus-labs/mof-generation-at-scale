@@ -4,7 +4,7 @@ from pathlib import Path
 from ase.io.cif import read_cif
 import ase
 
-from ..mofa.model import MOFRecord
+from mofa.model import MOFRecord
 
 _files_path = Path(__file__).parent / 'files'
 
