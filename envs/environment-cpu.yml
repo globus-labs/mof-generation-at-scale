@@ -21,11 +21,14 @@ dependencies:
   - pymatgen==2023.8.10
   - scikit-learn==1.3.0
 
+  # Tools used for simulation
+  - lammps
+
   # Use Conda PyTorch to avoid OpenMP disagreement with other libraries
   - pytorch==1.13.*
   - cpuonly
 
   - pip
   - pip:
-    # Need torch for BOTorch
+    - git+https://gitlab.com/ase/ase.git
     - -e ..[test]

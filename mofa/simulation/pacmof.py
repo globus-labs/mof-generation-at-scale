@@ -145,7 +145,7 @@ def get_features_from_cif_serial(path_to_cif):
                 'Ac': 5.170, 'Th': 6.307, 'Pa': 5.890, 'U': 6.194,
                 'Np': 6.266, 'Pu': 6.026, 'Am': 5.974, 'Cm': 5.991}
     # pymatgent nearest neighbor to get local enveronment
-    # print("Reading  CIF file {}...".format(path_to_cif))
+    # logger.debug("Reading  CIF file {}...".format(path_to_cif))
     data = read(path_to_cif)
     number_of_atoms = data.get_global_number_of_atoms()
     # cov_radii = np.array([radius[s] for s in data.get_chemical_symbols()])
@@ -158,7 +158,7 @@ def get_features_from_cif_serial(path_to_cif):
     # * Create a dictionary of functions for the different atomic number ranges
     bins = [0, 7, 9, 120]
     flags = list(map(str, np.digitize(atomic_numbers, bins)))
-    # print("Computing features for {}...".format(path_to_cif))
+    # logger.debug("Computing features for {}...".format(path_to_cif))
     func_dict = {
         '1': find_neighbors_smallZ,
         '2': find_neighbors_oxynitro,
@@ -226,22 +226,22 @@ def get_charges_single_serial(
         path_to_output_dir='.',
         add_string='_charged',
         path_to_pickle_obj="Model_RF_DDEC.pkl"):
-    # print("Loading the model...")
+    # logger.debug("Loading the model...")
     model = None
     with io.open(path_to_pickle_obj, "rb") as rf:
         model = pickle.load(rf)
     # model = joblib.load(path_to_pickle_obj)
     data = get_features_from_cif_serial(path_to_cif)
     features = data.info['features']
-    # print("Estimating charges for {}...".format(path_to_cif))
+    # logger.debug("Estimating charges for {}...".format(path_to_cif))
     charges = model.predict(features)
     charges_adj = charges - np.sum(charges) * \
         np.abs(charges) / np.sum(np.abs(charges))
     data.info['_atom_site_charge'] = charges_adj.tolist()
     # if np.any(np.abs(charges - charges_adj) > 0.2):
-    #     print("WARNING: Some charges were adjusted by more than 0.2 to maintain neutrality!")
+    #     logger.debug("WARNING: Some charges were adjusted by more than 0.2 to maintain neutrality!")
     if create_cif:
-        # print('Writing new cif file...')
+        # logger.debug('Writing new cif file...')
         path_to_cif = os.path.abspath(path_to_cif)
         old_name = os.path.basename(path_to_cif)
         new_name = old_name.split('.')[-2] + add_string + '.cif'

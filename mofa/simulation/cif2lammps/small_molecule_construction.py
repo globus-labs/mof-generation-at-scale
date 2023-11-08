@@ -1,5 +1,6 @@
 import networkx as nx
 import numpy as np
+import logging
 from . import atomic_data
 from itertools import groupby, combinations
 from random import randint
@@ -13,9 +14,10 @@ from ase.io import read
 
 mass_key = atomic_data.mass_key
 
+logger = logging.getLogger(__name__)
+
 
 def add_small_molecules(FF, ff_string):
-
     if ff_string == 'TraPPE':
         SM_constants = small_molecule_constants.TraPPE
     elif ff_string == 'TIP4P_2005_long':
@@ -42,13 +44,13 @@ def add_small_molecules(FF, ff_string):
 
     if len(SMG.nodes()) > 0 and len(SMG.edges()) == 0:
 
-        print('there are no small molecule bonds in the CIF, calculating based on covalent radii...')
+        logger.debug('there are no small molecule bonds in the CIF, calculating based on covalent radii...')
         atoms = Atoms()
 
         offset = min(SMG.nodes())
 
         for node, data in SMG.nodes(data=True):
-            # print(node, data)
+            # logger.debug(node, data)
             atoms.append(
                 Atom(
                     data['element_symbol'],
@@ -69,7 +71,6 @@ def add_small_molecules(FF, ff_string):
             nbors = NL.get_neighbors(i.index)[0]
 
             for j in nbors:
-
                 bond_length = get_distances(
                     i.position,
                     p2=atoms[j].position,
@@ -87,7 +88,7 @@ def add_small_molecules(FF, ff_string):
                     bond_type='S')
 
         NMOL = len(list(nx.connected_components(SMG)))
-        print(NMOL, 'small molecules were recovered after bond calculation')
+        logger.debug(NMOL, 'small molecules were recovered after bond calculation')
 
     mol_flag = 1
     max_ind = FF.system['max_ind']
@@ -132,7 +133,7 @@ def add_small_molecules(FF, ff_string):
                 SMG.nodes[n]['force_field_type'] = SMG.nodes[n]['element_symbol'] + '_w'
             else:
                 SMG.nodes[n]['force_field_type'] = SMG.nodes[n]['element_symbol'] + \
-                    '_' + ID_string
+                                                   '_' + ID_string
 
         # add COM sites where relevant, extend this list as new types are added
         if ID_string in ('O2', 'N2'):
@@ -141,7 +142,6 @@ def add_small_molecules(FF, ff_string):
             anchor = SMG.nodes[comp[0]]['fractional_position']
 
             for n in comp:
-
                 data = SMG.nodes[n]
                 data['mol_flag'] = str(mol_flag)
                 fcoord = data['fractional_position']
@@ -206,7 +206,7 @@ def add_small_molecules(FF, ff_string):
     # new_improper_types = {}
 
     for subG, ID_string in zip([SMG.subgraph(c).copy()
-                               for c in nx.connected_components(SMG)], comps):
+                                for c in nx.connected_components(SMG)], comps):
 
         constants = SM_constants[ID_string]
 
@@ -258,7 +258,6 @@ def add_small_molecules(FF, ff_string):
                 style = bonds[bond][0]
 
                 if bond not in used_bonds:
-
                     ty = ty + 1
                     new_bond_types[bond] = ty
                     FF.bond_data['params'][ty] = list(bonds[bond])
@@ -315,7 +314,6 @@ def add_small_molecules(FF, ff_string):
                         FF.angle_data['count'][1])
 
                     if angle not in used_angles:
-
                         ty = ty + 1
                         new_angle_types[angle] = ty
                         FF.angle_data['count'] = (
@@ -377,17 +375,16 @@ def add_small_molecules(FF, ff_string):
 
 
 def update_potential(potential_data, new_potential_params, potential_coeff):
-
     write_instyles = False
     add_styles = set([new_potential_params[ty]['style']
-                     for ty in new_potential_params])
+                      for ty in new_potential_params])
     for ABS in add_styles:
         if ABS not in potential_data['style'] and 'hybrid' in potential_data['style']:
             potential_data['style'] = potential_data['style'] + ' ' + ABS
             write_instyles = True
         if ABS not in potential_data['style'] and 'hybrid' not in potential_data['style']:
             potential_data['style'] = 'hybrid ' + \
-                potential_data['style'] + ' ' + ABS
+                                      potential_data['style'] + ' ' + ABS
             write_instyles = True
         else:
             pass
@@ -395,7 +392,7 @@ def update_potential(potential_data, new_potential_params, potential_coeff):
     if write_instyles:
         instyles = {
             ty: ' ' +
-            new_potential_params[ty]['style'] for ty in new_potential_params}
+                new_potential_params[ty]['style'] for ty in new_potential_params}
     else:
         instyles = {ty: '' for ty in new_potential_params}
 
@@ -413,12 +410,10 @@ def update_potential(potential_data, new_potential_params, potential_coeff):
 
 
 def include_molecule_file(FF, maxIDs, add_molecule):
-
     max_atom_ty, max_bond_ty, max_angle_ty, max_dihedral_ty, max_improper_ty = maxIDs
     molname, model, N = add_molecule
 
     if molname in ('water', 'Water', 'H2O', 'h2o'):
-
         molfile, LJ_params, bond_params, angle_params, molnames, mass_dict, M_site_dist, extra_types = WMF.water(
             max_atom_ty, max_bond_ty, max_angle_ty, model=model)
         dihedral_params = None
@@ -469,7 +464,6 @@ def include_molecule_file(FF, maxIDs, add_molecule):
 
 
 def read_RASPA_pdb(file):
-
     with open(file, 'r') as pdb:
         pdb = pdb.read()
         pdb = pdb.split('\n')
@@ -484,7 +478,6 @@ def read_RASPA_pdb(file):
 
 
 def read_small_molecule_file(sm_file, system):
-
     fm = sm_file.split('.')[-1]
     max_ind = max(system['graph'])
     ind = max_ind + 1
@@ -494,7 +487,7 @@ def read_small_molecule_file(sm_file, system):
             'only xyz and RASPA pdb formats are supported for small molecule files')
 
     if fm == 'pdb':
-        print('assuming small molecule file is in RASPA pdb format, if not, too bad...')
+        logger.debug('assuming small molecule file is in RASPA pdb format, if not, too bad...')
         atoms = read_RASPA_pdb(sm_file)
     else:
         atoms = read(sm_file, format=fm)
@@ -503,7 +496,6 @@ def read_small_molecule_file(sm_file, system):
     SMG = nx.Graph()
 
     for atom in atoms:
-
         SMG.add_node(ind,
                      element_symbol=atom.symbol,
                      mol_flag='1',
