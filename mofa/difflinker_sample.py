@@ -1,7 +1,7 @@
 import os
 import argparse
 import subprocess
-from utils.difflinker_sample_and_analyze import main_run, run_dflk_sample_analyze
+from mofa.utils.difflinker_sample_and_analyze import main_run, run_dflk_sample_analyze
 from typing import *
 from pathlib import Path
 
