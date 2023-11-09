@@ -6,6 +6,9 @@ import torch
 from mofa.utils.src.lightning import DDPM
 from mofa.utils.difflinker_sample_and_analyze import main_run
 
+def test_cuda():
+    assert torch.cuda.is_available()
+
 @fixture()
 def load_model():
     model = "mofa/models/geom_difflinker.ckpt"
