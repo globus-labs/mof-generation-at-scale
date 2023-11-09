@@ -4,8 +4,8 @@ from pathlib import Path
 import ase
 
 from mofa.model import MOFRecord
-from mofa.utils.difflinker_sample import sample_from_sdf
-from mofa.utils.difflinker_train import get_args, main
+from mofa.difflinker_sample import sample_from_sdf
+from mofa.difflinker_train import get_args, main
 import yaml
 import os
 
