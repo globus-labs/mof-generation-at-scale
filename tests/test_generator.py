@@ -6,6 +6,7 @@ import torch
 from mofa.utils.src.lightning import DDPM
 from mofa.utils.src.linker_size_lightning import SizeClassifier
 from mofa.utils.difflinker_sample_and_analyze import main_run
+import os
 
 def test_cuda():
     assert torch.cuda.is_available()
