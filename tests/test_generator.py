@@ -22,10 +22,11 @@ def load_size_gnn_model():
     model = "mofa/models/geom_size_gnn.ckpt"
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     sizegnn = SizeClassifier.load_from_checkpoint(model, map_location=device).eval().to(device)
-    return ddpm
+    return sizegnn
 
-def test_load_model(load_model):
-    print(load_model.__class__.__name__)
+def test_load_model(load_denoising_model, load_size_gnn_model):
+    print(load_denoising_model.__class__.__name__)
+    print(load_size_gnn_model.__class__.__name__)
     print("Successful?")
 
 def test_training():
