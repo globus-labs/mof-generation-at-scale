@@ -4,7 +4,7 @@ from mofa.generator import train_generator, run_generator
 import numpy as np
 import torch
 from mofa.utils.src.lightning import DDPM
-from mofa.utils.src.linkzer_size_lightning import SizeClassifier
+from mofa.utils.src.linker_size_lightning import SizeClassifier
 from mofa.utils.difflinker_sample_and_analyze import main_run
 
 def test_cuda():
