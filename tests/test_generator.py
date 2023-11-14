@@ -31,10 +31,10 @@ def test_load_model(load_denoising_model, load_size_gnn_model):
     print("Successful?")
 
 def test_training():
-    ...
+    train_generator
 
 def test_sampling():
-    ...
+    run_generator
 
 def test_fragmentation():
     ...
