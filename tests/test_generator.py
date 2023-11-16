@@ -1,5 +1,5 @@
 import pytest
-from pytest import fixture
+from pytest import fixture, mark
 from mofa.generator import train_generator, run_generator
 import numpy as np
 import torch
@@ -32,7 +32,8 @@ def test_load_model(load_denoising_model, load_size_gnn_model):
 
 def test_training():
     train_generator
-
+    
+@mark.parametrize('cif_name', ['hMOF-0', 'hMOF-5000000'])
 def test_sampling():
     run_generator
 
