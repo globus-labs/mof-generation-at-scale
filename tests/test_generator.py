@@ -34,9 +34,9 @@ def test_training():
     #train_generator
     ...
     
-@mark.parametrize('cif_name', ['hMOF-0', 'hMOF-5000000'])
-def test_sampling():
-    run_generator
+@mark.parametrize('n_atoms', [5, 6])
+def test_sampling(n_atoms):
+    run_generator(n_atoms=n_atoms)
 
 def test_fragmentation():
     ...
