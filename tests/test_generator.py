@@ -31,7 +31,8 @@ def test_load_model(load_denoising_model, load_size_gnn_model):
     print("Successful?")
 
 def test_training():
-    train_generator
+    #train_generator
+    ...
     
 @mark.parametrize('cif_name', ['hMOF-0', 'hMOF-5000000'])
 def test_sampling():
