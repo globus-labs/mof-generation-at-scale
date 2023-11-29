@@ -33,7 +33,8 @@ def test_load_model(load_denoising_model, load_size_gnn_model):
 def test_training():
     #train_generator
     ...
-    
+
+# https://docs.pytest.org/en/7.1.x/how-to/parametrize.html
 @mark.parametrize('n_atoms', [5, 6])
 def test_sampling(n_atoms):
     run_generator(n_atoms=n_atoms)
