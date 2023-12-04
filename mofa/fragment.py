@@ -3,7 +3,7 @@ from pathlib import Path
 
 import ase
 
-from model import MOFRecord
+from mofa.model import MOFRecord
 
 from mofa.difflinker_fragmentation import fragmentation
 from mofa.difflinker_process_fragmentation import process_fragments
