@@ -1,6 +1,10 @@
+from ase.io.vasp import write_vasp
+from pytest import raises
 from ase import Atoms
+import numpy as np
+from six import StringIO
 
-from mofa.scoring.geometry import MinimumDistance
+from mofa.scoring.geometry import MinimumDistance, LatticeParameterChange
 
 
 def test_distance(example_record):
@@ -10,3 +14,24 @@ def test_distance(example_record):
 
     assert MinimumDistance()(atoms) == 1.
     assert MinimumDistance().score_mof(example_record) > 0
+
+
+def test_strain(example_record):
+    scorer = LatticeParameterChange()
+
+    # Ensure it throws an error
+    with raises(ValueError):
+        scorer.score_mof(example_record)
+
+    # Make a fake MD trajectory with no change
+    example_record.md_trajectory['uff'] = [example_record.structure] * 2
+    assert np.isclose(scorer.score_mof(example_record), 0)
+
+    # Make sure it compute stresses correctly if the volume shears
+    final_atoms = example_record.atoms
+    final_atoms.set_cell(final_atoms.cell.lengths().tolist() + [80, 90, 90])
+    sio = StringIO()
+    write_vasp(sio, final_atoms)
+    example_record.md_trajectory['uff'][1] = sio.getvalue()
+
+    assert scorer.score_mof(example_record) > 0
