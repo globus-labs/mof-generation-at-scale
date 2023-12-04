@@ -14,7 +14,7 @@ Options:
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
-from utils import frag_utils
+from mofa.utils import frag_utils
 
 from docopt import docopt
 
