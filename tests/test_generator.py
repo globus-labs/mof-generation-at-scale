@@ -27,7 +27,7 @@ def load_size_gnn_model():
     return sizegnn
 
 def test_load_model(load_denoising_model, load_size_gnn_model):
-    print(load_denoising_model.__class__._xw_name__)
+    print(load_denoising_model.__class__.__name__)
     print(load_size_gnn_model.__class__.__name__)
     print("Successful?")
 
