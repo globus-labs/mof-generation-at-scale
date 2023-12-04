@@ -3,9 +3,9 @@ from glob import glob
 import shutil
 import subprocess
 from subprocess import PIPE
-from utils.rdkit_conf_parallel import compute_confs_worker
-import utils.prepare_dataset as prep
-from utils.filter_and_merge import run as fm_run
+from mofa.utils.rdkit_conf_parallel import compute_confs_worker
+import mofa.utils.prepare_dataset as prep
+from mofa.utils.filter_and_merge import run as fm_run
 from typing import *
 
 
