@@ -34,9 +34,11 @@ class LatticeParameterChange(Scorer):
 
         # Get the initial and final structures
         init_strc = read_vasp(StringIO(traj[0]))
-        final_strc: ase.Atoms = read_vasp(StringIO(traj[0]))
+        final_strc: ase.Atoms = read_vasp(StringIO(traj[1]))
 
         # Compute the maximum principal strain
-        strain = np.linalg.solve(final_strc.cell.array, init_strc.cell.array) - np.eye(3)
+        #  Following: https://www.cryst.ehu.es/cgi-bin/cryst/programs/nph-strain
+        strain = np.matmul(init_strc.cell.array, np.linalg.inv(final_strc.cell.array)) - np.eye(3)
+        strain = 0.5 * (strain + strain.T)
         strains = np.linalg.eigvals(strain)
         return np.abs(strains).max()

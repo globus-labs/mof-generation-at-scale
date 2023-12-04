@@ -34,4 +34,5 @@ def test_strain(example_record):
     write_vasp(sio, final_atoms)
     example_record.md_trajectory['uff'][1] = sio.getvalue()
 
-    assert scorer.score_mof(example_record) > 0
+    max_strain = scorer.score_mof(example_record)
+    assert np.isclose(max_strain, 0.09647)  # Checked against https://www.cryst.ehu.es/cryst/strain.html
