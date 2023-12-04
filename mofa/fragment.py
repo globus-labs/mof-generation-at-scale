@@ -5,10 +5,15 @@ import ase
 
 from model import MOFRecord
 
+from mofa.difflinker_fragmentation import fragmentation
+from mofa.difflinker_process_fragmentation import process_fragments
+from typing import *
+
 def fragment_mof_linkers(
-        starting_model: str | Path,
-        examples: list[MOFRecord],
-        num_epochs: int
+        nodes: List[str] = ["CuCu"]
+        # starting_model: str | Path,
+        # examples: list[MOFRecord],
+        # num_epochs: int
 ) -> Path:
     """Fragment linkers of MOFs
 
@@ -19,5 +24,7 @@ def fragment_mof_linkers(
     Returns:
         Path to the new model weights
     """
-    raise NotImplementedError()
-
+    # raise NotImplementedError()
+    fragmentation(nodes)
+    process_fragments(nodes)
+        
