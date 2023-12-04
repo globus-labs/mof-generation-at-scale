@@ -6,6 +6,7 @@ import torch
 from mofa.utils.src.lightning import DDPM
 from mofa.utils.src.linker_size_lightning import SizeClassifier
 from mofa.utils.difflinker_sample_and_analyze import main_run
+from mofa.fragment import fragment_mof_linkers
 import os
 
 def test_cuda():
@@ -45,5 +46,9 @@ def test_sampling_num_atoms(n_atoms):
 def test_sampling_num_atoms(n_atoms, node, n_samples):
     run_generator(n_atoms=n_atoms, node=node, n_samples=n_samples)
 
-def test_fragmentation():
-    ...
+@mark.parametrize('nodes', [['CuCu'], ['CuCu', 'ZnZn']])
+def test_fragmentation(nodes):
+    # fragmentation(nodes)
+    # process_fragments(nodes)
+    fragment_mof_linkers(nodes)
+
