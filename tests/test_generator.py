@@ -26,7 +26,7 @@ def load_size_gnn_model():
     return sizegnn
 
 def test_load_model(load_denoising_model, load_size_gnn_model):
-    print(load_denoising_model.__class__.__name__)
+    print(load_denoising_model.__class__._xw_name__)
     print(load_size_gnn_model.__class__.__name__)
     print("Successful?")
 
@@ -35,9 +35,15 @@ def test_training():
     ...
 
 # https://docs.pytest.org/en/7.1.x/how-to/parametrize.html
-@mark.parametrize('n_atoms', [5, 6])
-def test_sampling(n_atoms):
+@mark.parametrize('n_atoms', [3, 4])
+def test_sampling_num_atoms(n_atoms):
     run_generator(n_atoms=n_atoms)
+
+@mark.parametrize('n_atoms', [3])
+@mark.parametrize('node', ['CuCu', 'ZnZn', 'ZnOZnZnZn'])
+@mark.parametrize('n_samples', [1, 3])
+def test_sampling_num_atoms(n_atoms, node, n_samples):
+    run_generator(n_atoms=n_atoms, node=node, n_samples=n_samples)
 
 def test_fragmentation():
     ...
