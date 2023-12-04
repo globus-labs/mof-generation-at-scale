@@ -20,7 +20,7 @@ from rdkit.Chem import MolStandardize
 
 import matplotlib.pyplot as plt
 
-import utils.sascorer as sascorer
+import mofa.utils.sascorer as sascorer
 from itertools import chain, product
 
 from joblib import Parallel, delayed
