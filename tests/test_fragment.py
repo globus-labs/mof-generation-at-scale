@@ -4,6 +4,7 @@ import numpy as np
 import torch
 mofa.fragment
 from mofa.fragment import fragment_mof_linkers
+from mofa.generator import train_generator, run_generator
 import os
 
 @mark.parametrize('n_atoms', [3])
