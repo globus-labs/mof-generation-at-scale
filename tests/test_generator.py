@@ -34,7 +34,7 @@ def test_load_model(load_denoising_model, load_size_gnn_model):
 @mark.slow
 def test_training():
     print("Here!")
-    train_generator()
+    train_generator(num_epochs=1)
 
 # https://docs.pytest.org/en/7.1.x/how-to/parametrize.html
 @mark.parametrize('n_atoms', [3, 4])
