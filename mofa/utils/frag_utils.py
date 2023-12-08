@@ -796,7 +796,7 @@ def check_2d_filters(toks, pains_smarts, count=0, verbose=False):
 
     return False
 
-def check_2d_filters_dataset(fragmentations, n_cores=1, pains_smarts_loc='utils/wehi_pains.csv'):
+def check_2d_filters_dataset(fragmentations, n_cores=1, pains_smarts_loc='mofa/utils/wehi_pains.csv'):
     # Load pains filters
     with open(pains_smarts_loc, 'r') as f:
         pains_smarts = [Chem.MolFromSmarts(line[0], mergeHs=True) for line in csv.reader(f)]
