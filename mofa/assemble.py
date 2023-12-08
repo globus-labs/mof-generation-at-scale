@@ -436,7 +436,7 @@ def assemble_PillarPaddle_pcuMOF_multiProc(inputDict):
 def testPillarMOF():
     linker_base = "inferred_linkers/molGAN-batch512-Linkers"
     linker_folders = os.listdir(linker_base)
-    # chosen_linker_folders 
+    # chosen_linker_folders
     clf = [os.path.join(linker_base, x) for x in linker_folders[0:3]]
     COOLinkers = [os.path.join(clf[0], y) for y in os.listdir(clf[0]) if y.endswith(".xyz") and y.startswith(
         "linker-COO")] + [os.path.join(clf[1], y) for y in os.listdir(clf[1]) if y.endswith(".xyz") and y.startswith("linker-COO")]
