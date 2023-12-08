@@ -102,6 +102,7 @@ def find_last_checkpoint(checkpoints_dir):
 
 
 def main(args):
+    print(args.config)
     start_time = datetime.now().strftime('date%d-%m_time%H-%M-%S.%f')
     run_name = f'{os.path.splitext(os.path.basename(args.config))[0]}_{pwd.getpwuid(os.getuid())[0]}_{args.exp_name}_bs{args.batch_size}_{start_time}'
     experiment = run_name if args.resume is None else args.resume
