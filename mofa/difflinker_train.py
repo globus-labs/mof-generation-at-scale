@@ -15,7 +15,7 @@ from pytorch_lightning.callbacks import TQDMProgressBar
 
 def get_args():
     p = argparse.ArgumentParser(description='E3Diffusion')
-    p.add_argument('--config', type=argparse.FileType(mode='r'), default='configs/zinc_difflinker.yml')
+    p.add_argument('--config', type=argparse.FileType(mode='r'), default='config.yaml')
     p.add_argument('--data', action='store', type=str,  default="datasets")
     p.add_argument('--train_data_prefix', action='store', type=str, default='zinc_final_train')
     p.add_argument('--val_data_prefix', action='store', type=str,  default='zinc_final_val')
