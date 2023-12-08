@@ -10,7 +10,7 @@ from mofa.difflinker_process_fragmentation import process_fragments
 from typing import *
 
 def fragment_mof_linkers(
-        nodes: List[str] = ["CuCu"]
+        nodes: List[str] = ["ZnZn"]
         # starting_model: str | Path,
         # examples: list[MOFRecord],
         # num_epochs: int
