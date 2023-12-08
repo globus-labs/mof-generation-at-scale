@@ -27,8 +27,9 @@ def process_fragments(nodes: List[str]=['CuCu']):
         
         # generate sdf of molecular fragments
         print('Generating molecule sdf files...')
-        os.makedirs(TARGET_DIR,exist_ok=True)
-        
+        os.makedirs(TARGET_DIR, exist_ok=True)
+        os.makedirs(OUT_DIR, exist_ok=True)
+
         smiles = []
         with open(INPUT_SMILES, 'r') as f:
             for line in f:
