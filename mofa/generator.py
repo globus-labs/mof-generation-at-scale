@@ -74,6 +74,10 @@ def run_generator(
     print("Saved XYZ files in mofa/output directory!")
 
 if __name__ == "__main__":
-    # run_generator()
-    train_generator()
+    node = "ZnZn"
+    run_generator(node='ZnZn',
+                 n_atoms=5,
+                 input_path=f"mofa/data/fragments_all/{node}/hMOF_frag_frag.sdf",
+                 )
+    # train_generator()
         
