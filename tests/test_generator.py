@@ -44,5 +44,5 @@ def test_sampling_num_atoms(n_atoms):
 @mark.parametrize('node', ['CuCu', 'ZnZn', 'ZnOZnZnZn'])
 @mark.parametrize('n_samples', [1, 3])
 def test_sampling_num_atoms(n_atoms, node, n_samples):
-    run_generator(n_atoms=n_atoms, node=node, n_samples=n_samples)
+    run_generator(n_atoms=n_atoms, node=node, input_path=f"mofa/data/fragments_all/{node}/hMOF_frag_frag.sdf", n_samples=n_samples)
 
