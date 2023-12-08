@@ -33,6 +33,7 @@ def test_load_model(load_denoising_model, load_size_gnn_model):
 
 @mark.slow
 def test_training():
+    print("Here!")
     train_generator()
 
 # https://docs.pytest.org/en/7.1.x/how-to/parametrize.html
