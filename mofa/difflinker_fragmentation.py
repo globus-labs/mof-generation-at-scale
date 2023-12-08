@@ -8,7 +8,7 @@ from rdkit.Chem import AllChem
 from mofa.utils.prepare_data_from_sdf import prepare_sdf
 from typing import *
 
-def fragmentation(nodes: List[str]=["CuCu"]):
+def fragmentation(nodes: List[str]=["ZnZn"]):
     # data cleaning
     df_info = pd.read_csv('mofa/data/hMOF_CO2_info.csv')
     df_info = df_info.dropna() # drop entries containing 'NaN'
