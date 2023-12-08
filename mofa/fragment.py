@@ -27,4 +27,7 @@ def fragment_mof_linkers(
     # raise NotImplementedError()
     fragmentation(nodes)
     process_fragments(nodes)
+
+if __name__ == "__main__":
+    fragment_mof_linkers(nodes=["ZnZn"])
         
