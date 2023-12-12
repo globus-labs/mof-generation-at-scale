@@ -20,13 +20,13 @@ def device():
 
 @fixture()
 def load_denoising_model(device, file_dir):
-    model = file_dir / "models/geom_difflinker.ckpt"
+    model = file_dir / "geom_difflinker.ckpt"
     return DDPM.load_from_checkpoint(model, map_location=device).eval().to(device)
 
 
 @fixture()
 def load_size_gnn_model(device, file_dir):
-    model = file_dir / "models/geom_size_gnn.ckpt"
+    model = file_dir / "geom_size_gnn.ckpt"
     return SizeClassifier.load_from_checkpoint(model, map_location=device).eval().to(device)
 
 

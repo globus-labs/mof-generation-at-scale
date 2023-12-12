@@ -54,13 +54,14 @@ def train_generator(
 
 def run_generator(
         model: str | Path,
+        input_path: str | Path,
         node: str = 'CuCu',
         n_atoms: int | str = 8,
-        input_path: str | Path = "mofa/data/fragments_all/CuCu/hMOF_frag_frag.sdf",
         n_samples: int = 1,
         n_steps: int = None
 ) -> list[ase.Atoms]:
-    """
+    """Produce a set of new linkers given a model
+
     Args:
         node: Which node to use: ['CuCu','ZnZn','ZnOZnZnZn'] to reproduce paper results
         n_atoms: Number of heavy atoms in the linker molecules to generate
