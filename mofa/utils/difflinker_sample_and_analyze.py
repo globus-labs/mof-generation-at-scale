@@ -2,7 +2,6 @@ import argparse
 import os
 import time
 import numpy as np
-from tqdm import tqdm
 
 import torch
 from rdkit import Chem
@@ -12,8 +11,6 @@ from mofa.utils.src.datasets import collate_with_fragment_edges, get_dataloader,
 from mofa.utils.src.lightning import DDPM
 from mofa.utils.src.linker_size_lightning import SizeClassifier
 from mofa.utils.src.visualizer import save_xyz_file, visualize_chain
-from tqdm import tqdm
-
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -50,6 +47,7 @@ parser.add_argument(
     help='Directory where sampled molecules ANIMATION will be saved'
 )
 
+
 def read_molecules(path):
     if path.endswith('.pdb'):
         return Chem.MolFromPDBFile(path, sanitize=False, removeHs=True)
@@ -62,33 +60,27 @@ def read_molecules(path):
     raise Exception('Unknown file extension')
 
 
-def generate_animation(ddpm, chain_batch, node_mask,n_mol):
-
-    batch_size = chain_batch.size(1) #Batch size
+def generate_animation(ddpm, chain_batch, node_mask, n_mol):
+    batch_size = chain_batch.size(1)  # Batch size
     batch_indices = torch.arange(batch_size)
     for bi, mi in zip(batch_indices):
-        chain = chain_batch[:, bi, :, :] #(FLD)
+        chain = chain_batch[:, bi, :, :]  # (FLD)
         name = f'mol_{n_mol}_{mi}'
-        #name = f'mol_{n_mol}'
+        # name = f'mol_{n_mol}'
         chain_output = os.path.join(ddpm.samples_dir, name)
         os.makedirs(chain_output, exist_ok=True)
 
-        one_hot = chain[:, :, 3:-1] if ddpm.include_charges else chain[:, :, 3:] #FLD
-        positions = chain[:, :, :3] #FL3
-        chain_node_mask = torch.cat([node_mask[bi].unsqueeze(0) for _ in range(ddpm.FRAMES)], dim=0) #FL
+        one_hot = chain[:, :, 3:-1] if ddpm.include_charges else chain[:, :, 3:]  # FLD
+        positions = chain[:, :, :3]  # FL3
+        chain_node_mask = torch.cat([node_mask[bi].unsqueeze(0) for _ in range(ddpm.FRAMES)], dim=0)  # FL
         names = [f'{name}_{j}' for j in range(ddpm.FRAMES)]
 
         save_xyz_file(chain_output, one_hot, positions, chain_node_mask, names=names, is_geom=ddpm.is_geom)
-        visualize_chain(chain_output, wandb=None, mode=name, is_geom=ddpm.is_geom) #set wandb None for now!
+        visualize_chain(chain_output, wandb=None, mode=name, is_geom=ddpm.is_geom)  # set wandb None for now!
 
-def main_run(input_path, model, output_dir, n_samples, n_steps, linker_size, anchors):
-    print(f'linker_size: {linker_size}')
-    # Setup
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    os.makedirs(output_dir, exist_ok=True)
 
+def main_run(input_path, model, output_dir, n_samples, n_steps, linker_size, anchors, device: str = 'cpu'):
     if linker_size.isdigit():
-        print(f'Generating linkers with {linker_size} atoms')
         linker_size = int(linker_size)
 
         def sample_fn(_data):
@@ -108,10 +100,10 @@ def main_run(input_path, model, output_dir, n_samples, n_steps, linker_size, anc
             sizes = torch.tensor(sizes, device=samples.device, dtype=const.TORCH_INT)
             return sizes
 
-    ddpm = DDPM.load_from_checkpoint(model, map_location=device).eval().to(device)
+    ddpm = DDPM.load_from_checkpoint(model, torch_device=device).eval().to(device)
 
     if n_steps is not None:
-        ddpm.edm.T = n_steps #otherwise, ddpm.edm.T = 1000 default
+        ddpm.edm.T = n_steps  # otherwise, ddpm.edm.T = 1000 default
 
     if ddpm.center_of_mass == 'anchors' and anchors is None:
         print(
@@ -128,16 +120,10 @@ def main_run(input_path, model, output_dir, n_samples, n_steps, linker_size, anc
 
     try:
         molecules = read_molecules(input_path)
-        # molecules = [Chem.RemoveAllHs(i) for i in molecules]
-        name = '.'.join(input_path.split('/')[-1].split('.')[:-1])
     except Exception as e:
-        return f'Could not read the molecule: {e}'
-        
-    # molecules = read_molecules(input_path)
-    # # molecules = [Chem.RemoveAllHs(i) for i in molecules]
-    # name = '.'.join(input_path.split('/')[-1].split('.')[:-1])
-    
-    for n_mol,molecule in enumerate(molecules):
+        raise ValueError(f'Could not read the molecule: {e}')
+
+    for n_mol, molecule in enumerate(molecules):
         positions, one_hot, charges = parse_molecule(molecule, is_geom=ddpm.is_geom)
         fragment_mask = np.ones_like(charges)
         linker_mask = np.zeros_like(charges)
@@ -157,12 +143,12 @@ def main_run(input_path, model, output_dir, n_samples, n_steps, linker_size, anc
             'linker_mask': torch.tensor(linker_mask, dtype=const.TORCH_FLOAT, device=device),
             'num_atoms': len(positions),
         }] * n_samples
-        batch_size = min(n_samples, 64) #TRY to make sure n_samples < 64
+        batch_size = min(n_samples, 64)  # TRY to make sure n_samples < 64
         dataloader = get_dataloader(dataset, batch_size=batch_size, collate_fn=collate_with_fragment_edges)
 
         # Sampling
-        for batch_i, data in tqdm(enumerate(dataloader)):
-            #print('Sampling only the FINAL output...')
+        for batch_i, data in enumerate(dataloader):
+            # print('Sampling only the FINAL output...')
             chain, node_mask = ddpm.sample_chain(data, sample_fn=sample_fn, keep_frames=1)
             x = chain[0][:, :, :ddpm.n_dims]
             h = chain[0][:, :, ddpm.n_dims:]
@@ -176,7 +162,7 @@ def main_run(input_path, model, output_dir, n_samples, n_steps, linker_size, anc
             x = x + mean * node_mask
 
             offset_idx = batch_i * batch_size
-            names = [f'mol_{n_mol}_{i}' for i in range(batch_size)]
+            names = [f'mol_{n_mol}_{i + offset_idx}' for i in range(batch_size)]
             save_xyz_file(output_dir, h, x, node_mask, names=names, is_geom=ddpm.is_geom, suffix='')
 
 

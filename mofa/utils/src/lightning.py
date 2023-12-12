@@ -17,8 +17,6 @@ from .visualizer import save_xyz_file, visualize_chain
 from typing import Dict, List, Optional
 from tqdm import tqdm
 
-from pdb import set_trace
-
 
 def get_activation(activation):
     if activation == 'silu':

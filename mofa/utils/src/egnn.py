@@ -210,10 +210,6 @@ class EGNN(nn.Module):
                                                                sin_embedding=self.sin_embedding,
                                                                normalization_factor=self.normalization_factor,
                                                                aggregation_method=self.aggregation_method))
-        if torch.cuda.is_available():
-            self.to(self.device)
-        else:
-            self.to('cpu')
 
     def forward(self, h, x, edge_index, node_mask=None, linker_mask=None, edge_mask=None):
         # Edit Emiel: Remove velocity as input
@@ -340,7 +336,8 @@ class Dynamics(nn.Module):
             self.dynamics = EGNN(
                 in_node_nf=in_node_nf,
                 in_edge_nf=1,
-                hidden_nf=hidden_nf, device=device,
+                hidden_nf=hidden_nf,
+                device=device,
                 activation=activation,
                 n_layers=n_layers,
                 attention=attention,

@@ -1,49 +1,59 @@
-import pytest
+from pathlib import Path
+
 from pytest import fixture, mark
-from mofa.generator import train_generator, run_generator
-import numpy as np
 import torch
+
 from mofa.utils.src.lightning import DDPM
 from mofa.utils.src.linker_size_lightning import SizeClassifier
-from mofa.utils.difflinker_sample_and_analyze import main_run
-from mofa.fragment import fragment_mof_linkers
-import os
+from mofa.generator import train_generator, run_generator
 
-def test_cuda():
-    assert torch.cuda.is_available()
+
+@fixture
+def file_dir():
+    return Path(__file__).parent / 'files' / 'difflinker'
+
+
+@fixture
+def device():
+    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 @fixture()
-def load_denoising_model():
-    model = "mofa/models/geom_difflinker.ckpt"
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    ddpm = DDPM.load_from_checkpoint(model, map_location=device).eval().to(device)
-    return ddpm
+def load_denoising_model(device, file_dir):
+    model = file_dir / "models/geom_difflinker.ckpt"
+    return DDPM.load_from_checkpoint(model, map_location=device).eval().to(device)
+
 
 @fixture()
-def load_size_gnn_model():
-    model = "mofa/models/geom_size_gnn.ckpt"
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    sizegnn = SizeClassifier.load_from_checkpoint(model, map_location=device).eval().to(device)
-    return sizegnn
+def load_size_gnn_model(device, file_dir):
+    model = file_dir / "models/geom_size_gnn.ckpt"
+    return SizeClassifier.load_from_checkpoint(model, map_location=device).eval().to(device)
+
 
 def test_load_model(load_denoising_model, load_size_gnn_model):
-    print(load_denoising_model.__class__.__name__)
-    print(load_size_gnn_model.__class__.__name__)
-    print("Successful?")
+    assert load_denoising_model.__class__.__name__ == 'DDPM'
+    assert load_size_gnn_model.__class__.__name__ == 'SizeClassifier'
+
 
 @mark.slow
-def test_training():
-    print("Here!")
-    train_generator(num_epochs=1)
+def test_training(file_dir):
+    train_generator(
+        starting_model=None,
+        config_path=file_dir / 'models' / 'config.yaml',
+        examples=file_dir / 'data' / 'fragments_all' / 'hMOF_frag_table.csv',
+        num_epochs=1
+    )
 
-# https://docs.pytest.org/en/7.1.x/how-to/parametrize.html
-@mark.parametrize('n_atoms', [3, 4])
-def test_sampling_num_atoms(n_atoms):
-    run_generator(n_atoms=n_atoms)
 
 @mark.parametrize('n_atoms', [3])
-@mark.parametrize('node', ['CuCu', 'ZnZn', 'ZnOZnZnZn'])
+@mark.parametrize('node', ['CuCu'])
 @mark.parametrize('n_samples', [1, 3])
-def test_sampling_num_atoms(n_atoms, node, n_samples):
-    run_generator(n_atoms=n_atoms, node=node, input_path=f"mofa/data/fragments_all/{node}/hMOF_frag_frag.sdf", n_samples=n_samples)
-
+def test_sampling_num_atoms(n_atoms, node, n_samples, file_dir, tmp_path):
+    samples = run_generator(
+        model=file_dir / 'geom_difflinker.ckpt',
+        n_atoms=n_atoms,
+        node=node,
+        input_path=str(file_dir / "hMOF_frag_frag.sdf"),
+        n_samples=n_samples
+    )
+    assert len(samples) == 4 * n_samples
