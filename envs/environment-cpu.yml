@@ -11,9 +11,16 @@ dependencies:
   # Standard data analysis tools
   - pandas==1.*
   - scipy==1.10.*
+  - scikit-learn
   - jupyterlab
   - matplotlib
   - pytest
+
+
+  # Tools used as part of the ML packages
+  - imageio
+  - pytorch-lightning<2
+  - wandb
 
   # Tools to work with crystalline and molecular data
   - openbabel==3.1.*

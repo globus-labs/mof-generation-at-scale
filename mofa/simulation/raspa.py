@@ -354,8 +354,8 @@ C              lennard-jones     0.8      6.38         // idem
         pair_coeff_df["eps(K)"] = [
             "%.4f" %
             x for x in (
-                    pair_coeff_df["eps(kCal/mol)"] *
-                    lammps2raspa_energy)]
+                pair_coeff_df["eps(kCal/mol)"] *
+                lammps2raspa_energy)]
         pair_coeff_df["sig(Ang)"] = ["%.4f" %
                                      x for x in pair_coeff_df["sig(Ang)"]]
         atom_df["eps(K)"] = atom_df["type"].map(
@@ -789,12 +789,12 @@ _atom_site_charge
         angle_coeff_df = read_lmp_sec_str2df(read_str.split(
             "Angle Coeffs")[1].split("Dihedral Coeffs")[0].strip())
         dihedral_coeff_df = read_lmp_sec_str2df(read_str.split("Dihedral Coeffs")[
-                                                    1].split("Improper Coeffs")[0].strip())
+            1].split("Improper Coeffs")[0].strip())
         improper_coeff_df = read_lmp_sec_str2df(
             read_str.split("Improper Coeffs")[1].split("Atoms")[0].strip())
         cifbox = read_str.split("Atoms")[1].split("$$$atoms$$$")[0].strip()
         atom_df = read_lmp_sec_str2df(read_str.split("$$$atoms$$$")[
-                                          1].split("Bonds")[0].strip())
+            1].split("Bonds")[0].strip())
         atom_df.columns = [
             'id',
             'mol',
@@ -1209,13 +1209,13 @@ with io.open("co2_adsorption_rigid/simulation.input", "w", newline="\\n") as wf:
         angle_coeff_df = read_lmp_sec_str2df(read_str.split(
             "Angle Coeffs")[1].split("Dihedral Coeffs")[0].strip())
         dihedral_coeff_df = read_lmp_sec_str2df(read_str.split("Dihedral Coeffs")[
-                                                    1].split("Improper Coeffs")[0].strip())
+            1].split("Improper Coeffs")[0].strip())
         improper_coeff_df = read_lmp_sec_str2df(
             read_str.split("Improper Coeffs")[1].split("Atoms")[0].strip())
         read_str.split("Atoms")[1].split("$$$atoms$$$")[0].strip()
         cifbox = read_str.split("Atoms")[1].split("$$$atoms$$$")[0].strip()
         atom_df = read_lmp_sec_str2df(read_str.split("$$$atoms$$$")[
-                                          1].split("Bonds")[0].strip())
+            1].split("Bonds")[0].strip())
         atom_df.columns = [
             'id',
             'mol',

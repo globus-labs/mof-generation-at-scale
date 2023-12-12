@@ -1,1 +1,1 @@
-from .version import __version__  # noqa: 401
+# from .version import __version__  # noqa: 401
