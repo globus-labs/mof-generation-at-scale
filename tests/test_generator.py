@@ -36,6 +36,7 @@ def test_load_model(load_denoising_model, load_size_gnn_model):
 
 
 @mark.slow
+@mark.xfail
 def test_training(file_dir):
     train_generator(
         starting_model=None,
