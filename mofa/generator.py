@@ -63,9 +63,8 @@ def run_generator(
     """Produce a set of new linkers given a model
 
     Args:
-        node: Which node to use: ['CuCu','ZnZn','ZnOZnZnZn'] to reproduce paper results
         n_atoms: Number of heavy atoms in the linker molecules to generate
-        input_path: Path to MOF linker fragment containing SDF file
+        input_path: Path to MOF linker fragments use as seeds
         model: Path to the starting weights
         n_samples: Number of samples of molecules to generate
         n_steps: Number of denoising steps; if None, this value is 1,000 by default

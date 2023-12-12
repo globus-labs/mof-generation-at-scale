@@ -49,7 +49,6 @@ def main_run(input_path, model, output_dir, n_samples, n_steps, linker_size, anc
         def sample_fn(_data):
             return torch.ones(_data['positions'].shape[0], device=device, dtype=const.TORCH_INT) * linker_size
     else:
-        print(f'Will generate linkers with sampled numbers of atoms')
         size_nn = SizeClassifier.load_from_checkpoint(linker_size, map_location=device).eval().to(device)
 
         def sample_fn(_data):
@@ -115,7 +114,6 @@ def main_run(input_path, model, output_dir, n_samples, n_steps, linker_size, anc
             chain, node_mask = ddpm.sample_chain(data, sample_fn=sample_fn, keep_frames=1)
             x = chain[0][:, :, :ddpm.n_dims]
             h = chain[0][:, :, ddpm.n_dims:]
-            hsize = h.size()
 
             # Put the molecule back to the initial orientation
             com_mask = data['fragment_mask'] if ddpm.center_of_mass == 'fragments' else data['anchors']

@@ -39,8 +39,8 @@ def test_load_model(load_denoising_model, load_size_gnn_model):
 def test_training(file_dir):
     train_generator(
         starting_model=None,
-        config_path=file_dir / 'models' / 'config.yaml',
-        examples=file_dir / 'data' / 'fragments_all' / 'hMOF_frag_table.csv',
+        config_path=file_dir / 'config.yaml',
+        examples=file_dir / 'hMOF_frag_table.csv',
         num_epochs=1
     )
 
