@@ -81,6 +81,13 @@ class MOFRecord:
     structure: str | None = field(default=None, repr=False)
     """A representative 3D structure of the MOF in POSCAR format"""
 
+    # Detailed outputs from simulations
+    md_trajectory: dict[str, list[str]] = field(default_factory=dict, repr=False)
+    """Structures of the molecule produced during molecular dynamics simulations.
+
+    Key is the name of the level of accuracy for the MD computational (e.g., "uff"),
+    values are the structure in POSCAR format"""
+
     # Properties
     gas_storage: dict[tuple[str, float], float] = field(default_factory=dict, repr=False)
     """Storage capacity of the MOF for different gases and pressures"""

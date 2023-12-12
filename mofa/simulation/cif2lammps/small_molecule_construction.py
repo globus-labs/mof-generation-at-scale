@@ -133,7 +133,7 @@ def add_small_molecules(FF, ff_string):
                 SMG.nodes[n]['force_field_type'] = SMG.nodes[n]['element_symbol'] + '_w'
             else:
                 SMG.nodes[n]['force_field_type'] = SMG.nodes[n]['element_symbol'] + \
-                                                   '_' + ID_string
+                    '_' + ID_string
 
         # add COM sites where relevant, extend this list as new types are added
         if ID_string in ('O2', 'N2'):
