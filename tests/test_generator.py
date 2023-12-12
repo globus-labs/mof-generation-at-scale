@@ -52,7 +52,6 @@ def test_sampling_num_atoms(n_atoms, node, n_samples, file_dir, tmp_path):
     samples = run_generator(
         model=file_dir / 'geom_difflinker.ckpt',
         n_atoms=n_atoms,
-        node=node,
         input_path=str(file_dir / "hMOF_frag_frag.sdf"),
         n_samples=n_samples
     )

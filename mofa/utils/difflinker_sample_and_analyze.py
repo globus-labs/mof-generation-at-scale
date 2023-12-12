@@ -1,6 +1,4 @@
-import argparse
 import os
-import time
 import numpy as np
 
 import torch
@@ -11,41 +9,6 @@ from mofa.utils.src.datasets import collate_with_fragment_edges, get_dataloader,
 from mofa.utils.src.lightning import DDPM
 from mofa.utils.src.linker_size_lightning import SizeClassifier
 from mofa.utils.src.visualizer import save_xyz_file, visualize_chain
-
-parser = argparse.ArgumentParser()
-parser.add_argument(
-    '--fragments', action='store', type=str, required=True,
-    help='Path to the file with input fragments'
-)
-parser.add_argument(
-    '--model', action='store', type=str, required=True,
-    help='Path to the DiffLinker model'
-)
-parser.add_argument(
-    '--linker_size', action='store', type=str, required=True,
-    help='Either linker size (int) or path to the GNN for size prediction'
-)
-parser.add_argument(
-    '--output', action='store', type=str, required=False, default='./',
-    help='Directory where sampled molecules will be saved'
-)
-parser.add_argument(
-    '--n_samples', action='store', type=int, required=False, default=5,
-    help='Number of linkers to generate'
-)
-parser.add_argument(
-    '--n_steps', action='store', type=int, required=False, default=None,
-    help='Number of denoising steps'
-)
-parser.add_argument(
-    '--anchors', action='store', type=str, required=False, default=None,
-    help='Comma-separated indices of anchor atoms '
-         '(according to the order of atoms in the input fragments file, enumeration starts with 1)'
-)
-parser.add_argument(
-    '--samples_dir', action='store', type=str, required=False, default='./',
-    help='Directory where sampled molecules ANIMATION will be saved'
-)
 
 
 def read_molecules(path):
@@ -164,23 +127,3 @@ def main_run(input_path, model, output_dir, n_samples, n_steps, linker_size, anc
             offset_idx = batch_i * batch_size
             names = [f'mol_{n_mol}_{i + offset_idx}' for i in range(batch_size)]
             save_xyz_file(output_dir, h, x, node_mask, names=names, is_geom=ddpm.is_geom, suffix='')
-
-
-def run_dflk_sample_analyze(input_path, model, linker_size, output_dir="./", n_samples=5, n_steps=None, anchors=None):
-    main_run(input_path=input_path, model=model, output_dir=output_dir, n_samples=n_samples, n_steps=n_steps, linker_size=str(linker_size), anchors=anchors)
-
-
-if __name__ == '__main__':
-    start_time = time.time()
-    args = parser.parse_args()
-    main(
-        input_path=args.fragments,
-        model=args.model,
-        output_dir=args.output,
-        n_samples=args.n_samples,
-        n_steps=args.n_steps,
-        linker_size=args.linker_size,
-        anchors=args.anchors,
-    )
-    print("--- %s seconds ---" % (time.time() - start_time))
-    # python -W ignore difflinker_sample_and_analyze.py --fragments <YOUR_PATH> --model models/geom_difflinker.ckpt --linker_size models/geom_size_gnn.ckpt --output_dir <YOUR_PATH> --samples_dir <YOUR_PATH>
