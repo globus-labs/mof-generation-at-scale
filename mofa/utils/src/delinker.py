@@ -3,11 +3,8 @@ import numpy as np
 
 from rdkit import Chem
 from rdkit.Chem import MolStandardize
-from . import metrics
 from .delinker_utils import sascorer, calc_SC_RDKit
 from tqdm import tqdm
-
-from pdb import set_trace
 
 
 def get_valid_as_in_delinker(data, progress=False):
@@ -25,7 +22,7 @@ def get_valid_as_in_delinker(data, progress=False):
             Chem.SanitizeMol(pred_mol_filtered)
             Chem.SanitizeMol(true_mol)
             Chem.SanitizeMol(frag)
-        except:
+        except ValueError:
             continue
 
         if len(pred_mol_filtered.GetSubstructMatch(frag)) > 0:
@@ -49,7 +46,7 @@ def extract_linker_smiles(molecule, fragments):
     Chem.RemoveStereochemistry(linker)
     try:
         linker = MolStandardize.canonicalize_tautomer_smiles(Chem.MolToSmiles(linker))
-    except:
+    except ValueError:
         linker = Chem.MolToSmiles(linker)
     return linker
 
@@ -202,7 +199,7 @@ def calc_sc_rdkit_full_mol(gen_mol, ref_mol):
     try:
         score = calc_SC_RDKit.calc_SC_RDKit_score(gen_mol, ref_mol)
         return score
-    except:
+    except ValueError:
         return -0.5
 
 

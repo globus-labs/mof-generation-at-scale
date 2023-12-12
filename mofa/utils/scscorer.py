@@ -38,7 +38,7 @@ class SCScorer():
         self._restored = False
 
     def restore(self, weight_path=WEIGHTS_FILE, FP_rad=FP_rad, FP_len=FP_len):
-        self.FP_len = FP_len;
+        self.FP_len = FP_len
         self.FP_rad = FP_rad
         self._load_vars(weight_path)
         print('Restored variables from {}'.format(weight_path))
@@ -78,12 +78,14 @@ class SCScorer():
             return ('', 0.)
         fp = np.array((self.smi_to_fp(smi)), dtype=np.float32)
         if sum(fp) == 0:
-            if v: print('Could not get fingerprint?')
+            if v:
+                print('Could not get fingerprint?')
             cur_score = 0.
         else:
             # Run
             cur_score = self.apply(fp)
-            if v: print('Score: {}'.format(cur_score))
+            if v:
+                print('Score: {}'.format(cur_score))
         mol = Chem.MolFromSmiles(smi)
         if mol:
             smi = Chem.MolToSmiles(mol, isomericSmiles=True, kekuleSmiles=True)
@@ -98,6 +100,7 @@ class SCScorer():
             self.vars = json.loads(json_str)
             self.vars = [np.array(x) for x in self.vars]
 
+
 def processMols_sc(smiles):
     model = SCScorer()
     model.restore(WEIGHTS_FILE)
@@ -105,8 +108,9 @@ def processMols_sc(smiles):
     for smi in smiles:
         (smi_conv, sco) = model.get_score_from_smi(smi)
         sc_scores.append(sco)
-    df_sc = pd.DataFrame({'smiles':smiles,'sc_score':sc_scores})
+    df_sc = pd.DataFrame({'smiles': smiles, 'sc_score': sc_scores})
     return df_sc
+
 
 if __name__ == '__main__':
     smi = []

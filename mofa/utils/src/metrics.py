@@ -1,12 +1,6 @@
-import numpy as np
-
 from rdkit import Chem
 from rdkit.Chem import AllChem
-from . import const
-from .molecule_builder import get_bond_order
 from scipy.stats import wasserstein_distance
-
-from pdb import set_trace
 
 
 def is_valid(mol):
@@ -66,7 +60,7 @@ def wasserstein_distance_between_energies(true_molecules, pred_molecules):
         try:
             energy = compute_energy(mol)
             true_energy_dist.append(energy)
-        except:
+        except ValueError:
             continue
 
     pred_energy_dist = []
@@ -74,7 +68,7 @@ def wasserstein_distance_between_energies(true_molecules, pred_molecules):
         try:
             energy = compute_energy(mol)
             pred_energy_dist.append(energy)
-        except:
+        except ValueError:
             continue
 
     if len(true_energy_dist) > 0 and len(pred_energy_dist) > 0:
@@ -123,45 +117,3 @@ def compute_metrics(pred_molecules, true_molecules):
         'novelty': novelty,
         'energies': energies,
     }
-
-
-# def check_stability(positions, atom_types):
-#     assert len(positions.shape) == 2
-#     assert positions.shape[1] == 3
-#     x = positions[:, 0]
-#     y = positions[:, 1]
-#     z = positions[:, 2]
-#
-#     nr_bonds = np.zeros(len(x), dtype='int')
-#     for i in range(len(x)):
-#         for j in range(i + 1, len(x)):
-#             p1 = np.array([x[i], y[i], z[i]])
-#             p2 = np.array([x[j], y[j], z[j]])
-#             dist = np.sqrt(np.sum((p1 - p2) ** 2))
-#             atom1, atom2 = const.IDX2ATOM[atom_types[i].item()], const.IDX2ATOM[atom_types[j].item()]
-#             order = get_bond_order(atom1, atom2, dist)
-#             nr_bonds[i] += order
-#             nr_bonds[j] += order
-#     nr_stable_bonds = 0
-#     for atom_type_i, nr_bonds_i in zip(atom_types, nr_bonds):
-#         possible_bonds = const.ALLOWED_BONDS[const.IDX2ATOM[atom_type_i.item()]]
-#         if type(possible_bonds) == int:
-#             is_stable = possible_bonds == nr_bonds_i
-#         else:
-#             is_stable = nr_bonds_i in possible_bonds
-#         nr_stable_bonds += int(is_stable)
-#
-#     molecule_stable = nr_stable_bonds == len(x)
-#     return molecule_stable, nr_stable_bonds, len(x)
-#
-#
-# def count_stable_molecules(one_hot, x, node_mask):
-#     stable_molecules = 0
-#     for i in range(len(one_hot)):
-#         mol_size = node_mask[i].sum()
-#         atom_types = one_hot[i][:mol_size, :].argmax(dim=1).detach().cpu()
-#         positions = x[i][:mol_size, :].detach().cpu()
-#         stable, _, _ = check_stability(positions, atom_types)
-#         stable_molecules += int(stable)
-#
-#     return stable_molecules

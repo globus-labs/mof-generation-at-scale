@@ -3,8 +3,6 @@ import os
 import imageio
 import matplotlib.pyplot as plt
 import numpy as np
-import glob
-import random
 
 from sklearn.decomposition import PCA
 from . import const
@@ -64,7 +62,7 @@ def draw_sphere(ax, x, y, z, size, color, alpha):
     v = np.linspace(0, np.pi, 100)
 
     xs = size * np.outer(np.cos(u), np.sin(v))
-    ys = size * np.outer(np.sin(u), np.sin(v)) #* 0.8
+    ys = size * np.outer(np.sin(u), np.sin(v))  # * 0.8
     zs = size * np.outer(np.ones(np.size(u)), np.cos(v))
     ax.plot_surface(x + xs, y + ys, z + zs, rstride=2, cstride=2, color=color, alpha=alpha)
 
@@ -139,7 +137,7 @@ def plot_data3d(positions, atom_type, is_geom, camera_elev=0, camera_azim=0, sav
                 bg='black', alpha=1., fragment_mask=None):
     black = (0, 0, 0)
     white = (1, 1, 1)
-    hex_bg_color = '#FFFFFF' if bg == 'black' else '#000000' #'#666666'
+    hex_bg_color = '#FFFFFF' if bg == 'black' else '#000000'  # '#666666'
 
     fig = plt.figure(figsize=(10, 10))
     ax = fig.add_subplot(projection='3d')
@@ -222,6 +220,3 @@ def visualize_chain(
     dirname = os.path.dirname(save_paths[0])
     gif_path = dirname + '/output.gif'
     imageio.mimsave(gif_path, imgs, subrectangles=True)
-
-    # if wandb is not None:
-    #     wandb.log({mode: [wandb.Video(gif_path, caption=gif_path)]})

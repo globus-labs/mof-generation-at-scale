@@ -10,7 +10,7 @@ from . import sascorer
 def read_triples_file(filename):
     '''Reads .smi file '''
     '''Returns array containing smiles strings of molecules'''
-    smiles, names = [], []
+    smiles = []
     with open(filename, 'r') as f:
         for line in f:
             if line:
@@ -19,7 +19,8 @@ def read_triples_file(filename):
 
 
 def remove_dummys(smi_string):
-    return Chem.MolToSmiles(Chem.RemoveHs(AllChem.ReplaceSubstructs(Chem.MolFromSmiles(smi_string),Chem.MolFromSmiles('*'),Chem.MolFromSmiles('[H]'),True)[0]))
+    return Chem.MolToSmiles(
+        Chem.RemoveHs(AllChem.ReplaceSubstructs(Chem.MolFromSmiles(smi_string), Chem.MolFromSmiles('*'), Chem.MolFromSmiles('[H]'), True)[0]))
 
 
 def sa_filter(results, verbose=True):
@@ -35,8 +36,8 @@ def sa_filter(results, verbose=True):
         if verbose:
             if processed % 10 == 0:
                 print("\rProcessed %d" % processed, end="")
-    print("\r",end="")
-    return count/total
+    print("\r", end="")
+    return count / total
 
 
 def ring_check_res(res, clean_frag):
@@ -63,15 +64,15 @@ def ring_filter(results, verbose=True):
         total += len(res)
         for m in res:
             # Clean frags
-            clean_frag = Chem.RemoveHs(AllChem.ReplaceSubstructs(Chem.MolFromSmiles(m[0]),du,Chem.MolFromSmiles('[H]'),True)[0])
+            clean_frag = Chem.RemoveHs(AllChem.ReplaceSubstructs(Chem.MolFromSmiles(m[0]), du, Chem.MolFromSmiles('[H]'), True)[0])
             if ring_check_res(m, clean_frag):
                 count += 1
         # Progress
         if verbose:
             if processed % 10 == 0:
                 print("\rProcessed %d" % processed, end="")
-    print("\r",end="")
-    return count/total
+    print("\r", end="")
+    return count / total
 
 
 def check_ring_filter(linker):
@@ -123,7 +124,7 @@ def calc_2d_filters(toks, pains_smarts):
             else:
                 res.append(False)
         return res
-    except:
+    except ValueError:
         return [False, False, False]
 
 
@@ -288,7 +289,6 @@ def get_linker_v2(full_mol, clean_frag):
         return ""
 
     # Setup
-    mol_to_break = Chem.Mol(full_mol)
     Chem.Kekulize(full_mol, clearAromaticFlags=True)
 
     poss_linker = []
@@ -330,7 +330,6 @@ def get_linker_v2(full_mol, clean_frag):
                 # Delete linker atoms
                 for idx_to_delete in sorted(linker_atoms, reverse=True):
                     mol_rw.RemoveAtom(idx_to_delete)
-                frags = Chem.Mol(mol_rw)
 
                 # Check linker is connected and two bonds to outside molecule
                 if len(Chem.rdmolops.GetMolFrags(linker)) == 1 and len(linker_bonds) == 2:
@@ -368,7 +367,7 @@ def unique(results):
         new_num = len(test_data)
         total_dupes += original_num - new_num
         total += original_num
-    return 1 - total_dupes/float(total)
+    return 1 - total_dupes / float(total)
 
 
 def check_recovered_original_mol_with_idx(results):
@@ -380,14 +379,14 @@ def check_recovered_original_mol_with_idx(results):
         orig_mol = Chem.MolFromSmiles(res[0][0][0])
         Chem.RemoveStereochemistry(orig_mol)
         orig_mol = Chem.MolToSmiles(Chem.RemoveHs(orig_mol))
-        #orig_mol = MolStandardize.canonicalize_tautomer_smiles(orig_mol)
+        # orig_mol = MolStandardize.canonicalize_tautomer_smiles(orig_mol)
         # Check generated mols
         for m in res:
             # print(1)
             gen_mol = Chem.MolFromSmiles(m[0][2])
             Chem.RemoveStereochemistry(gen_mol)
             gen_mol = Chem.MolToSmiles(Chem.RemoveHs(gen_mol))
-            #gen_mol = MolStandardize.canonicalize_tautomer_smiles(gen_mol)
+            # gen_mol = MolStandardize.canonicalize_tautomer_smiles(gen_mol)
             if gen_mol == orig_mol:
                 # outcomes.append(True)
                 success = True

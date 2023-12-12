@@ -7,10 +7,7 @@ import torch
 from rdkit import Chem
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
-#from utils.src import const
 from . import const
-
-from pdb import set_trace
 
 
 def read_sdf(sdf_path):
@@ -400,7 +397,7 @@ def collate_with_fragment_edges(batch):
     out['edge_mask'] = edge_mask.view(batch_size * n_nodes * n_nodes, 1)
 
     # Building edges and covalent bond values
-    rows, cols, bonds = [], [], []
+    rows, cols = [], []
     for batch_idx in range(batch_size):
         for i in range(n_nodes):
             for j in range(n_nodes):

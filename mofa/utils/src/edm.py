@@ -8,8 +8,6 @@ from .egnn import Dynamics
 from .noise import GammaNetwork, PredefinedNoiseSchedule
 from typing import Union
 
-from pdb import set_trace
-
 
 class EDM(torch.nn.Module):
     def __init__(

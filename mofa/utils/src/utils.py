@@ -4,6 +4,7 @@ from datetime import datetime
 import torch
 import numpy as np
 
+
 class Logger(object):
     def __init__(self, logpath, syspart=sys.stdout):
         self.terminal = syspart
@@ -338,11 +339,11 @@ def random_rotation(x):
 
         x = x.transpose(1, 2)
         x = torch.matmul(Rx, x)
-        #x = torch.matmul(Rx.transpose(1, 2), x)
+        # x = torch.matmul(Rx.transpose(1, 2), x)
         x = torch.matmul(Ry, x)
-        #x = torch.matmul(Ry.transpose(1, 2), x)
+        # x = torch.matmul(Ry.transpose(1, 2), x)
         x = torch.matmul(Rz, x)
-        #x = torch.matmul(Rz.transpose(1, 2), x)
+        # x = torch.matmul(Rz.transpose(1, 2), x)
         x = x.transpose(1, 2)
     else:
         raise Exception("Not implemented Error")

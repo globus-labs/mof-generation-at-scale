@@ -1,61 +1,57 @@
-import os
+from pathlib import Path
 from glob import glob
+from typing import Sequence
+import os
 import shutil
-import subprocess
-from subprocess import PIPE
+
 from mofa.utils.rdkit_conf_parallel import compute_confs_worker
 import mofa.utils.prepare_dataset as prep
 from mofa.utils.filter_and_merge import run as fm_run
-from typing import *
-
-
-# nodes = ['CuCu']
-# change to the line below to reproduce paper result
-# nodes = [i.split('_')[1].split('.sdf')[0] for i in os.listdir('data/conformers') if 'conformers' in i]
 
 # create necessary folders
-os.makedirs(f'mofa/data/sdf',exist_ok=True)
+os.makedirs('mofa/data/sdf', exist_ok=True)
 
-def process_fragments(nodes: List[str]=['CuCu']):
+
+def process_fragments(fragment_dir: Path,
+                      nodes: Sequence[str] = ('CuCu',)):
+    """
+
+    Args:
+        fragment_dir: Directory containing the pre-processed fragment data
+        nodes: Which nodes to process
+    """
     for node in nodes:
-        print(f'Now on node {node}')
-        TARGET_DIR = f'mofa/data/sdf/{node}/'
-        INPUT_SMILES=f'mofa/data/fragments_smi/frag_{node}.txt'
-        OUTPUT_TEMPLATE=f'hMOF_frag'
-        OUT_DIR=f'mofa/data/fragments_all/{node}/'
-        CORES='0'
-        
+        target_dir = fragment_dir / f'sdf/{node}/'
+        input_smiles = fragment_dir / f'fragments_smi/frag_{node}.txt'
+        output_template = 'hMOF_frag'
+        out_dir = fragment_dir / f'fragments_all/{node}/'
+        cores = '0'
+
         # generate sdf of molecular fragments
-        print('Generating molecule sdf files...')
-        os.makedirs(TARGET_DIR, exist_ok=True)
-        os.makedirs(OUT_DIR, exist_ok=True)
+        for path in [target_dir, out_dir]:
+            path.mkdir(parents=True, exist_ok=True)
 
         smiles = []
-        with open(INPUT_SMILES, 'r') as f:
+        with open(input_smiles, 'r') as f:
             for line in f:
                 smiles.append(line.strip())
-        
-        # subprocess.run([f'python -W ignore utils/rdkit_conf_parallel.py {INPUT_SMILES} {OUTPUT_TEMPLATE} --cores {CORES}'], shell=True, stdout=PIPE, stderr=PIPE)
-        compute_confs_worker(smifile=smiles, sdffile=os.path.join(OUT_DIR, f"{OUTPUT_TEMPLATE}" + ".sdf"), pid=f"{CORES}")
+
+        # Generate the SDFs
+        sdf_file = out_dir / f"{output_template}.sdf"
+        compute_confs_worker(smifile=smiles, sdffile=sdf_file,
+                             pid=f"{cores}", verbose=False)
         for sdf in glob('*.sdf'):
-            shutil.move(sdf, TARGET_DIR) 
-        
+            shutil.move(sdf, target_dir)
+
         # generate sdf for fragment and connection atom
-        print(f'Generating fragment and connection atom sdf files...')
-        os.makedirs(OUT_DIR,exist_ok=True)
-        # subprocess.run(f'python -W ignore utils/prepare_dataset_parallel.py --table {INPUT_SMILES} --sdf-dir {TARGET_DIR} --out-dir {OUT_DIR} --template {OUTPUT_TEMPLATE} --cores {CORES}',shell=True)
-        sdf_path = os.path.join(OUT_DIR, f'{OUTPUT_TEMPLATE}.sdf')
-        out_mol_path = os.path.join(OUT_DIR, f'{OUTPUT_TEMPLATE}_mol.sdf')
-        out_frag_path = os.path.join(OUT_DIR, f'{OUTPUT_TEMPLATE}_frag.sdf')
-        out_link_path = os.path.join(OUT_DIR, f'{OUTPUT_TEMPLATE}_link.sdf')
-        out_table_path = os.path.join(OUT_DIR, f'{OUTPUT_TEMPLATE}_table.csv')
-        prep.run(table_path=INPUT_SMILES, sdf_path=sdf_path, out_mol_path=out_mol_path, out_frag_path=out_frag_path, out_link_path=out_link_path, out_table_path=out_table_path)
-        
+        os.makedirs(out_dir, exist_ok=True)
+        sdf_path = os.path.join(out_dir, f'{output_template}.sdf')
+        out_mol_path = os.path.join(out_dir, f'{output_template}_mol.sdf')
+        out_frag_path = os.path.join(out_dir, f'{output_template}_frag.sdf')
+        out_link_path = os.path.join(out_dir, f'{output_template}_link.sdf')
+        out_table_path = os.path.join(out_dir, f'{output_template}_table.csv')
+        prep.run(table_path=input_smiles, sdf_path=sdf_path, out_mol_path=out_mol_path,
+                 out_frag_path=out_frag_path, out_link_path=out_link_path, out_table_path=out_table_path)
+
         # filter and merge
-        print(f'Filtering and merging ...')
-        # subprocess.run(f'python -W ignore utils/filter_and_merge.py --in-dir {OUT_DIR} --out-dir {OUT_DIR} --template {OUTPUT_TEMPLATE} --number-of-files {CORES}',shell=True)
-        fm_run(input_dir=OUT_DIR, output_dir=OUT_DIR, template=OUTPUT_TEMPLATE)
-    
-
-
-
+        fm_run(input_dir=out_dir, output_dir=out_dir, template=output_template)

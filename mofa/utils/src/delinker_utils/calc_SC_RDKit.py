@@ -1,5 +1,4 @@
 import os
-from rdkit import Chem
 from rdkit.Chem import AllChem, rdShapeHelpers
 from rdkit.Chem.FeatMaps import FeatMaps
 from rdkit import RDConfig

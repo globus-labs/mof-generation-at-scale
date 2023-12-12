@@ -161,7 +161,7 @@ class GammaNetwork(torch.nn.Module):
 
         # Normalize to [0, 1]
         normalized_gamma = (gamma_tilde_t - gamma_tilde_0) / (
-                gamma_tilde_1 - gamma_tilde_0)
+            gamma_tilde_1 - gamma_tilde_0)
 
         # Rescale to [gamma_0, gamma_1]
         gamma = self.gamma_0 + (self.gamma_1 - self.gamma_0) * normalized_gamma

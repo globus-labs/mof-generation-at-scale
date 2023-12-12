@@ -6,8 +6,6 @@ import pandas as pd
 from rdkit import Chem, Geometry
 from tqdm import tqdm
 
-from pdb import set_trace
-
 
 def get_exits(mol):
     """

@@ -56,19 +56,19 @@ def run_generator(
         model: str | Path,
         node: str = 'CuCu',
         n_atoms: int | str = 8,
-        input_path: str | Path = f"mofa/data/fragments_all/CuCu/hMOF_frag_frag.sdf",
+        input_path: str | Path = "mofa/data/fragments_all/CuCu/hMOF_frag_frag.sdf",
         n_samples: int = 1,
         n_steps: int = None
 ) -> list[ase.Atoms]:
     """
     Args:
-        node: Which node to use: ['CuCu','ZnZn','ZnOZnZnZn'] to reproduce paper results 
+        node: Which node to use: ['CuCu','ZnZn','ZnOZnZnZn'] to reproduce paper results
         n_atoms: Number of heavy atoms in the linker molecules to generate
         input_path: Path to MOF linker fragment containing SDF file
         model: Path to the starting weights
         n_samples: Number of samples of molecules to generate
         n_steps: Number of denoising steps; if None, this value is 1,000 by default
-        
+
     Returns:
         3D geometries of the generated linkers
     """

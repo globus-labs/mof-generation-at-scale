@@ -460,7 +460,7 @@ class DDPM(pl.LightningModule):
         return torch.optim.AdamW(self.edm.parameters(), lr=self.lr, amsgrad=True, weight_decay=1e-12)
 
     def compute_best_validation_metrics(self):
-        loss = self.metrics[f'validity_and_connectivity/val']
+        loss = self.metrics['validity_and_connectivity/val']
         best_epoch = np.argmax(loss)
         best_metrics = {
             metric_name: metric_values[best_epoch]

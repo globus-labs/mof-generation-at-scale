@@ -8,8 +8,6 @@ from .datasets import ZincDataset, get_dataloader, collate_with_fragment_edges
 from typing import Dict, List, Optional
 from torch.nn.functional import cross_entropy, mse_loss, sigmoid
 
-from pdb import set_trace
-
 
 class SizeClassifier(pl.LightningModule):
     train_dataset = None
@@ -156,8 +154,8 @@ class SizeClassifier(pl.LightningModule):
             total += len(pred)
 
         accuracy = correct / total
-        self.metrics.setdefault(f'accuracy/val', []).append(accuracy)
-        self.log(f'accuracy/val', accuracy, prog_bar=True)
+        self.metrics.setdefault('accuracy/val', []).append(accuracy)
+        self.log('accuracy/val', accuracy, prog_bar=True)
 
     def configure_optimizers(self):
         return torch.optim.AdamW(self.gnn.parameters(), lr=self.lr, amsgrad=True, weight_decay=1e-12)
@@ -319,8 +317,8 @@ class SizeOrdinalClassifier(pl.LightningModule):
             total += len(pred)
 
         accuracy = correct / total
-        self.metrics.setdefault(f'accuracy/val', []).append(accuracy)
-        self.log(f'accuracy/val', accuracy, prog_bar=True)
+        self.metrics.setdefault('accuracy/val', []).append(accuracy)
+        self.log('accuracy/val', accuracy, prog_bar=True)
 
     def configure_optimizers(self):
         return torch.optim.AdamW(self.gnn.parameters(), lr=self.lr, amsgrad=True, weight_decay=1e-12)
@@ -452,8 +450,8 @@ class SizeRegressor(pl.LightningModule):
             total += len(pred)
 
         accuracy = correct / total
-        self.metrics.setdefault(f'accuracy/val', []).append(accuracy)
-        self.log(f'accuracy/val', accuracy, prog_bar=True)
+        self.metrics.setdefault('accuracy/val', []).append(accuracy)
+        self.log('accuracy/val', accuracy, prog_bar=True)
 
     def configure_optimizers(self):
         return torch.optim.AdamW(self.gnn.parameters(), lr=self.lr, amsgrad=True, weight_decay=1e-12)

@@ -1,33 +1,22 @@
 """Functions pertaining to fragmenting MOF linkers to generate data for generative model training and sampling"""
 from pathlib import Path
 
-import ase
-
-from mofa.model import MOFRecord
-
 from mofa.difflinker_fragmentation import fragmentation
 from mofa.difflinker_process_fragmentation import process_fragments
-from typing import *
+from typing import Sequence
+
 
 def fragment_mof_linkers(
-        nodes: List[str] = ["ZnZn"]
-        # starting_model: str | Path,
-        # examples: list[MOFRecord],
-        # num_epochs: int
-) -> Path:
-    """Fragment linkers of MOFs
+        data_path: Path,
+        output_dir: Path,
+        nodes: Sequence[str] = ("ZnZn",)
+):
+    """Fragment linkers of MOFs and prepare them in a directory in the format needed by Diff linker
 
     Args:
-        starting_model: Path to the starting weights of the model
-        examples: Seed examples of linkers (data model TBD)
-        num_epochs: Number of training epochs
-    Returns:
-        Path to the new model weights
+        data_path: Path to the MOF data to be fragmented as a CSV file
+        output_dir: Directory in which to write the training data
+        nodes: Only fragment MOFs based on this node
     """
-    # raise NotImplementedError()
-    fragmentation(nodes)
-    process_fragments(nodes)
-
-if __name__ == "__main__":
-    fragment_mof_linkers(nodes=["ZnZn"])
-        
+    fragmentation(data_path, output_dir, nodes)
+    process_fragments(output_dir, nodes)

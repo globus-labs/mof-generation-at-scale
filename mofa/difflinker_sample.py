@@ -1,12 +1,10 @@
 import os
-import argparse
-import subprocess
-from mofa.utils.difflinker_sample_and_analyze import main_run, run_dflk_sample_analyze
-from typing import *
+from mofa.utils.difflinker_sample_and_analyze import main_run
+from typing import Sequence
 from pathlib import Path
 
 
-def sampler(nodes: List[str] = ['CuCu'], n_atoms_list: List[int] = [8]):
+def sampler(nodes: Sequence[str] = ('CuCu',), n_atoms_list: Sequence[int] = (8,)):
     # nodes = ['CuCu']
     # change to the line below to reproduce paper result
     # nodes = [i.split('_')[1].split('.sdf')[0] for i in os.listdir('data/conformers') if 'conformers' in i]
@@ -20,12 +18,8 @@ def sampler(nodes: List[str] = ['CuCu'], n_atoms_list: List[int] = [8]):
                 print(f'Now on node: {node}')
                 OUTPUT_DIR = f'mofa/output/n_atoms_{n_atoms}/{node}'
                 os.makedirs(OUTPUT_DIR, exist_ok=True)
-                # subprocess.run(f'python -W ignore utils/difflinker_sample_and_analyze.py --linker_size {n_atoms} --fragments data/fragments_all/{node}/hMOF_frag.sdf --model models/geom_difflinker.ckpt --output {OUTPUT_DIR} --n_samples 1',shell=True)
                 main_run(input_path=f"mofa/data/fragments_all/{node}/hMOF_frag_frag.sdf", model="mofa/models/geom_difflinker.ckpt", linker_size=str(n_atoms),
                          output_dir=OUTPUT_DIR, n_samples=1, n_steps=None, anchors=None)
-
-                # change to the line below to reproduce paper result
-                # subprocess.run(f'python -W ignore utils/difflinker_sample_and_analyze.py --linker_size {n_atoms} --fragments data/fragments_all/{node}/hMOF_frag.sdf --model models/geom_difflinker.ckpt --output {OUTPUT_DIR} --n_samples 20',shell=True)
 
 
 def sample_from_sdf(

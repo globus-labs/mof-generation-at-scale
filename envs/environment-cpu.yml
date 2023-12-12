@@ -19,7 +19,7 @@ dependencies:
 
   # Tools used as part of the ML packages
   - imageio
-  - pytorch-lightning
+  - pytorch-lightning<2
   - wandb
 
   # Tools to work with crystalline and molecular data

@@ -1,13 +1,11 @@
+from mofa.utils.src.datasets import read_sdf
+from tqdm import tqdm
+from rdkit import Chem
+import pandas as pd
+import os
 import argparse
 import sys
 sys.path.append('../../')
-
-import os
-import pandas as pd
-
-from rdkit import Chem
-from tqdm import tqdm
-from mofa.utils.src.datasets import read_sdf
 
 
 def run(input_dir, output_dir, template):
@@ -23,7 +21,6 @@ def run(input_dir, output_dir, template):
     full_fragments = []
     full_linkers = []
 
-    
     # for idx in range(n):
     mol_path = os.path.join(input_dir, f'{template}_mol.sdf')
     frag_path = os.path.join(input_dir, f'{template}_frag.sdf')
@@ -58,10 +55,9 @@ def run(input_dir, output_dir, template):
                 full_molecules.append(molecule)
                 full_fragments.append(fragments)
                 full_linkers.append(linker)
-    except:
+    except ValueError:
         pass
 
-    
     full_table = pd.DataFrame(full_table)
     full_table.to_csv(out_table_path, index=False)
     with Chem.SDWriter(open(out_mol_path, 'w')) as writer:
@@ -75,19 +71,3 @@ def run(input_dir, output_dir, template):
         writer.SetKekulize(False)
         for linker in tqdm(full_linkers):
             writer.write(linker)
-
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--in-dir', action='store', type=str, required=True)
-    parser.add_argument('--out-dir', action='store', type=str, required=True)
-    parser.add_argument('--template', action='store', type=str, required=True)
-    parser.add_argument('--number-of-files', action='store', type=int, required=True)
-    args = parser.parse_args()
-
-    run(
-        input_dir=args.in_dir,
-        output_dir=args.out_dir,
-        template=args.template,
-        n=args.number_of_files,
-    )

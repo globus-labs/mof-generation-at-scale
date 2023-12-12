@@ -114,8 +114,8 @@ def main(args):
     experiment = run_name if args.resume is None else args.resume
     checkpoints_dir = os.path.join(args.checkpoints, experiment)
     os.makedirs(os.path.join(args.logs, "general_logs", experiment), exist_ok=True)
-    sys.stdout = Logger(logpath=os.path.join(args.logs, "general_logs", experiment, f'log.log'), syspart=sys.stdout)
-    sys.stderr = Logger(logpath=os.path.join(args.logs, "general_logs", experiment, f'log.log'), syspart=sys.stderr)
+    sys.stdout = Logger(logpath=os.path.join(args.logs, "general_logs", experiment, 'log.log'), syspart=sys.stdout)
+    sys.stderr = Logger(logpath=os.path.join(args.logs, "general_logs", experiment, 'log.log'), syspart=sys.stderr)
 
     os.makedirs(checkpoints_dir, exist_ok=True)
     os.makedirs(args.logs, exist_ok=True)
@@ -123,13 +123,6 @@ def main(args):
     samples_dir = os.path.join(args.logs, 'samples', experiment)
 
     torch_device = 'cuda:0' if args.device == 'gpu' else 'cpu'
-    # wandb_logger = loggers.WandbLogger(
-    #     save_dir=args.logs,
-    #     name=experiment,
-    #     # id=experiment+"v1",
-    #     # resume='must' if args.resume is not None else 'allow',
-    #     entity="argonne_gnn", project='internship'
-    # )
 
     is_geom = ('geom' in args.train_data_prefix) or ('MOAD' in args.train_data_prefix)
     number_of_atoms = GEOM_NUMBER_OF_ATOM_TYPES if is_geom else NUMBER_OF_ATOM_TYPES

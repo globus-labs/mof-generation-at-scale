@@ -1,57 +1,55 @@
-import os
-import random
-import re
+from pathlib import Path
 import math
 import csv
 
 import numpy as np
-import pandas as pd
 
 from rdkit import Chem
 from rdkit.Chem import rdMMPA
-from rdkit import DataStructs
-from rdkit.Chem import Descriptors, DataStructs
+from rdkit.Chem import DataStructs
 from rdkit.Chem import AllChem
-from rdkit.Chem.Scaffolds import MurckoScaffold
-from rdkit.Chem.Fingerprints import FingerprintMols
-from rdkit.Chem import rdFMCS
 from rdkit.Chem import rdMolAlign
-from rdkit.Chem import MolStandardize
 
 import matplotlib.pyplot as plt
 
 import mofa.utils.sascorer as sascorer
-from itertools import chain, product
+from itertools import product
 
 from joblib import Parallel, delayed
 
 ### Dataset info #####
-def dataset_info(dataset): #qm9, zinc, cep
-    if dataset=='qm9':
-        return { 'atom_types': ["H", "C", "N", "O", "F"],
-                 'maximum_valence': {0: 1, 1: 4, 2: 3, 3: 2, 4: 1},
-                 'number_to_atom': {0: "H", 1: "C", 2: "N", 3: "O", 4: "F"},
-                 'bucket_sizes': np.array(list(range(4, 28, 2)) + [29])
-               }
-    elif dataset=='zinc':
-        return { 'atom_types': ['Br1(0)', 'C4(0)', 'Cl1(0)', 'F1(0)', 'H1(0)', 'I1(0)',
-                'N2(-1)', 'N3(0)', 'N4(1)', 'O1(-1)', 'O2(0)', 'S2(0)','S4(0)', 'S6(0)'],
-                 'maximum_valence': {0: 1, 1: 4, 2: 1, 3: 1, 4: 1, 5:1, 6:2, 7:3, 8:4, 9:1, 10:2, 11:2, 12:4, 13:6, 14:3},
-                 'number_to_atom': {0: 'Br', 1: 'C', 2: 'Cl', 3: 'F', 4: 'H', 5:'I', 6:'N', 7:'N', 8:'N', 9:'O', 10:'O', 11:'S', 12:'S', 13:'S'},
-                 'bucket_sizes': np.array([28,31,33,35,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,53,55,58,84])
-               }
 
-    elif dataset=="cep":
-        return { 'atom_types': ["C", "S", "N", "O", "Se", "Si"],
-                 'maximum_valence': {0: 4, 1: 2, 2: 3, 3: 2, 4: 2, 5: 4},
-                 'number_to_atom': {0: "C", 1: "S", 2: "N", 3: "O", 4: "Se", 5: "Si"},
-                 'bucket_sizes': np.array([25,28,29,30, 32, 33,34,35,36,37,38,39,43,46])
-               }
+wehi_path = Path(__file__).parent / 'wehi_pains.csv'
+
+
+def dataset_info(dataset):  # qm9, zinc, cep
+    if dataset == 'qm9':
+        return {'atom_types': ["H", "C", "N", "O", "F"],
+                'maximum_valence': {0: 1, 1: 4, 2: 3, 3: 2, 4: 1},
+                'number_to_atom': {0: "H", 1: "C", 2: "N", 3: "O", 4: "F"},
+                'bucket_sizes': np.array(list(range(4, 28, 2)) + [29])
+                }
+    elif dataset == 'zinc':
+        return {'atom_types': ['Br1(0)', 'C4(0)', 'Cl1(0)', 'F1(0)', 'H1(0)', 'I1(0)',
+                               'N2(-1)', 'N3(0)', 'N4(1)', 'O1(-1)', 'O2(0)', 'S2(0)', 'S4(0)', 'S6(0)'],
+                'maximum_valence': {0: 1, 1: 4, 2: 1, 3: 1, 4: 1, 5: 1, 6: 2, 7: 3, 8: 4, 9: 1, 10: 2, 11: 2, 12: 4, 13: 6, 14: 3},
+                'number_to_atom': {0: 'Br', 1: 'C', 2: 'Cl', 3: 'F', 4: 'H', 5: 'I', 6: 'N', 7: 'N', 8: 'N', 9: 'O', 10: 'O', 11: 'S', 12: 'S', 13: 'S'},
+                'bucket_sizes': np.array([28, 31, 33, 35, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 53, 55, 58, 84])
+                }
+
+    elif dataset == "cep":
+        return {'atom_types': ["C", "S", "N", "O", "Se", "Si"],
+                'maximum_valence': {0: 4, 1: 2, 2: 3, 3: 2, 4: 2, 5: 4},
+                'number_to_atom': {0: "C", 1: "S", 2: "N", 3: "O", 4: "Se", 5: "Si"},
+                'bucket_sizes': np.array([25, 28, 29, 30, 32, 33, 34, 35, 36, 37, 38, 39, 43, 46])
+                }
     else:
         print("the datasets in use are qm9|zinc|cep")
         exit(1)
 
+
 ##### Read files #####
+
 
 def read_filex(filename):
     '''Reads .smi file '''
@@ -63,6 +61,7 @@ def read_filex(filename):
                 smiles.append(line.strip().split(' ')[0])
     return smiles
 
+
 def read_paired_file(filename):
     '''Reads .smi file '''
     '''Returns array containing smiles strings of molecules'''
@@ -72,6 +71,7 @@ def read_paired_file(filename):
             if line:
                 smiles.append(line.strip().split(' ')[0:2])
     return smiles
+
 
 def read_triples_file(filename):
     '''Reads .smi file '''
@@ -83,8 +83,11 @@ def read_triples_file(filename):
                 smiles.append(line.strip().split(' ')[0:3])
     return smiles
 
+
 ##### Check data #####
-def check_smi_atom_types(smi, dataset='zinc', verbose=True):
+
+
+def check_smi_atom_types(smi, dataset='zinc', verbose=False):
     mol = Chem.MolFromSmiles(smi)
     for atom in mol.GetAtoms():
         symbol = atom.GetSymbol()
@@ -101,19 +104,24 @@ def check_smi_atom_types(smi, dataset='zinc', verbose=True):
                 return False
     return True
 
+
 ##### Fragment mols #####
 
+
 def remove_dummys(smi_string):
-    return Chem.MolToSmiles(Chem.RemoveHs(AllChem.ReplaceSubstructs(Chem.MolFromSmiles(smi_string),Chem.MolFromSmiles('*'),Chem.MolFromSmiles('[H]'),True)[0]))
+    return Chem.MolToSmiles(
+        Chem.RemoveHs(AllChem.ReplaceSubstructs(Chem.MolFromSmiles(smi_string), Chem.MolFromSmiles('*'), Chem.MolFromSmiles('[H]'), True)[0]))
+
 
 def remove_dummys_mol(smi_string):
-    return Chem.RemoveHs(AllChem.ReplaceSubstructs(Chem.MolFromSmiles(smi_string),Chem.MolFromSmiles('*'),Chem.MolFromSmiles('[H]'),True)[0])
+    return Chem.RemoveHs(AllChem.ReplaceSubstructs(Chem.MolFromSmiles(smi_string), Chem.MolFromSmiles('*'), Chem.MolFromSmiles('[H]'), True)[0])
+
 
 def fragment_mol(smi, cid, pattern="[#6+0;!$(*=,#[!#6])]!@!=!#[*]"):
     mol = Chem.MolFromSmiles(smi)
 
-    #different cuts can give the same fragments
-    #to use outlines to remove them
+    # different cuts can give the same fragments
+    # to use outlines to remove them
     outlines = set()
 
     if (mol == None):
@@ -126,7 +134,7 @@ def fragment_mol(smi, cid, pattern="[#6+0;!$(*=,#[!#6])]!@!=!#[*]"):
                 outlines.add(output)
         if not outlines:
             # for molecules with no cuts, output the parent molecule itself
-            outlines.add('%s,%s,,' % (smi,cid))
+            outlines.add('%s,%s,,' % (smi, cid))
 
     return outlines
 
@@ -144,7 +152,7 @@ def fragment_dataset(smiles, linker_min=3, fragment_min=5, min_path_length=2, li
 
         # Checks if suitable fragmentation
         for l in o:
-            smiles = l.replace('.',',').split(',')
+            smiles = l.replace('.', ',').split(',')
             mols = [Chem.MolFromSmiles(smi) for smi in smiles[1:]]
             add = True
             fragment_sizes = []
@@ -163,7 +171,7 @@ def fragment_dataset(smiles, linker_min=3, fragment_min=5, min_path_length=2, li
                         add = False
                         break
                     else:
-                        path_length = len(Chem.rdmolops.GetShortestPath(mol, dummy_atom_idxs[0], dummy_atom_idxs[1]))-2
+                        path_length = len(Chem.rdmolops.GetShortestPath(mol, dummy_atom_idxs[0], dummy_atom_idxs[1])) - 2
                         if path_length < min_path_length:
                             add = False
                             break
@@ -182,25 +190,26 @@ def fragment_dataset(smiles, linker_min=3, fragment_min=5, min_path_length=2, li
                             break
             if add == True:
                 successes.append(l)
-        
+
         if verbose:
             # Progress
             if count % 1000 == 0:
                 print("\rProcessed smiles: " + str(count), end='')
-    
+
     # Reformat output
     fragmentations = []
     for suc in successes:
-        fragmentations.append(suc.replace('.',',').split(',')[1:])
-    
+        fragmentations.append(suc.replace('.', ',').split(',')[1:])
+
     return fragmentations
+
 
 def get_linker(full_mol, clean_frag, starting_point):
     # INPUT FORMAT: molecule (RDKit mol object), clean fragments (RDKit mol object), starting fragments (SMILES)
-        
+
     # Get matches of fragments
     matches = list(full_mol.GetSubstructMatches(clean_frag))
-    
+
     # If no matches, terminate
     if len(matches) == 0:
         print("No matches")
@@ -210,14 +219,14 @@ def get_linker(full_mol, clean_frag, starting_point):
     linker_len = full_mol.GetNumHeavyAtoms() - clean_frag.GetNumHeavyAtoms()
     if linker_len == 0:
         return ""
-    
+
     # Setup
     mol_to_break = Chem.Mol(full_mol)
     Chem.Kekulize(full_mol, clearAromaticFlags=True)
-    
+
     poss_linker = []
 
-    if len(matches)>0:
+    if len(matches) > 0:
         # Loop over matches
         for match in matches:
             mol_rw = Chem.RWMol(full_mol)
@@ -231,22 +240,22 @@ def get_linker(full_mol, clean_frag, starting_point):
                 nei = [x.GetIdx() for x in mol_rw.GetAtomWithIdx(idx_to_delete).GetNeighbors()]
                 intersect = set(nei).intersection(set(linker_atoms))
                 if len(intersect) == 1:
-                    linker_bonds.append(mol_rw.GetBondBetweenAtoms(idx_to_delete,list(intersect)[0]).GetIdx())
+                    linker_bonds.append(mol_rw.GetBondBetweenAtoms(idx_to_delete, list(intersect)[0]).GetIdx())
                     atoms_joined_to_linker.append(idx_to_delete)
                 elif len(intersect) > 1:
                     for idx_nei in list(intersect):
-                        linker_bonds.append(mol_rw.GetBondBetweenAtoms(idx_to_delete,idx_nei).GetIdx())
+                        linker_bonds.append(mol_rw.GetBondBetweenAtoms(idx_to_delete, idx_nei).GetIdx())
                         atoms_joined_to_linker.append(idx_to_delete)
-                        
+
             # Check number of atoms joined to linker
             # If not == 2, check next match
             if len(set(atoms_joined_to_linker)) != 2:
                 continue
-            
+
             # Delete starting fragments atoms
             for idx_to_delete in sorted(match, reverse=True):
                 mol_rw.RemoveAtom(idx_to_delete)
-            
+
             linker = Chem.Mol(mol_rw)
             # Check linker required num atoms
             if linker.GetNumHeavyAtoms() == linker_len:
@@ -262,11 +271,11 @@ def get_linker(full_mol, clean_frag, starting_point):
                     # Remove starting fragments from fragmentation
                     linker_to_return = Chem.Mol(fragmented_mol)
                     qp = Chem.AdjustQueryParameters()
-                    qp.makeDummiesQueries=True
+                    qp.makeDummiesQueries = True
                     for f in starting_point.split('.'):
-                        qfrag = Chem.AdjustQueryProperties(Chem.MolFromSmiles(f),qp)
+                        qfrag = Chem.AdjustQueryProperties(Chem.MolFromSmiles(f), qp)
                         linker_to_return = AllChem.DeleteSubstructs(linker_to_return, qfrag, onlyFrags=True)
-                    
+
                     # Check linker is connected and two bonds to outside molecule
                     if len(Chem.rdmolops.GetMolFrags(linker)) == 1 and len(linker_bonds) == 2:
                         Chem.Kekulize(linker_to_return, clearAromaticFlags=True)
@@ -276,13 +285,13 @@ def get_linker(full_mol, clean_frag, starting_point):
                                 if Chem.MolFromSmiles(frag).GetNumHeavyAtoms() == linker_len:
                                     return frag
                         return Chem.MolToSmiles(Chem.MolFromSmiles(Chem.MolToSmiles(linker_to_return)))
-                    
+
                     # If not, add to possible linkers (above doesn't capture some complex cases)
                     else:
                         fragmented_mol = Chem.MolFromSmiles(Chem.MolToSmiles(fragmented_mol), sanitize=False)
                         linker_to_return = AllChem.DeleteSubstructs(fragmented_mol, Chem.MolFromSmiles(starting_point))
                         poss_linker.append(Chem.MolToSmiles(linker_to_return))
-    
+
     # If only one possibility, return linker
     if len(poss_linker) == 1:
         return poss_linker[0]
@@ -308,7 +317,7 @@ def get_frags(full_mol, clean_frag, starting_point):
     all_frags = []
     all_frags_lengths = []
 
-    if len(matches)>0:
+    if len(matches) > 0:
         for match in matches:
             mol_rw = Chem.RWMol(full_mol)
             linker_atoms = list(set(list(range(full_mol.GetNumHeavyAtoms()))).difference(match))
@@ -342,24 +351,24 @@ def compute_distance_and_angle(mol, smi_linker, smi_frags):
         # Include dummy in query
         du = Chem.MolFromSmiles('*')
         qp = Chem.AdjustQueryParameters()
-        qp.makeDummiesQueries=True
+        qp.makeDummiesQueries = True
         # Renumber based on frags (incl. dummy atoms)
         aligned_mols = []
 
         sub_idx = []
         # Align to frags and linker
-        qfrag = Chem.AdjustQueryProperties(frags,qp)
+        qfrag = Chem.AdjustQueryProperties(frags, qp)
         frags_matches = list(mol.GetSubstructMatches(qfrag, uniquify=False))
-        qlinker = Chem.AdjustQueryProperties(linker,qp)
+        qlinker = Chem.AdjustQueryProperties(linker, qp)
         linker_matches = list(mol.GetSubstructMatches(qlinker, uniquify=False))
-            
+
         # Loop over matches
         for frag_match, linker_match in product(frags_matches, linker_matches):
             # Check if match
             f_match = [idx for num, idx in enumerate(frag_match) if frags.GetAtomWithIdx(num).GetAtomicNum() != 0]
             l_match = [idx for num, idx in enumerate(linker_match) if linker.GetAtomWithIdx(num).GetAtomicNum() != 0 and idx not in f_match]
-            if len(set(list(f_match)+list(l_match))) == mol.GetNumHeavyAtoms():
-            #if len(set(list(frag_match)+list(linker_match))) == mol.GetNumHeavyAtoms():
+            if len(set(list(f_match) + list(l_match))) == mol.GetNumHeavyAtoms():
+                # if len(set(list(frag_match)+list(linker_match))) == mol.GetNumHeavyAtoms():
                 break
         # Add frag indices
         sub_idx += frag_match
@@ -370,25 +379,25 @@ def compute_distance_and_angle(mol, smi_linker, smi_frags):
 
         aligned_mols.append(Chem.rdmolops.RenumberAtoms(mol, sub_idx))
         aligned_mols.append(frags)
-            
+
         # Renumber dummy atoms to end
         dummy_idx = []
         for atom in aligned_mols[1].GetAtoms():
             if atom.GetAtomicNum() == 0:
                 dummy_idx.append(atom.GetIdx())
         for i, mol in enumerate(aligned_mols):
-            sub_idx = list(range(aligned_mols[1].GetNumHeavyAtoms()+2))
+            sub_idx = list(range(aligned_mols[1].GetNumHeavyAtoms() + 2))
             for idx in dummy_idx:
                 sub_idx.remove(idx)
                 sub_idx.append(idx)
             if i == 0:
                 mol_range = list(range(mol.GetNumHeavyAtoms()))
             else:
-                mol_range = list(range(mol.GetNumHeavyAtoms()+2))
+                mol_range = list(range(mol.GetNumHeavyAtoms() + 2))
             idx_to_add = list(set(mol_range).difference(set(sub_idx)))
             sub_idx.extend(idx_to_add)
             aligned_mols[i] = Chem.rdmolops.RenumberAtoms(mol, sub_idx)
-            
+
         # Get exit vectors
         exit_vectors = []
         linker_atom_idx = []
@@ -399,7 +408,7 @@ def compute_distance_and_angle(mol, smi_linker, smi_frags):
                 for nei in atom.GetNeighbors():
                     exit_vectors.append(nei.GetIdx())
                 linker_atom_idx.append(atom.GetIdx())
-                    
+
         # Get coords
         conf = aligned_mols[0].GetConformer()
         exit_coords = []
@@ -408,26 +417,26 @@ def compute_distance_and_angle(mol, smi_linker, smi_frags):
         linker_coords = []
         for linker_atom in linker_atom_idx:
             linker_coords.append(np.array(conf.GetAtomPosition(linker_atom)))
-        
+
         # Get angle
-        v1_u = unit_vector(linker_coords[0]-exit_coords[0])
-        v2_u = unit_vector(linker_coords[1]-exit_coords[1])
+        v1_u = unit_vector(linker_coords[0] - exit_coords[0])
+        v2_u = unit_vector(linker_coords[1] - exit_coords[1])
         angle = np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
-                    
+
         # Get linker length
         linker = Chem.MolFromSmiles(smi_linker)
         linker_length = linker.GetNumHeavyAtoms()
 
         # Get distance
-        distance = np.linalg.norm(exit_coords[0]-exit_coords[1])
-                
+        distance = np.linalg.norm(exit_coords[0] - exit_coords[1])
+
         # Record results
         return distance, angle
-    
+
     except:
         print(Chem.MolToSmiles(mol), smi_linker, smi_frags)
         return None, None
-    
+
 
 def compute_distance_and_angle_dataset(fragmentations, path_to_conformers, dataset, verbose=False):
     if dataset not in ["ZINC", "CASF"]:
@@ -439,10 +448,10 @@ def compute_distance_and_angle_dataset(fragmentations, path_to_conformers, datas
     dataset_dict = {}
     for toks in fragmentations:
         if toks[0] in dataset_dict:
-            dataset_dict[toks[0]].append([toks[1], toks[2]+'.'+toks[3]])
+            dataset_dict[toks[0]].append([toks[1], toks[2] + '.' + toks[3]])
         else:
-            dataset_dict[toks[0]] = [[toks[1], toks[2]+'.'+toks[3]]]
-    
+            dataset_dict[toks[0]] = [[toks[1], toks[2] + '.' + toks[3]]]
+
     # Initialise placeholders for results
     fragmentations_new = []
     distances = []
@@ -475,17 +484,18 @@ def compute_distance_and_angle_dataset(fragmentations, path_to_conformers, datas
                         fail_count += 1
         else:
             fail_count_conf += 1
-    
+
         if verbose:
             # Progress
             if count % 1000 == 0:
-                print("\rMol: %d" % count, end = '')
+                print("\rMol: %d" % count, end='')
 
     if verbose:
         print("\rDone")
         print("Fail count conf %d" % fail_count_conf)
-    
+
     return fragmentations_new, distances, angles, (fail_count, fail_count_conf, fails)
+
 
 def compute_distance_and_angle_dataset_alt(fragmentations, path_to_conformers, verbose=False):
     # Load conformers
@@ -534,7 +544,7 @@ def compute_distance_and_angle_dataset_alt(fragmentations, path_to_conformers, v
         if verbose:
             # Progress
             if count % 1000 == 0:
-                print("\rMol: %d" % count, end = '')
+                print("\rMol: %d" % count, end='')
 
     if verbose:
         print("\rDone")
@@ -545,10 +555,10 @@ def compute_distance_and_angle_dataset_alt(fragmentations, path_to_conformers, v
 
 ##### Drawing #####
 
-def mol_with_atom_index( mol ):
+def mol_with_atom_index(mol):
     atoms = mol.GetNumAtoms()
-    for idx in range( atoms ):
-        mol.GetAtomWithIdx( idx ).SetProp( 'molAtomMapNumber', str( mol.GetAtomWithIdx( idx ).GetIdx() ) )
+    for idx in range(atoms):
+        mol.GetAtomWithIdx(idx).SetProp('molAtomMapNumber', str(mol.GetAtomWithIdx(idx).GetIdx()))
     return mol
 
 
@@ -560,51 +570,53 @@ def plot_hist(results, prop_name, labels=None, alpha_val=0.5):
     results_all = []
     for res in results:
         results_all.extend(res)
-        
+
     min_value = np.amin(results_all)
     max_value = np.amax(results_all)
     num_bins = 20.0
     binwidth = (max_value - min_value) / num_bins
-    
+
     if prop_name in ['heavy_atoms', 'num_C', 'num_N', 'num_O', 'num_F', 'hba', 'hbd', 'ring_ct', 'avg_ring_size', 'rot_bnds', 'stereo_cnts', "Linker lengths"]:
         min_value = math.floor(min_value)
         max_value = math.ceil(max_value)
         diff = max_value - min_value
-        binwidth = max(1, int(diff/num_bins))
-        
+        binwidth = max(1, int(diff / num_bins))
+
     if prop_name in ["Mol_similarity", "QED"]:
         min_value = 0.0
         max_value = 1.01
         diff = max_value - min_value
-        binwidth = diff/num_bins
-        
+        binwidth = diff / num_bins
+
     if prop_name in ["SC_RDKit"]:
         max_value = 1.01
         diff = max_value - min_value
-        binwidth = diff/num_bins
- 
-    bins = np.arange(min_value - 2* binwidth, max_value + 2* binwidth, binwidth)
-    
+        binwidth = diff / num_bins
+
+    bins = np.arange(min_value - 2 * binwidth, max_value + 2 * binwidth, binwidth)
+
     dens_all = []
     for i, res in enumerate(results):
         if not labels:
-            dens, _ , _ = plt.hist(np.array(res).flatten(), bins=bins, density=True, alpha=alpha_val)
+            dens, _, _ = plt.hist(np.array(res).flatten(), bins=bins, density=True, alpha=alpha_val)
         elif labels:
-            dens, _ , _ = plt.hist(np.array(res).flatten(), bins=bins, density=True, alpha=alpha_val,label=labels[i])
-        #dens, _ , _ = plt.hist(res, bins=bins, density=True, alpha=alpha_val, label=labels[i])
+            dens, _, _ = plt.hist(np.array(res).flatten(), bins=bins, density=True, alpha=alpha_val, label=labels[i])
+        # dens, _ , _ = plt.hist(res, bins=bins, density=True, alpha=alpha_val, label=labels[i])
         dens_all.extend(dens)
 
     plt.xlabel(prop_name)
     plt.ylabel('Proportion')
-    x1,x2,y1,y2 = plt.axis()
-    plt.axis((x1*0.8,x2/0.8,y1,1.1*max(dens_all)))
+    x1, x2, y1, y2 = plt.axis()
+    plt.axis((x1 * 0.8, x2 / 0.8, y1, 1.1 * max(dens_all)))
     plt.title('Distribution of ' + prop_name)
     plt.legend()
     plt.grid(True)
 
     plt.show()
 
+
 ##### Calc props #####
+
 
 def calc_dataset_props(dataset, verbose=False):
     # Calculate mol props for an entire dataset of smiles strings
@@ -618,13 +630,14 @@ def calc_dataset_props(dataset, verbose=False):
     print("\nDone calculating properties")
     return np.array(results)
 
+
 def calc_mol_props(smiles):
     # Create RDKit mol
     mol = Chem.MolFromSmiles(smiles)
     if mol is None:
         print("Error passing: %s" % smiles)
         return None
-    
+
     # QED
     qed = Chem.QED.qed(mol)
     # Synthetic accessibility score - number of cycles (rings with > 6 atoms)
@@ -640,6 +653,7 @@ def calc_mol_props(smiles):
 
     return prop_array
 
+
 def calc_sa_score_smi(smi, verbose=False):
     # Create RDKit mol object
     mol = Chem.MolFromSmiles(smi)
@@ -647,9 +661,10 @@ def calc_sa_score_smi(smi, verbose=False):
         if verbose:
             print("Error passing: %s" % smi)
         return None
-    
+
     # Synthetic accessibility score
     return sascorer.calculateScore(mol)
+
 
 def calc_sa_score_mol(mol, verbose=False):
     if mol is None:
@@ -666,7 +681,7 @@ def ring_check_for_filter(res, clean_frag):
     check = True
     gen_mol = Chem.MolFromSmiles(res[2])
     linker = Chem.DeleteSubstructs(gen_mol, clean_frag)
-    
+
     # Get linker rings
     ssr = Chem.GetSymmSSSR(linker)
     # Check rings
@@ -677,11 +692,12 @@ def ring_check_for_filter(res, clean_frag):
                     check = False
     return check
 
+
 def ring_check_res(res, clean_frag):
     check = True
     gen_mol = Chem.MolFromSmiles(res[1])
     linker = Chem.DeleteSubstructs(gen_mol, clean_frag)
-    
+
     # Get linker rings
     ssr = Chem.GetSymmSSSR(linker)
     # Check rings
@@ -691,6 +707,7 @@ def ring_check_res(res, clean_frag):
                 if bond.GetBondType() == 2 and bond.GetBeginAtomIdx() in ring and bond.GetEndAtomIdx() in ring:
                     check = False
     return check
+
 
 def filters(results, verbose=True):
     count = 0
@@ -700,9 +717,9 @@ def filters(results, verbose=True):
         for m in res:
             # Clean frags
             du = Chem.MolFromSmiles('*')
-            clean_frag = Chem.RemoveHs(AllChem.ReplaceSubstructs(Chem.MolFromSmiles(m[0]),du,Chem.MolFromSmiles('[H]'),True)[0])
+            clean_frag = Chem.RemoveHs(AllChem.ReplaceSubstructs(Chem.MolFromSmiles(m[0]), du, Chem.MolFromSmiles('[H]'), True)[0])
             # Check joined - already taken care of
-            #if len(Chem.MolFromSmiles(m[1]).GetSubstructMatch(clean_frag))>0:
+            # if len(Chem.MolFromSmiles(m[1]).GetSubstructMatch(clean_frag))>0:
             # Check SA score has improved
             if calc_mol_props(m[1])[1] < calc_mol_props(m[0])[1]:
                 # Check no non-aromatic double bonds in rings
@@ -712,8 +729,9 @@ def filters(results, verbose=True):
         if verbose:
             if processed % 10 == 0:
                 print("\rProcessed %d" % processed, end="")
-    print("\r",end="")
-    return count/total
+    print("\r", end="")
+    return count / total
+
 
 def sa_filter(results, verbose=True):
     count = 0
@@ -728,8 +746,9 @@ def sa_filter(results, verbose=True):
         if verbose:
             if processed % 10 == 0:
                 print("\rProcessed %d" % processed, end="")
-    print("\r",end="")
-    return count/total
+    print("\r", end="")
+    return count / total
+
 
 def ring_filter(results, verbose=True):
     count = 0
@@ -739,18 +758,19 @@ def ring_filter(results, verbose=True):
         total += len(res)
         for m in res:
             # Clean frags
-            clean_frag = Chem.RemoveHs(AllChem.ReplaceSubstructs(Chem.MolFromSmiles(m[0]),du,Chem.MolFromSmiles('[H]'),True)[0])
+            clean_frag = Chem.RemoveHs(AllChem.ReplaceSubstructs(Chem.MolFromSmiles(m[0]), du, Chem.MolFromSmiles('[H]'), True)[0])
             if ring_check_res(m, clean_frag):
                 count += 1
         # Progress
         if verbose:
             if processed % 10 == 0:
                 print("\rProcessed %d" % processed, end="")
-    print("\r",end="")
-    return count/total
+    print("\r", end="")
+    return count / total
+
 
 def check_ring_filter(linker):
-    check = True 
+    check = True
     # Get linker rings
     ssr = Chem.GetSymmSSSR(linker)
     # Check rings
@@ -761,32 +781,34 @@ def check_ring_filter(linker):
                     check = False
     return check
 
+
 def check_pains(mol, pains_smarts):
     for pain in pains_smarts:
         if mol.HasSubstructMatch(pain):
             return False
     return True
 
+
 def check_2d_filters(toks, pains_smarts, count=0, verbose=False):
     # Progress
     if verbose:
         if count % 1000 == 0:
-            print("\rProcessed: %d" % count, end = '')
-    
+            print("\rProcessed: %d" % count, end='')
+
     # Input format: (Full Molecule (SMILES), Linker (SMILES), Unlinked Fragment 1 (SMILES), Unlinked Fragment 2 (SMILES))
     frags = Chem.MolFromSmiles(toks[2] + '.' + toks[3])
     linker = Chem.MolFromSmiles(toks[1])
     full_mol = Chem.MolFromSmiles(toks[0])
     # Remove dummy atoms from unlinked fragments
     du = Chem.MolFromSmiles('*')
-    clean_frag = Chem.RemoveHs(AllChem.ReplaceSubstructs(frags,du,Chem.MolFromSmiles('[H]'),True)[0])
-    
+    clean_frag = Chem.RemoveHs(AllChem.ReplaceSubstructs(frags, du, Chem.MolFromSmiles('[H]'), True)[0])
+
     # Check: Unlinked fragments in full molecule
-    if len(full_mol.GetSubstructMatch(clean_frag))>0:
+    if len(full_mol.GetSubstructMatch(clean_frag)) > 0:
         # Check: SA score improved from unlinked fragments to full molecule
         if calc_sa_score_mol(full_mol) < calc_sa_score_mol(frags):
             # Check: No non-aromatic rings with double bonds
-            if check_ring_filter(linker): 
+            if check_ring_filter(linker):
                 # Check: Pass pains filters
                 if check_pains(full_mol, pains_smarts):
                     return True
@@ -796,19 +818,21 @@ def check_2d_filters(toks, pains_smarts, count=0, verbose=False):
 
     return False
 
-def check_2d_filters_dataset(fragmentations, n_cores=1, pains_smarts_loc='mofa/utils/wehi_pains.csv'):
+
+def check_2d_filters_dataset(fragmentations, n_cores=1, pains_smarts_loc=wehi_path):
     # Load pains filters
     with open(pains_smarts_loc, 'r') as f:
         pains_smarts = [Chem.MolFromSmarts(line[0], mergeHs=True) for line in csv.reader(f)]
-        
+
     with Parallel(n_jobs=n_cores, backend='multiprocessing') as parallel:
         results = parallel(delayed(check_2d_filters)(toks, pains_smarts, count, True) for count, toks in enumerate(fragmentations))
 
     fragmentations_filtered = [toks for toks, res in zip(fragmentations, results) if res]
-    
+
     return fragmentations_filtered
 
-def calc_2d_filters(toks, pains_smarts): 
+
+def calc_2d_filters(toks, pains_smarts):
     try:
         # Input format: (Full Molecule (SMILES), Linker (SMILES), Unlinked Fragments (SMILES))
         frags = Chem.MolFromSmiles(toks[2])
@@ -816,41 +840,44 @@ def calc_2d_filters(toks, pains_smarts):
         full_mol = Chem.MolFromSmiles(toks[0])
         # Remove dummy atoms from unlinked fragments
         du = Chem.MolFromSmiles('*')
-        clean_frag = Chem.RemoveHs(AllChem.ReplaceSubstructs(frags,du,Chem.MolFromSmiles('[H]'),True)[0])
-    
+        clean_frag = Chem.RemoveHs(AllChem.ReplaceSubstructs(frags, du, Chem.MolFromSmiles('[H]'), True)[0])
+
         res = []
         # Check: Unlinked fragments in full molecule
-        if len(full_mol.GetSubstructMatch(clean_frag))>0:
+        if len(full_mol.GetSubstructMatch(clean_frag)) > 0:
             # Check: SA score improved from unlinked fragments to full molecule
             if calc_sa_score_mol(full_mol) < calc_sa_score_mol(frags):
                 res.append(True)
             else:
-               res.append(False)
+                res.append(False)
             # Check: No non-aromatic rings with double bonds
-            if check_ring_filter(linker): 
-               res.append(True)
+            if check_ring_filter(linker):
+                res.append(True)
             else:
                 res.append(False)
             # Check: Pass pains filters
             if check_pains(full_mol, pains_smarts):
-               res.append(True)
+                res.append(True)
             else:
-               res.append(False)     
+                res.append(False)
         return res
     except:
         return [False, False, False]
+
 
 def calc_filters_2d_dataset(results, pains_smarts_loc, n_cores=1):
     # Load pains filters
     with open(pains_smarts_loc, 'r') as f:
         pains_smarts = [Chem.MolFromSmarts(line[0], mergeHs=True) for line in csv.reader(f)]
-        
+
     with Parallel(n_jobs=n_cores, backend='multiprocessing') as parallel:
         filters_2d = parallel(delayed(calc_2d_filters)([toks[2], toks[4], toks[1]], pains_smarts) for toks in results)
-        
+
     return filters_2d
 
+
 ##### Metrics #####
+
 
 def unique(results):
     total_dupes = 0
@@ -860,14 +887,16 @@ def unique(results):
         test_data = set(res)
         new_num = len(test_data)
         total_dupes += original_num - new_num
-        total += original_num   
-    return 1 - total_dupes/float(total)
+        total += original_num
+    return 1 - total_dupes / float(total)
+
 
 def valid(results, max_entries=50):
     total = 0
     for res in results:
-        total+= max_entries - len(res)
-    return 1.0 - total / (len(results)*max_entries)
+        total += max_entries - len(res)
+    return 1.0 - total / (len(results) * max_entries)
+
 
 def recovered_by_sim(results):
     recovered = 0
@@ -875,14 +904,14 @@ def recovered_by_sim(results):
     for res in results:
         success = False
         for m in res:
-            #if DataStructs.TanimotoSimilarity(AllChem.GetMorganFingerprintAsBitVect(Chem.MolFromSmiles(m[1]), 2, 2048), 
+            # if DataStructs.TanimotoSimilarity(AllChem.GetMorganFingerprintAsBitVect(Chem.MolFromSmiles(m[1]), 2, 2048),
             #                                  AllChem.GetMorganFingerprintAsBitVect(Chem.MolFromSmiles(m[2]), 2, 2048)) == 1:
-            if DataStructs.TanimotoSimilarity(AllChem.GetMorganFingerprintAsBitVect(Chem.MolFromSmiles(m[0]), 2, 2048), 
+            if DataStructs.TanimotoSimilarity(AllChem.GetMorganFingerprintAsBitVect(Chem.MolFromSmiles(m[0]), 2, 2048),
                                               AllChem.GetMorganFingerprintAsBitVect(Chem.MolFromSmiles(m[2]), 2, 2048)) == 1:
-            
                 recovered += 1
                 break
-    return recovered/total
+    return recovered / total
+
 
 def recovered_by_smi(results):
     recovered = 0
@@ -890,11 +919,12 @@ def recovered_by_smi(results):
     for res in results:
         success = False
         for m in res:
-            #if m[1] == m[2]:
+            # if m[1] == m[2]:
             if m[0] == m[2]:
                 recovered += 1
                 break
-    return recovered/total
+    return recovered / total
+
 
 def recovered_by_smi_canon(results):
     recovered = 0
@@ -902,11 +932,12 @@ def recovered_by_smi_canon(results):
     for res in results:
         success = False
         for m in res:
-            #if Chem.MolToSmiles(Chem.RemoveHs(Chem.MolFromSmiles(m[1]))) == Chem.MolToSmiles(Chem.RemoveHs(Chem.MolFromSmiles(m[2]))):
+            # if Chem.MolToSmiles(Chem.RemoveHs(Chem.MolFromSmiles(m[1]))) == Chem.MolToSmiles(Chem.RemoveHs(Chem.MolFromSmiles(m[2]))):
             if Chem.MolToSmiles(Chem.RemoveHs(Chem.MolFromSmiles(m[0]))) == Chem.MolToSmiles(Chem.RemoveHs(Chem.MolFromSmiles(m[2]))):
                 recovered += 1
                 break
-    return recovered/total
+    return recovered / total
+
 
 def check_recovered_original_mol(results):
     outcomes = []
@@ -916,13 +947,13 @@ def check_recovered_original_mol(results):
         orig_mol = Chem.MolFromSmiles(res[0][0])
         Chem.RemoveStereochemistry(orig_mol)
         orig_mol = Chem.MolToSmiles(Chem.RemoveHs(orig_mol))
-        #orig_mol = MolStandardize.canonicalize_tautomer_smiles(orig_mol)
+        # orig_mol = MolStandardize.canonicalize_tautomer_smiles(orig_mol)
         # Check generated mols
         for m in res:
             gen_mol = Chem.MolFromSmiles(m[2])
             Chem.RemoveStereochemistry(gen_mol)
             gen_mol = Chem.MolToSmiles(Chem.RemoveHs(gen_mol))
-            #gen_mol = MolStandardize.canonicalize_tautomer_smiles(gen_mol)
+            # gen_mol = MolStandardize.canonicalize_tautomer_smiles(gen_mol)
             if gen_mol == orig_mol:
                 outcomes.append(True)
                 success = True
@@ -931,15 +962,17 @@ def check_recovered_original_mol(results):
             outcomes.append(False)
     return outcomes
 
+
 def average_linker_length(results):
     total_linker_length = 0
     total_num = 0
     for res in results:
         for m in res:
             linker_length = Chem.MolFromSmiles(m[1]).GetNumHeavyAtoms() - Chem.MolFromSmiles(m[0]).GetNumHeavyAtoms()
-            total_linker_length+=linker_length
+            total_linker_length += linker_length
             total_num += 1
-    return total_linker_length/total_num
+    return total_linker_length / total_num
+
 
 def get_linker_length(results):
     linker_lengths = []
@@ -949,30 +982,31 @@ def get_linker_length(results):
             linker_lengths.append(linker_length)
     return linker_lengths
 
+
 ##### Join fragments #####
 
+
 def join_frag_linker(linker, st_pt, random_join=True):
-    
     if linker == "":
         du = Chem.MolFromSmiles('*')
-        #print(Chem.MolToSmiles(Chem.RemoveHs(AllChem.ReplaceSubstructs(Chem.MolFromSmiles(st_pt),du,Chem.MolFromSmiles('[H]'),True)[0])).split('.')[0])
-        return Chem.MolToSmiles(Chem.RemoveHs(AllChem.ReplaceSubstructs(Chem.MolFromSmiles(st_pt),du,Chem.MolFromSmiles('[H]'),True)[0])).split('.')[0]
+        # print(Chem.MolToSmiles(Chem.RemoveHs(AllChem.ReplaceSubstructs(Chem.MolFromSmiles(st_pt),du,Chem.MolFromSmiles('[H]'),True)[0])).split('.')[0])
+        return Chem.MolToSmiles(Chem.RemoveHs(AllChem.ReplaceSubstructs(Chem.MolFromSmiles(st_pt), du, Chem.MolFromSmiles('[H]'), True)[0])).split('.')[0]
 
     combo = Chem.CombineMols(Chem.MolFromSmiles(linker), Chem.MolFromSmiles(st_pt))
 
     # Include dummy in query
     du = Chem.MolFromSmiles('*')
     qp = Chem.AdjustQueryParameters()
-    qp.makeDummiesQueries=True
+    qp.makeDummiesQueries = True
 
-    qlink = Chem.AdjustQueryProperties(Chem.MolFromSmiles(linker),qp)
+    qlink = Chem.AdjustQueryProperties(Chem.MolFromSmiles(linker), qp)
     linker_atoms = combo.GetSubstructMatches(qlink)
-    if len(linker_atoms)>1:
+    if len(linker_atoms) > 1:
         for l_atoms in linker_atoms:
             count_dummy = 0
             for a in l_atoms:
                 if combo.GetAtomWithIdx(a).GetAtomicNum() == 0:
-                    count_dummy +=1
+                    count_dummy += 1
             if count_dummy == 2:
                 break
         linker_atoms = l_atoms
@@ -987,7 +1021,7 @@ def join_frag_linker(linker, st_pt, random_join=True):
             linker_dummy_bonds_at.append((atom, combo.GetAtomWithIdx(atom).GetNeighbors()[0].GetIdx()))
             linker_exit_points.append(combo.GetAtomWithIdx(atom).GetNeighbors()[0].GetIdx())
 
-    qst_pt = Chem.AdjustQueryProperties(Chem.MolFromSmiles(st_pt),qp)
+    qst_pt = Chem.AdjustQueryProperties(Chem.MolFromSmiles(st_pt), qp)
     st_pt_atoms = combo.GetSubstructMatches(qst_pt)
     st_pt_atoms = list(set(range(combo.GetNumAtoms())).difference(linker_atoms))
 
@@ -1008,7 +1042,7 @@ def join_frag_linker(linker, st_pt, random_join=True):
             if atom_1 == atom_2:
                 print(linker, st_pt)
                 break
-            combo_rw.AddBond(atom_1, atom_2 ,order=Chem.rdchem.BondType.SINGLE)
+            combo_rw.AddBond(atom_1, atom_2, order=Chem.rdchem.BondType.SINGLE)
 
         bonds_to_break = linker_dummy_bonds_at + st_pt_dummy_bonds_at
         for bond in sorted(bonds_to_break, reverse=True):
@@ -1026,7 +1060,7 @@ def join_frag_linker(linker, st_pt, random_join=True):
                 if atom_1 == atom_2:
                     print(linker, st_pt)
                     break
-                combo_rw.AddBond(atom_1, atom_2 ,order=Chem.rdchem.BondType.SINGLE)
+                combo_rw.AddBond(atom_1, atom_2, order=Chem.rdchem.BondType.SINGLE)
 
             bonds_to_break = linker_dummy_bonds_at + st_pt_dummy_bonds_at
             for bond in sorted(bonds_to_break, reverse=True):
@@ -1036,8 +1070,11 @@ def join_frag_linker(linker, st_pt, random_join=True):
             final_mol = sorted(Chem.MolToSmiles(final_mol).split('.'), key=lambda x: len(x), reverse=True)[0]
             final_mols.append(final_mol)
         return final_mols
-    
+
+
 ##### 3D Metrics #####
+
+
 def SC_RDKit_full_mol(gen_mol, ref_mol):
     try:
         # Align
@@ -1045,22 +1082,24 @@ def SC_RDKit_full_mol(gen_mol, ref_mol):
         # Calc SC_RDKit score
         score = calc_SC_RDKit.calc_SC_RDKit_score(gen_mol, ref_mol)
         return score
-    except:
-        return -0.5 # Dummy score
+    except ValueError:
+        return -0.5  # Dummy score
+
 
 def SC_RDKit_full_scores(gen_mols):
     return [SC_RDKit_full_mol(gen_mol, ref_mol) for (gen_mol, ref_mol) in gen_mols]
+
 
 def SC_RDKit_frag_mol(gen_mol, ref_mol, start_pt):
     try:
         # Delete linker - Gen mol
         du = Chem.MolFromSmiles('*')
-        clean_frag = Chem.RemoveHs(AllChem.ReplaceSubstructs(Chem.MolFromSmiles(start_pt),du,Chem.MolFromSmiles('[H]'),True)[0])
+        clean_frag = Chem.RemoveHs(AllChem.ReplaceSubstructs(Chem.MolFromSmiles(start_pt), du, Chem.MolFromSmiles('[H]'), True)[0])
 
         fragmented_mol = get_frags(gen_mol, clean_frag, start_pt)
         if fragmented_mol is not None:
             # Delete linker - Ref mol
-            clean_frag_ref = Chem.RemoveHs(AllChem.ReplaceSubstructs(Chem.MolFromSmiles(start_pt),du,Chem.MolFromSmiles('[H]'),True)[0])
+            clean_frag_ref = Chem.RemoveHs(AllChem.ReplaceSubstructs(Chem.MolFromSmiles(start_pt), du, Chem.MolFromSmiles('[H]'), True)[0])
             fragmented_mol_ref = get_frags(ref_mol, clean_frag_ref, start_pt)
             if fragmented_mol_ref is not None:
                 # Sanitize
@@ -1071,22 +1110,24 @@ def SC_RDKit_frag_mol(gen_mol, ref_mol, start_pt):
                 # Calc SC_RDKit score
                 score = calc_SC_RDKit.calc_SC_RDKit_score(fragmented_mol, fragmented_mol_ref)
                 return score
-    except:
-        return -0.5 # Dummy score
+    except ValueError:
+        return -0.5  # Dummy score
+
 
 def SC_RDKit_frag_scores(gen_mols):
     return [SC_RDKit_frag_mol(gen_mol, ref_mol, frag_smi) for (gen_mol, ref_mol, frag_smi) in gen_mols]
+
 
 def rmsd_frag_mol(gen_mol, ref_mol, start_pt):
     try:
         # Delete linker - Gen mol
         du = Chem.MolFromSmiles('*')
-        clean_frag = Chem.RemoveHs(AllChem.ReplaceSubstructs(Chem.MolFromSmiles(start_pt),du,Chem.MolFromSmiles('[H]'),True)[0])
+        clean_frag = Chem.RemoveHs(AllChem.ReplaceSubstructs(Chem.MolFromSmiles(start_pt), du, Chem.MolFromSmiles('[H]'), True)[0])
 
         fragmented_mol = get_frags(gen_mol, clean_frag, start_pt)
         if fragmented_mol is not None:
             # Delete linker - Ref mol
-            clean_frag_ref = Chem.RemoveHs(AllChem.ReplaceSubstructs(Chem.MolFromSmiles(start_pt),du,Chem.MolFromSmiles('[H]'),True)[0])
+            clean_frag_ref = Chem.RemoveHs(AllChem.ReplaceSubstructs(Chem.MolFromSmiles(start_pt), du, Chem.MolFromSmiles('[H]'), True)[0])
             fragmented_mol_ref = get_frags(ref_mol, clean_frag_ref, start_pt)
             if fragmented_mol_ref is not None:
                 # Sanitize
@@ -1095,9 +1136,10 @@ def rmsd_frag_mol(gen_mol, ref_mol, start_pt):
                 # Align
                 pyO3A = rdMolAlign.GetO3A(fragmented_mol, fragmented_mol_ref).Align()
                 rms = rdMolAlign.GetBestRMS(fragmented_mol, fragmented_mol_ref)
-                return rms #score
+                return rms  # score
     except:
-        return 100 # Dummy RMSD
+        return 100  # Dummy RMSD
+
 
 def rmsd_frag_scores(gen_mols):
     return [rmsd_frag_mol(gen_mol, ref_mol, start_pt) for (gen_mol, ref_mol, start_pt) in gen_mols]
