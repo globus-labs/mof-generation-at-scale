@@ -28,7 +28,12 @@ dependencies = [
     "colmena==0.5.*",
     "parsl>=2023.04",
     "ase>3.22",
-    "tqdm"
+    "tqdm",
+
+    # ML-related dependencies
+    "pytorch-lightning",
+    "wandb",
+    "imageio"
 ]
 
 [tool.setuptools.packages.find]
