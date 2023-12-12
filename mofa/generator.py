@@ -1,13 +1,15 @@
 """Functions pertaining to training and running the generative model"""
 from pathlib import Path
+import os
 
-import ase
 
-from mofa.model import MOFRecord
 from mofa.difflinker_sample import sample_from_sdf
 from mofa.difflinker_train import get_args, main
 import yaml
-import os
+import ase
+
+
+from mofa.model import MOFRecord
 
 def train_generator(
         # starting_model: str | Path,
@@ -44,7 +46,7 @@ def train_generator(
     main(args=args)
 
 def run_generator(
-        node: str='CuCu', 
+        node: str='CuCu',
         n_atoms: int|str=8, 
         input_path: str|Path=f"mofa/data/fragments_all/CuCu/hMOF_frag_frag.sdf", 
         model: str|Path="mofa/models/geom_difflinker.ckpt",
@@ -70,14 +72,4 @@ def run_generator(
                     model=model,
                     n_samples=n_samples,
                     n_steps=n_steps
-                    )   
-    print("Saved XYZ files in mofa/output directory!")
-
-if __name__ == "__main__":
-    node = "ZnZn"
-    run_generator(node='ZnZn',
-                 n_atoms=5,
-                 input_path=f"mofa/data/fragments_all/{node}/hMOF_frag_frag.sdf",
-                 )
-    # train_generator()
-        
+                    )

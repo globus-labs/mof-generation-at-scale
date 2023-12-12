@@ -27,7 +27,7 @@ classifiers = [
 dependencies = [
     "colmena==0.5.*",
     "parsl>=2023.04",
-    "ase==3.22.*",
+    "ase>3.22",
     "tqdm"
 ]
 
