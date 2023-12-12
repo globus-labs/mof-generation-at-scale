@@ -1,6 +1,6 @@
 """Functions for assembling a MOF structure"""
+from pathlib import Path
 from typing import Sequence
-from .model import NodeDescription, LigandDescription, MOFRecord
 import os
 import io
 import itertools
@@ -8,6 +8,8 @@ import pandas as pd
 import numpy as np
 import pymatgen.core as mg
 from rdkit import Chem
+
+from .model import NodeDescription, LigandDescription, MOFRecord
 
 
 def readPillaredPaddleWheelXYZ(fpath, dummyElementCOO="At", dummyElementPillar="Fr"):
@@ -139,31 +141,6 @@ def rotmat2align(vec1, vec2):
     return rotation_matrix
 
 
-def assemble_COO_pcuMOF_multiProc(inputDict):
-    """multiprocessing wrapper for assemble_COO_pcuMOF
-
-    Args:
-        inputDict: input of many structures to assemble in the format of dictionary
-
-    Returns:
-        returnValue a file path if assembly succeeded, None if failed
-    """
-    nodePath = inputDict["nodePath"]
-    linkerPaths = inputDict["linkerPaths"]
-    newMOFdir = inputDict["newMOFdir"]
-    if "dummyElement" in inputDict.keys():
-        dummyElement = inputDict["dummyElement"]
-    else:
-        dummyElement = "At"
-
-    returnValue = None
-    try:
-        returnValue = assemble_COO_pcuMOF(nodePath, linkerPaths, newMOFdir, dummyElement=dummyElement)
-    except Exception as e:
-        print(e)
-    return returnValue
-
-
 def assemble_COO_pcuMOF(nodePath, linkerPaths, newMOFpath, dummyElement="At"):
     """assembly code for -COO only MOF with pcu topology
 
@@ -262,7 +239,7 @@ def assemble_COO_pcuMOF(nodePath, linkerPaths, newMOFpath, dummyElement="At"):
 def assemble_pillaredPaddleWheel_pcuMOF(nodePath,
                                         COOLinkerPaths,
                                         PillarLinkerPath,
-                                        newMOFpath,
+                                        newMOFpath: Path,
                                         dummyElementCOO="At",
                                         dummyElementPillar="Fr"):
     """assembly code for -COO and -N ligands MOF with pcu topology
@@ -278,8 +255,12 @@ def assemble_pillaredPaddleWheel_pcuMOF(nodePath,
     Returns:
         returnValue a cif file path if assembly succeeded, None if failed
     """
-    MOFRootdir = os.path.split(newMOFpath)[0]
-    os.makedirs(MOFRootdir, exist_ok=True)
+
+    # Ensure the output directory exists
+    MOFRootdir = newMOFpath.parent
+    MOFRootdir.mkdir(exist_ok=True, parents=True)
+
+    # Make sure the dummy atoms are valid elements
     Chem.rdchem.Atom(dummyElementCOO).GetAtomicNum()
     Chem.rdchem.Atom(dummyElementPillar).GetAtomicNum()
 
@@ -397,65 +378,6 @@ def assemble_pillaredPaddleWheel_pcuMOF(nodePath,
         return ""
 
 
-def assemble_PillarPaddle_pcuMOF_multiProc(inputDict):
-    """multiprocessing wrapper for assemble_PillarPaddle_pcuMOF
-
-    Args:
-        inputDict: input of many structures to assemble in the format of dictionary
-
-    Returns:
-        returnValue a file path if assembly succeeded, None if failed
-    """
-    nodePath = inputDict["nodePath"]
-    COOLinkerPaths = inputDict["COOLinkerPaths"]
-    PillarLinkerPath = inputDict["PillarLinkerPath"]
-    newMOFdir = inputDict["newMOFdir"]
-    if "dummyElementCOO" in inputDict.keys():
-        dummyElementCOO = inputDict["dummyElementCOO"]
-    else:
-        dummyElementCOO = "At"
-
-    if "dummyElementPillar" in inputDict.keys():
-        dummyElementPillar = inputDict["dummyElementPillar"]
-    else:
-        dummyElementPillar = "Fr"
-
-    returnValue = None
-    try:
-        returnValue = assemble_pillaredPaddleWheel_pcuMOF(nodePath,
-                                                          COOLinkerPaths,
-                                                          PillarLinkerPath,
-                                                          newMOFdir,
-                                                          dummyElementCOO=dummyElementCOO,
-                                                          dummyElementPillar=dummyElementPillar)
-    except Exception as e:
-        print(e)
-    return returnValue
-
-
-def testPillarMOF():
-    linker_base = "inferred_linkers/molGAN-batch512-Linkers"
-    linker_folders = os.listdir(linker_base)
-    # chosen_linker_folders
-    clf = [os.path.join(linker_base, x) for x in linker_folders[0:3]]
-    COOLinkers = [os.path.join(clf[0], y) for y in os.listdir(clf[0]) if y.endswith(".xyz") and y.startswith(
-        "linker-COO")] + [os.path.join(clf[1], y) for y in os.listdir(clf[1]) if y.endswith(".xyz") and y.startswith("linker-COO")]
-    PillarLinker = [os.path.join(clf[2], y) for y in os.listdir(clf[2])
-                    if y.endswith(".xyz") and y.startswith("linker-") and "COO" not in y][0]
-
-    nodePath = "nodes/zinc_paddle_pillar.xyz"
-    COOLinkerPaths = COOLinkers
-    PillarLinkerPath = PillarLinker
-    comb_name = "L" + "".join(list(reversed(os.path.split(COOLinkers[0])[-1].replace(".xyz", "").replace("linker-", "").split("-")))) + "-" + \
-        "L" + "".join(list(reversed(os.path.split(COOLinkers[1])[-1].replace(".xyz", "").replace("linker-", "").split("-")))) + "-" + \
-        "L" + "".join(list(reversed(os.path.split(PillarLinker)[-1].replace(".xyz", "").replace("linker-", "").split("-"))))
-    newMOFdir = "newMOFs/molGAN-MOF-" + comb_name
-    return assemble_pillaredPaddleWheel_pcuMOF(nodePath,
-                                               COOLinkerPaths,
-                                               PillarLinkerPath,
-                                               newMOFdir)
-
-
 def assemble_mof(nodes: Sequence[NodeDescription], ligands: Sequence[LigandDescription], topology: str) -> MOFRecord:
     """Generate a new MOF from the description of the nodes, ligands and toplogy
 
@@ -467,4 +389,10 @@ def assemble_mof(nodes: Sequence[NodeDescription], ligands: Sequence[LigandDescr
     Returns:
         A new MOF record
     """
-    raise NotImplementedError()
+
+    # Step 1: Detect which node type, use that to pick the assembly
+    if 'Zn' in nodes[0].xyz and topology == 'pcu':
+        # Step 2: Gather the XYZ files for the node and linker(s).
+        raise NotImplementedError()  # Waiting on code from Xiaoli about how to go from "generated linker->ligands"
+    else:
+        raise NotImplementedError('No assembly methods for this linker/topology pair')

@@ -47,7 +47,7 @@ def test_training(file_dir):
 
 
 @mark.parametrize('n_atoms', [3])
-@mark.parametrize('node', ['CuCu'])
+@mark.parametrize('node', ['CuCu', 'ZnZn'])
 @mark.parametrize('n_samples', [1, 3])
 def test_sampling_num_atoms(n_atoms, node, n_samples, file_dir, tmp_path):
     samples = run_generator(
