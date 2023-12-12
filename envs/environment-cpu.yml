@@ -4,7 +4,6 @@ name: mofa
 channels:
   - defaults
   - conda-forge
-  - pytorch
 dependencies:
   - python==3.10.*
 
@@ -32,8 +31,7 @@ dependencies:
   - lammps
 
   # Use Conda PyTorch to avoid OpenMP disagreement with other libraries
-  - pytorch==1.13.*
-  - cpuonly
+  - pytorch==1.13.*=*cpu*
 
   - pip
   - pip:
