@@ -388,51 +388,51 @@ def cleanUpLinker(RDKitMOL):
         UFFOptimizeMolecule(emol)
         emol.GetConformer()
         # display(mol_with_atom_index(emol))
-        # Draw.MolToFile(emol, os.path.join(saveDir, saveLinkerDir, "mol_seg-" + str(i) + ".svg"))
-        # Draw.MolToFile(emol, os.path.join(saveDir, saveLinkerDir, "mol_seg-" + str(i) + ".png"))
+        # Draw.MolToFile(emol, os.path.join(saveDir, saveLinkerDir, "mol_seg-" + linkerName + ".svg"))
+        # Draw.MolToFile(emol, os.path.join(saveDir, saveLinkerDir, "mol_seg-" + linkerName + ".png"))
         MolToXYZFile(
             emol,
             os.path.join(
                 saveDir,
                 saveLinkerDir,
                 "mol_seg-" +
-                str(i) +
+                linkerName +
                 ".xyz"))
 
         emolCOO = convert2COOLinker(emol)
-        # Draw.MolToFile(emolCOO, os.path.join(saveDir, saveLinkerDir, "linker-COO-" + str(i) + ".svg"))
-        # Draw.MolToFile(emolCOO, os.path.join(saveDir, saveLinkerDir, "linker-COO-" + str(i) + ".png"))
+        # Draw.MolToFile(emolCOO, os.path.join(saveDir, saveLinkerDir, "linker-COO-" + linkerName + ".svg"))
+        # Draw.MolToFile(emolCOO, os.path.join(saveDir, saveLinkerDir, "linker-COO-" + linkerName + ".png"))
         MolToXYZFile(
             emolCOO,
             os.path.join(
                 saveDir,
                 saveLinkerDir,
                 "linker-COO-" +
-                str(i) +
+                linkerName +
                 ".xyz"))
 
         emolPyridine = convert2PyridineLinker(emol)
-        # Draw.MolToFile(emolPyridine, os.path.join(saveDir, saveLinkerDir, "linker-Pyridine-" + str(i) + ".svg"))
-        # Draw.MolToFile(emolPyridine, os.path.join(saveDir, saveLinkerDir, "linker-Pyridine-" + str(i) + ".png"))
+        # Draw.MolToFile(emolPyridine, os.path.join(saveDir, saveLinkerDir, "linker-Pyridine-" + linkerName + ".svg"))
+        # Draw.MolToFile(emolPyridine, os.path.join(saveDir, saveLinkerDir, "linker-Pyridine-" + linkerName + ".png"))
         MolToXYZFile(
             emolPyridine,
             os.path.join(
                 saveDir,
                 saveLinkerDir,
                 "linker-Pyridine-" +
-                str(i) +
+                linkerName +
                 ".xyz"))
 
         emolCyano = convert2CyanoLinker(emol)
-        # Draw.MolToFile(emolCyano, os.path.join(saveDir, saveLinkerDir, "linker-Cyano-" + str(i) + ".svg"))
-        # Draw.MolToFile(emolCyano, os.path.join(saveDir, saveLinkerDir, "linker-Cyano-" + str(i) + ".png"))
+        # Draw.MolToFile(emolCyano, os.path.join(saveDir, saveLinkerDir, "linker-Cyano-" + linkerName + ".svg"))
+        # Draw.MolToFile(emolCyano, os.path.join(saveDir, saveLinkerDir, "linker-Cyano-" + linkerName + ".png"))
         MolToXYZFile(
             emolCyano,
             os.path.join(
                 saveDir,
                 saveLinkerDir,
                 "linker-Cyano-" +
-                str(i) +
+                linkerName +
                 ".xyz"))
 
         return emol
