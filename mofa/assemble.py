@@ -216,7 +216,7 @@ def assemble_COO_pcuMOF(nodePath, linkerPaths, newMOFpath, dummyElement="At"):
                              mol.cart_coords,
                              coords_are_cartesian=True)
 
-    df = pd.read_csv("../xyan11-code/OChemDB_bond_threshold.csv", index_col=0)
+    df = pd.read_csv("OChemDB_bond_threshold.csv", index_col=0)
     element2bondLengthMap = dict(zip(df["element"], df["min"] - (df["stddev"] * 0.01)))
     unique_bond_el = list(set(list(itertools.chain(*[["-".join(sorted([x.symbol, y.symbol])) for x in MOFstruct.species] for y in MOFstruct.species]))))
     unique_bond_el = unique_bond_el + ["Fr-Se"]
@@ -358,7 +358,7 @@ def assemble_pillaredPaddleWheel_pcuMOF(nodePath,
                              mol.cart_coords,
                              coords_are_cartesian=True)
 
-    df = pd.read_csv("../xyan11-code/OChemDB_bond_threshold.csv", index_col=0)
+    df = pd.read_csv("OChemDB_bond_threshold.csv", index_col=0)
     element2bondLengthMap = dict(zip(df["element"], df["min"] - (df["stddev"] * 0.01)))
     unique_bond_el = list(set(list(itertools.chain(*[["-".join(sorted([x.symbol, y.symbol])) for x in MOFstruct.species] for y in MOFstruct.species]))))
     unique_bond_el = unique_bond_el + ["Fr-Se"]
