@@ -11,6 +11,8 @@ from rdkit import Chem
 
 from .model import NodeDescription, LigandDescription, MOFRecord
 
+_bond_length_path = Path(__file__).parent / "OChemDB_bond_threshold.csv"
+
 
 def readPillaredPaddleWheelXYZ(fpath, dummyElementCOO="At", dummyElementPillar="Fr"):
     """Read xyz file of a paddlewheel node
@@ -239,26 +241,20 @@ def assemble_COO_pcuMOF(nodePath, linkerPaths, newMOFpath, dummyElement="At"):
 def assemble_pillaredPaddleWheel_pcuMOF(nodePath,
                                         COOLinkerPaths,
                                         PillarLinkerPath,
-                                        newMOFpath: Path,
                                         dummyElementCOO="At",
-                                        dummyElementPillar="Fr"):
+                                        dummyElementPillar="Fr") -> str:
     """assembly code for -COO and -N ligands MOF with pcu topology
 
     Args:
         nodePath: node xyz file path,
         COOLinkerPaths: -COO node xyz file paths,
         PillarLinkerPath: -N node xyz file paths,
-        newMOFpath: assembled MOF file path,
         dummyElementCOO: dummy element for -COO anchoring positions,
         dummyElementPillar: dummy element for -N anchoring positions
 
     Returns:
-        returnValue a cif file path if assembly succeeded, None if failed
+        A CIF-format version of the structure
     """
-
-    # Ensure the output directory exists
-    MOFRootdir = newMOFpath.parent
-    MOFRootdir.mkdir(exist_ok=True, parents=True)
 
     # Make sure the dummy atoms are valid elements
     Chem.rdchem.Atom(dummyElementCOO).GetAtomicNum()
@@ -346,7 +342,7 @@ def assemble_pillaredPaddleWheel_pcuMOF(nodePath,
     # pandas2xyzfile(node_df, os.path.join(newMOFpath, "node.xyz"))
     final_df = pd.concat(ldf + [node_df[(node_df["el"] != dummyElementCOO) & (node_df["el"] != dummyElementPillar)].copy(deep=True)], axis=0)
     final_df = final_df[final_df["el"] != dummyElementCOO].reset_index(drop=True)[["el", "x", "y", "z"]]
-    xyzstr = pandas2xyzfile(final_df, os.path.join(MOFRootdir, "mofCart.xyz"), useStringIO=True)
+    xyzstr = pandas2xyzfile(final_df, None, useStringIO=True)
 
     mol = mg.Molecule.from_str(xyzstr, fmt="xyz")
     # try:
@@ -358,7 +354,7 @@ def assemble_pillaredPaddleWheel_pcuMOF(nodePath,
                              mol.cart_coords,
                              coords_are_cartesian=True)
 
-    df = pd.read_csv("OChemDB_bond_threshold.csv", index_col=0)
+    df = pd.read_csv(_bond_length_path, index_col=0)
     element2bondLengthMap = dict(zip(df["element"], df["min"] - (df["stddev"] * 0.01)))
     unique_bond_el = list(set(list(itertools.chain(*[["-".join(sorted([x.symbol, y.symbol])) for x in MOFstruct.species] for y in MOFstruct.species]))))
     unique_bond_el = unique_bond_el + ["Fr-Se"]
@@ -372,10 +368,9 @@ def assemble_pillaredPaddleWheel_pcuMOF(nodePath,
     distMat[distMat == 0] = np.inf
     bondLengthThresMat = np.array([[element2bondLengthMap["-".join(sorted([x.symbol, y.symbol]))] for x in MOFstruct.species] for y in MOFstruct.species])
     if np.all(distMat > bondLengthThresMat):
-        MOFstruct.to(filename=newMOFpath + ".cif", fmt="cif")
-        return newMOFpath + ".cif"
+        return MOFstruct.to(fmt="cif")
     else:
-        return ""
+        raise ValueError('Failed to create structure')
 
 
 def assemble_mof(nodes: Sequence[NodeDescription], ligands: Sequence[LigandDescription], topology: str) -> MOFRecord:
