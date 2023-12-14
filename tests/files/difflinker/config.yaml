@@ -14,7 +14,7 @@ lr: 2.0e-4
 batch_size: 64
 n_layers: 6
 n_epochs: 3
-test_epochs: 1
+test_epochs: 100
 n_stability_samples: 10
 nf: 128
 activation: silu

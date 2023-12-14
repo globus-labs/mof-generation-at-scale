@@ -12,18 +12,20 @@ from mofa.model import MOFRecord
 
 
 def train_generator(
-        starting_model: str | Path,
+        starting_model: str | Path | None,
+        run_directory: Path,
         config_path: str | Path,
-        examples: Path | list[MOFRecord] = "../argonne_gnn_gitlab/DiffLinker/data/geom/datasets",
+        examples: Path,
         num_epochs: int = 10,
-        device: str = 'cpu'
+        device: str = 'cpu',
 ) -> Path:
     """Retrain a generative model for MOFs
 
     Args:
         starting_model: Path to the starting weights of the model
+        run_directory: Directory in which to run training
         config_path: Path to the model configuration file
-        examples: Seed examples of linkers (data model TBD)
+        examples: Path to examples used to train the generator. Should be a directory which contains SDF,
         num_epochs: Number of training epochs
         device: Device to use for training
     Returns:
@@ -45,11 +47,15 @@ def train_generator(
             arg_dict[key] = value
     args.config = args.config.name
 
+    # Write the training data to a temporary directory, formatted as needed by difflinker
+    args.data = examples
+    args.val_data_prefix = 'hMOF_frag'
+    args.train_data_prefix = 'hMOF_frag'
+
     # Overwrite the options provided by the Python function
     args.n_epochs = num_epochs
     args.device = device
-    args.data = str(examples)
-    main(args=args)
+    return main(args=args, run_directory=run_directory)
 
 
 def run_generator(
