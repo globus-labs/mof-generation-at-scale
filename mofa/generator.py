@@ -8,8 +8,6 @@ from ase.io import read
 import yaml
 import ase
 
-from mofa.model import MOFRecord
-
 
 def train_generator(
         starting_model: str | Path | None,

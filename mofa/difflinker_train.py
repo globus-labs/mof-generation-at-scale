@@ -3,13 +3,12 @@ import os
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
-import torch
 from pytorch_lightning import Trainer, callbacks
 from pytorch_lightning.callbacks import TQDMProgressBar
 
 from mofa.utils.src.const import NUMBER_OF_ATOM_TYPES, GEOM_NUMBER_OF_ATOM_TYPES
 from mofa.utils.src.lightning import DDPM
-from mofa.utils.src.utils import disable_rdkit_logging, Logger
+from mofa.utils.src.utils import disable_rdkit_logging
 
 
 def get_args(args: list[str]) -> argparse.Namespace:
