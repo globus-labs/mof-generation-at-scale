@@ -1,12 +1,8 @@
-import pickle
-import os
-import io
 import itertools
 from rdkit import Chem
 from rdkit.Chem.rdchem import RWMol, Mol
 from rdkit.Chem.rdmolops import GetMolFrags, GetShortestPath, RemoveHs, AddHs, SanitizeMol
 from rdkit.Chem.AllChem import EmbedMolecule, UFFOptimizeMolecule
-from rdkit.Chem.rdmolfiles import MolToXYZFile
 
 NUM2MAXNEIGH = {
     "X": 0,
@@ -27,21 +23,9 @@ def mol_with_atom_index(mol):
     return mol
 
 
-def save2pickle(picklepath, obj):
-    with io.open(picklepath, 'wb') as handle:
-        pickle.dump(obj, handle)
-
-
-def readFromPickle(picklepath):
-    return_obj = None
-    with io.open(picklepath, 'rb') as handle:
-        return_obj = pickle.load(handle)
-    return return_obj
-
-
 def ring2bonds(ring):
     return set([tuple(sorted((ring[i], ring[(i + 1) % len(ring)])))
-               for i in range(0, len(ring))])
+                for i in range(0, len(ring))])
 
 
 def bulkRemoveAtoms(emol, atoms2rm):
@@ -75,8 +59,8 @@ def rdkitGetLargestCC(emol):
             sorted(
                 GetMolFrags(emol),
                 key=lambda x: len(x),
-                reverse=True)[
-                1:]))
+                reverse=True)[1:])
+    )
     emol = bulkRemoveAtoms(emol, atoms2rm)
     return emol
 
@@ -126,8 +110,8 @@ def makeRigid(emol):
             b1 = b.GetEndAtom()
             b2 = b.GetBeginAtom()
             if not isinstance(
-                emol.GetBondBetweenAtoms(
-                    _b[0], _b[1]), type(None)):
+                    emol.GetBondBetweenAtoms(
+                        _b[0], _b[1]), type(None)):
                 if b1.GetSymbol() == "C":
                     b1maxneigh = 4
                 else:
@@ -370,80 +354,40 @@ def convert2CyanoLinker(emol, dummyElement="Fr"):
     return emol
 
 
-def cleanUpLinker(RDKitMOL: Mol, linkerName: str = "ligand", saveDir: str = None):
+def clean_linker(RDKitMOL: Mol) -> dict[str, str]:
     """attach anchors to a molecule such that it becomes a ligand
 
     Args:
         RDKitMOL: a rdkit.Chem.rdchem.Mol instance of the input molecule
-        linkerName: a string that stores the name or label of this ligand
-        saveDir: a directory that stores the output files of different variants of this ligand
 
     Returns:
-        a rdkit.Chem.rdchem.Mol object is success, None if failed
+        A dictionary mapping the type of linker to a version of molecule ready for use in that type
     """
 
-    os.makedirs(saveDir, exist_ok=True)
-    saveLinkerDir = "diffLinker-" + linkerName
-    os.makedirs(os.path.join(saveDir, saveLinkerDir), exist_ok=True)
+    # Prepare the molecule
+    emol = Chem.rdchem.EditableMol(RDKitMOL)
+    emol = rdkitGetLargestCC(emol)
+    emol = realSanitizeMol(emol)
+    emol = makeRigid(emol)
+    emol = Chem.MolFromSmiles(Chem.MolToSmiles(emol))
+    emol = AddHs(Chem.Mol(emol), addCoords=True)
 
-    try:
-        emol = Chem.rdchem.EditableMol(RDKitMOL)
-        emol = rdkitGetLargestCC(emol)
-        emol = realSanitizeMol(emol)
-        emol = makeRigid(emol)
-        emol = Chem.MolFromSmiles(Chem.MolToSmiles(emol))
-        emol = AddHs(Chem.Mol(emol), addCoords=True)
-        EmbedMolecule(emol)
-        UFFOptimizeMolecule(emol)
-        emol.GetConformer()
-        # display(mol_with_atom_index(emol))
-        # Draw.MolToFile(emol, os.path.join(saveDir, saveLinkerDir, "mol_seg-" + linkerName + ".svg"))
-        # Draw.MolToFile(emol, os.path.join(saveDir, saveLinkerDir, "mol_seg-" + linkerName + ".png"))
-        MolToXYZFile(
-            emol,
-            os.path.join(
-                saveDir,
-                saveLinkerDir,
-                "mol_seg-" +
-                linkerName +
-                ".xyz"))
+    # Determine an geometry
+    EmbedMolecule(emol)
+    UFFOptimizeMolecule(emol)
+    emol.GetConformer()
 
-        emolCOO = convert2COOLinker(emol)
-        # Draw.MolToFile(emolCOO, os.path.join(saveDir, saveLinkerDir, "linker-COO-" + linkerName + ".svg"))
-        # Draw.MolToFile(emolCOO, os.path.join(saveDir, saveLinkerDir, "linker-COO-" + linkerName + ".png"))
-        MolToXYZFile(
-            emolCOO,
-            os.path.join(
-                saveDir,
-                saveLinkerDir,
-                "linker-COO-" +
-                linkerName +
-                ".xyz"))
+    # Prepare the molecule for use in several applications
+    output = {}
+    for linker_type, func in [
+        ('COO', convert2COOLinker),
+        ('pyridine', convert2PyridineLinker),
+        ('cyano', convert2CyanoLinker)
+    ]:
+        try:
+            new_emol = func(emol)
+        except (ValueError, RuntimeError):
+            continue
+        output[linker_type] = Chem.MolToXYZBlock(new_emol)
 
-        emolPyridine = convert2PyridineLinker(emol)
-        # Draw.MolToFile(emolPyridine, os.path.join(saveDir, saveLinkerDir, "linker-Pyridine-" + linkerName + ".svg"))
-        # Draw.MolToFile(emolPyridine, os.path.join(saveDir, saveLinkerDir, "linker-Pyridine-" + linkerName + ".png"))
-        MolToXYZFile(
-            emolPyridine,
-            os.path.join(
-                saveDir,
-                saveLinkerDir,
-                "linker-Pyridine-" +
-                linkerName +
-                ".xyz"))
-
-        emolCyano = convert2CyanoLinker(emol)
-        # Draw.MolToFile(emolCyano, os.path.join(saveDir, saveLinkerDir, "linker-Cyano-" + linkerName + ".svg"))
-        # Draw.MolToFile(emolCyano, os.path.join(saveDir, saveLinkerDir, "linker-Cyano-" + linkerName + ".png"))
-        MolToXYZFile(
-            emolCyano,
-            os.path.join(
-                saveDir,
-                saveLinkerDir,
-                "linker-Cyano-" +
-                linkerName +
-                ".xyz"))
-
-        return emol
-    except BaseException:
-        return None
+    return output
