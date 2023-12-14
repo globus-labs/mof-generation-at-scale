@@ -3,7 +3,7 @@ import os
 import io
 import itertools
 from rdkit import Chem
-from rdkit.Chem.rdchem import RWMol
+from rdkit.Chem.rdchem import RWMol, Mol
 from rdkit.Chem.rdmolops import GetMolFrags, GetShortestPath, RemoveHs, AddHs, SanitizeMol
 from rdkit.Chem.AllChem import EmbedMolecule, UFFOptimizeMolecule
 from rdkit.Chem.rdmolfiles import MolToXYZFile
@@ -370,9 +370,18 @@ def convert2CyanoLinker(emol, dummyElement="Fr"):
     return emol
 
 
-def cleanUpLinker(RDKitMOL):
-    linkerName = "####"
-    saveDir = "inferred_linkers"
+def cleanUpLinker(RDKitMOL: Mol, linkerName: str = "ligand", saveDir: str = None):
+    """attach anchors to a molecule such that it becomes a ligand
+
+    Args:
+        RDKitMOL: a rdkit.Chem.rdchem.Mol instance of the input molecule
+        linkerName: a string that stores the name or label of this ligand
+        saveDir: a directory that stores the output files of different variants of this ligand
+
+    Returns:
+        a rdkit.Chem.rdchem.Mol object is success, None if failed
+    """
+
     os.makedirs(saveDir, exist_ok=True)
     saveLinkerDir = "diffLinker-" + linkerName
     os.makedirs(os.path.join(saveDir, saveLinkerDir), exist_ok=True)
