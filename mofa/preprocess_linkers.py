@@ -52,7 +52,7 @@ def bulkRemoveBonds(emol, bonds2rm, fragAllowed=False):
 
 
 def rdkitGetLargestCC(emol):
-    GetMolFrags(emol)
+    emol = emol.GetMol()
     atoms2rm = list(
         itertools.chain(
             *
@@ -61,6 +61,7 @@ def rdkitGetLargestCC(emol):
                 key=lambda x: len(x),
                 reverse=True)[1:])
     )
+    emol = RWMol(emol)
     emol = bulkRemoveAtoms(emol, atoms2rm)
     return emol
 
