@@ -35,18 +35,19 @@ def test_load_model(load_denoising_model, load_size_gnn_model):
     assert load_size_gnn_model.__class__.__name__ == 'SizeClassifier'
 
 
-@mark.slow
-def test_training(file_dir):
-    train_generator(
+def test_training(file_dir, tmpdir):
+    new_model = train_generator(
         starting_model=None,
+        run_directory=Path(tmpdir),
         config_path=file_dir / 'config.yaml',
-        examples=file_dir / 'hMOF_frag_table.csv',
+        examples=file_dir / 'datasets/fragments_all/CuCu',
         num_epochs=1
     )
+    assert new_model.is_file()
 
 
 @mark.parametrize('n_atoms', [3])
-@mark.parametrize('node', ['CuCu'])
+@mark.parametrize('node', ['CuCu', 'ZnZn'])
 @mark.parametrize('n_samples', [1, 3])
 def test_sampling_num_atoms(n_atoms, node, n_samples, file_dir, tmp_path):
     samples = run_generator(
