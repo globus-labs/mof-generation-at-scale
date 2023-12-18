@@ -9,6 +9,7 @@ from rdkit.Chem import AllChem
 import glob
 from typing import *
 from mofa.utils.prepare_data_from_sdf import prepare_sdf
+from mofa.difflinker_process_fragmentation import process_fragments
 
 ROOT_DIR = pathlib.Path(__file__).parent #mofa dir
 
