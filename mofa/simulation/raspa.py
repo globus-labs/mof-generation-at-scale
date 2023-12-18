@@ -1380,8 +1380,8 @@ flexible
 
         cell_rep = cell_replicate
         input_str = """SimulationType                MonteCarlo
-NumberOfCycles                100000
-NumberOfInitializationCycles  10000
+NumberOfCycles                1000
+NumberOfInitializationCycles  100
 PrintEvery                    """ + "%d" % report_frequency + """
 PrintPropertiesEvery          """ + "%d" % report_frequency + """
 RestartFile                   no
