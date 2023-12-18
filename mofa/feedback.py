@@ -50,4 +50,5 @@ def collect_hp_linkers(input_path: Union[str, pathlib.Path] = os.path.join(ROOT_
 if __name__ == "__main__":
    collect_hp_linkers() 
    out_path = os.path.join(ROOT_DIR, "feedback_output")
+   out_path = Path(out_path)
    process_fragments(out_path, ("TEMPNODE", ))
