@@ -6,9 +6,9 @@ import pandas as pd
 import rdkit.Chem.AllChem as Chem
 from rdkit.Chem import AllChem
 
-def collect_hp_linkers(database: Union[str, pathlib.Path]):
+def collect_hp_linkers(input_path: Union[str, pathlib.Path], out_path: Union[str, pathlib.Path]):
     # output to sdf
-    conformer_sdf_path = output_dir / f'conformers/conformers_{node_name}.sdf'
+    conformer_sdf_path = os.path.join/conformers_{node_name}.sdf'
     if not os.path.isfile(conformer_sdf_path):
         writer = Chem.SDWriter(str(conformer_sdf_path))
         for smile in all_smiles_unique:  # change to tqdm(all_smiles_unique) to reproduce paper result
