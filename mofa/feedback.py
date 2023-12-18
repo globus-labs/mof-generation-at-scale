@@ -48,7 +48,11 @@ def collect_hp_linkers(input_path: Union[str, pathlib.Path] = os.path.join(ROOT_
         prepare_sdf(sdf_path=str(conformer_sdf_path), output_path=str(smiles_file), verbose=False)
 
 if __name__ == "__main__":
-   collect_hp_linkers() 
+   input_path = os.path.join(ROOT_DIR, "test_PDB")
+   input_path = Path(input_path)
    out_path = os.path.join(ROOT_DIR, "feedback_output")
    out_path = Path(out_path)
-   process_fragments(out_path, ("TEMPNODE", ))
+   node_name = "TEMPNODE"
+  
+   collect_hp_linkers(input_path=input_path, out_path=out_path, node_name=node_name) 
+   process_fragments(out_path, (node_name, ))
