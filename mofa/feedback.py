@@ -8,6 +8,7 @@ import rdkit.Chem.AllChem as Chem
 from rdkit.Chem import AllChem
 import glob
 from typing import *
+from mofa.utils.prepare_data_from_sdf import prepare_sdf
 
 ROOT_DIR = pathlib.Path(__file__).parent #mofa dir
 
