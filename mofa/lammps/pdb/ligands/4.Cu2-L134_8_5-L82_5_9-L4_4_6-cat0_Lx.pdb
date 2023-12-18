@@ -1,0 +1,74 @@
+COMPND    H16 C16 N6
+COMPND    1 Created by xyan11@uic.edu
+HETATM    1 H                   49.654  52.587   0.741  1.00  0.00           H  
+HETATM    2 H                   51.179  52.906   1.580  1.00  0.00           H  
+HETATM    3 H                   55.613  47.963   7.734  1.00  0.00           H  
+HETATM    4 H                   55.624  49.713   7.454  1.00  0.00           H  
+HETATM    5 H                   57.148  48.839   7.622  1.00  0.00           H  
+HETATM    6 H                   55.158  48.302   5.332  1.00  0.00           H  
+HETATM    7 H                   56.718  47.579   5.532  1.00  0.00           H  
+HETATM    8 H                   56.455  52.608   3.312  1.00  0.00           H  
+HETATM    9 H                   58.893  52.290   3.116  1.00  0.00           H  
+HETATM   10 H                   58.779  48.735   5.162  1.00  0.00           H  
+HETATM   11 H                   50.224  50.754   6.353  1.00  0.00           H  
+HETATM   12 H                   47.790  50.418   6.152  1.00  0.00           H  
+HETATM   13 H                   47.920  50.590   2.055  1.00  0.00           H  
+HETATM   14 H                   50.007  50.143   0.930  1.00  0.00           H  
+HETATM   15 H                   51.554  50.351   1.667  1.00  0.00           H  
+HETATM   16 C                   56.133  48.774   7.215  1.00  0.00           C  
+HETATM   17 C                   56.163  48.508   5.716  1.00  0.00           C  
+HETATM   18 C                   56.817  49.640   4.959  1.00  0.00           C  
+HETATM   19 C                   56.136  50.758   4.424  1.00  0.00           C  
+HETATM   20 C                   56.912  51.725   3.752  1.00  0.00           C  
+HETATM   21 C                   58.281  51.557   3.635  1.00  0.00           C  
+HETATM   22 C                   58.203  49.576   4.779  1.00  0.00           C  
+HETATM   23 C                   54.678  50.943   4.474  1.00  0.00           C  
+HETATM   24 C                   52.010  51.013   4.344  1.00  0.00           C  
+HETATM   25 C                   50.553  50.875   4.200  1.00  0.00           C  
+HETATM   26 C                   49.771  50.737   5.367  1.00  0.00           C  
+HETATM   27 C                   48.403  50.554   5.268  1.00  0.00           C  
+HETATM   28 C                   48.492  50.648   2.978  1.00  0.00           C  
+HETATM   29 C                   49.882  50.806   2.956  1.00  0.00           C  
+HETATM   30 C                   50.562  50.809   1.603  1.00  0.00           C  
+HETATM   31 C                   50.650  52.181   0.952  1.00  0.00           C  
+HETATM   32 N                   58.942  50.501   4.133  1.00  0.00           N  
+HETATM   33 N                   53.960  50.411   5.481  1.00  0.00           N  
+HETATM   34 N                   52.600  50.437   5.411  1.00  0.00           N  
+HETATM   35 N                   47.747  50.520   4.096  1.00  0.00           N  
+HETATM   36 N                   52.725  51.632   3.389  1.00  0.00           N  
+HETATM   37 N                   54.086  51.588   3.448  1.00  0.00           N  
+HETATM   38 H                   51.187  52.107   0.000  1.00  0.00           H  
+CONECT    1   31
+CONECT    2   31
+CONECT    3   16
+CONECT    4   16
+CONECT    5   16
+CONECT    6   17
+CONECT    7   17
+CONECT    8   20
+CONECT    9   21
+CONECT   10   22
+CONECT   11   26
+CONECT   12   27
+CONECT   13   28
+CONECT   14   30
+CONECT   15   30
+CONECT   16   17
+CONECT   17   18
+CONECT   18   19   22
+CONECT   19   20   23
+CONECT   20   21
+CONECT   21   32
+CONECT   22   32
+CONECT   23   33   37
+CONECT   24   25   34   36
+CONECT   25   26   29
+CONECT   26   27
+CONECT   27   35
+CONECT   28   29   35
+CONECT   29   30
+CONECT   30   31
+CONECT   31   38
+CONECT   33   34
+CONECT   36   37
+END

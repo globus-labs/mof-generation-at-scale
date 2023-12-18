@@ -1,0 +1,37 @@
+COMPND    C8 O8 Cu2 N2
+COMPND    1 Created by xyan11@uic.edu
+HETATM    1 Cu                  17.326  18.450   2.439  1.00  0.00          Cu  
+HETATM    2 C                   14.757  17.437   1.912  1.00  0.00           C  
+HETATM    3 C                   14.756  19.466   2.967  1.00  0.00           C  
+HETATM    4 N                   15.476  18.451   2.440  1.00  0.00           N  
+HETATM    5 O                   17.530  20.390   2.410  1.00  0.00           O  
+HETATM    6 O                   17.530  18.487   4.379  1.00  0.00           O  
+HETATM    7 O                   17.527  18.413   0.499  1.00  0.00           O  
+HETATM    8 O                   17.528  16.510   2.468  1.00  0.00           O  
+HETATM    9 Cu                  19.956  18.449   2.437  1.00  0.00          Cu  
+HETATM   10 C                   22.515  17.432   1.897  1.00  0.00           C  
+HETATM   11 C                   22.527  19.461   2.958  1.00  0.00           C  
+HETATM   12 C                   18.643  18.533   4.876  1.00  0.00           C  
+HETATM   13 C                   18.639  18.367   0.000  1.00  0.00           C  
+HETATM   14 C                   18.640  16.010   2.438  1.00  0.00           C  
+HETATM   15 N                   21.806  18.448   2.436  1.00  0.00           N  
+HETATM   16 O                   19.752  18.412   0.497  1.00  0.00           O  
+HETATM   17 O                   19.754  18.487   4.377  1.00  0.00           O  
+HETATM   18 O                   19.754  20.389   2.408  1.00  0.00           O  
+HETATM   19 O                   19.752  16.509   2.466  1.00  0.00           O  
+HETATM   20 C                   18.642  20.889   2.438  1.00  0.00           C  
+CONECT    1    4    5    6    7    8    9
+CONECT    2    4
+CONECT    3    4
+CONECT    5   20
+CONECT    6   12
+CONECT    7   13
+CONECT    8   14
+CONECT    9   15   16   17   18   19
+CONECT   10   15
+CONECT   11   15
+CONECT   12   17
+CONECT   13   16
+CONECT   14   19
+CONECT   18   20
+END
