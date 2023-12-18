@@ -1,4 +1,5 @@
 from typing import Sequence
+import pathlib
 from pathlib import Path
 import itertools
 import os
