@@ -10,8 +10,9 @@ import glob
 from typing import *
 from mofa.utils.prepare_data_from_sdf import prepare_sdf
 from mofa.difflinker_process_fragmentation import process_fragments
+import argparse
 
-def get_args(args: list[str]) -> argparse.Namespace:
+def get_args() -> argparse.Namespace:
     """Assemble arguments form model training
 
     Args:
@@ -20,8 +21,8 @@ def get_args(args: list[str]) -> argparse.Namespace:
         A Namespace object containing a mix of the default arguments and those provided by the user
     """
     p = argparse.ArgumentParser(description='E3Diffusion')
-    p.add_argument('input_dir', default="lammps/pdb/ligands")
-
+    p.add_argument('--input_dir', "-id", type=str, default="lammps/pdb/ligands")
+    p.add_argument('--output_dir', "-od", type=str, default="feedback_output")
     return p.parse_args(args)
 
 ROOT_DIR = pathlib.Path(__file__).parent #mofa dir
@@ -61,6 +62,8 @@ def collect_hp_linkers(input_path: Union[str, pathlib.Path] = os.path.join(ROOT_
         prepare_sdf(sdf_path=str(conformer_sdf_path), output_path=str(smiles_file), verbose=False)
 
 if __name__ == "__main__":
+   args = 
+    
    input_path = os.path.join(ROOT_DIR, "test_PDB")
    input_path = Path(input_path)
    out_path = os.path.join(ROOT_DIR, "feedback_output")
