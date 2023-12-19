@@ -5,5 +5,8 @@ import torch
 
 from mofa.feedback import collect_hp_linkers
 
-def test_feedback():
+@fixture
+
+
+def test_feedback(input_path, output_path, node_name):
     collect_hp_linkers()
