@@ -11,6 +11,19 @@ from typing import *
 from mofa.utils.prepare_data_from_sdf import prepare_sdf
 from mofa.difflinker_process_fragmentation import process_fragments
 
+def get_args(args: list[str]) -> argparse.Namespace:
+    """Assemble arguments form model training
+
+    Args:
+        args: Arguments to use to configure
+    Returns:
+        A Namespace object containing a mix of the default arguments and those provided by the user
+    """
+    p = argparse.ArgumentParser(description='E3Diffusion')
+    p.add_argument('input_dir', default="lammps/pdb/ligands")
+
+    return p.parse_args(args)
+
 ROOT_DIR = pathlib.Path(__file__).parent #mofa dir
 
 def collect_hp_linkers(input_path: Union[str, pathlib.Path] = os.path.join(ROOT_DIR, "lammps/pdb/ligands"), 
