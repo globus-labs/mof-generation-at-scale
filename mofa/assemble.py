@@ -196,13 +196,13 @@ def assemble_COO_pcuMOF(nodePath, linkerPaths, newMOFpath, dummyElement="At"):
         rotmat = rotmat2align(-linkerAnchorVec, anchorPairVec)
         linker_df.loc[:, ["x", "y", "z"]] = rotmat.dot(linker_df.loc[:, ["x", "y", "z"]].values.T).T
 
-        displacementVec = node_df.loc[noderAnchorPair[0], ["x", "y", "z"]].astype(float).values - \
-                          linker_df.loc[linkerCarbon1Idx, ["x", "y", "z"]].astype(float).values
+        displacementVec = (node_df.loc[noderAnchorPair[0], ["x", "y", "z"]].astype(float).values -
+                           linker_df.loc[linkerCarbon1Idx, ["x", "y", "z"]].astype(float).values)
         linker_df.loc[:, ["x", "y", "z"]] = linker_df.loc[:, ["x", "y", "z"]].values + displacementVec
 
         ldf.append(linker_df[linker_df["el"] != dummyElement].copy(deep=True))
-        farAnchorNLPairDispVec = node_df.loc[noderAnchorPair[1], ["x", "y", "z"]].astype(float).values - \
-                                 linker_df.loc[linkerCarbon2Idx, ["x", "y", "z"]].astype(float).values
+        farAnchorNLPairDispVec = (node_df.loc[noderAnchorPair[1], ["x", "y", "z"]].astype(float).values -
+                                  linker_df.loc[linkerCarbon2Idx, ["x", "y", "z"]].astype(float).values)
         latVec.append(farAnchorNLPairDispVec)
         # pandas2xyzfile(linker_df, os.path.join(newMOFdir, "linker-"+str(_i_)+".xyz"))
 
@@ -298,13 +298,13 @@ def assemble_pillaredPaddleWheel_pcuMOF(nodePath,
     rotmat = rotmat2align(-linkerAnchorVec, anchorPairVec)
     linker_df.loc[:, ["x", "y", "z"]] = rotmat.dot(linker_df.loc[:, ["x", "y", "z"]].values.T).T
 
-    displacementVec = node_df.loc[noderAnchorPair[0], ["x", "y", "z"]].astype(float).values - \
-                      linker_df.loc[linkerNitrogen1Idx, ["x", "y", "z"]].astype(float).values
+    displacementVec = (node_df.loc[noderAnchorPair[0], ["x", "y", "z"]].astype(float).values -
+                       linker_df.loc[linkerNitrogen1Idx, ["x", "y", "z"]].astype(float).values)
     linker_df.loc[:, ["x", "y", "z"]] = linker_df.loc[:, ["x", "y", "z"]].values + displacementVec
 
     ldf.append(linker_df[linker_df["el"] != dummyElementPillar].copy(deep=True))
-    farAnchorNLPairDispVec = node_df.loc[noderAnchorPair[1], ["x", "y", "z"]].astype(float).values - \
-                             linker_df.loc[linkerNitrogen2Idx, ["x", "y", "z"]].astype(float).values
+    farAnchorNLPairDispVec = (node_df.loc[noderAnchorPair[1], ["x", "y", "z"]].astype(float).values -
+                              linker_df.loc[linkerNitrogen2Idx, ["x", "y", "z"]].astype(float).values)
     latVec.append(farAnchorNLPairDispVec)
 
     for _i_ in range(len(nodeAnchorsCOO)):
@@ -333,13 +333,13 @@ def assemble_pillaredPaddleWheel_pcuMOF(nodePath,
         rotmat = rotmat2align(-linkerAnchorVec, anchorPairVec)
         linker_df.loc[:, ["x", "y", "z"]] = rotmat.dot(linker_df.loc[:, ["x", "y", "z"]].values.T).T
 
-        displacementVec = node_df.loc[noderAnchorPair[0], ["x", "y", "z"]].astype(float).values - \
-                          linker_df.loc[linkerCarbon1Idx, ["x", "y", "z"]].astype(float).values
+        displacementVec = (node_df.loc[noderAnchorPair[0], ["x", "y", "z"]].astype(float).values -
+                           linker_df.loc[linkerCarbon1Idx, ["x", "y", "z"]].astype(float).values)
         linker_df.loc[:, ["x", "y", "z"]] = linker_df.loc[:, ["x", "y", "z"]].values + displacementVec
 
         ldf.append(linker_df[linker_df["el"] != dummyElementCOO].copy(deep=True))
-        farAnchorNLPairDispVec = node_df.loc[noderAnchorPair[1], ["x", "y", "z"]].astype(float).values - \
-                                 linker_df.loc[linkerCarbon2Idx, ["x", "y", "z"]].astype(float).values
+        farAnchorNLPairDispVec = (node_df.loc[noderAnchorPair[1], ["x", "y", "z"]].astype(float).values -
+                                  linker_df.loc[linkerCarbon2Idx, ["x", "y", "z"]].astype(float).values)
         latVec.append(farAnchorNLPairDispVec)
 
     # pandas2xyzfile(node_df, os.path.join(newMOFpath, "node.xyz"))
@@ -411,8 +411,8 @@ def assemble_mof(nodes: Sequence[NodeDescription], ligands: Sequence[LigandDescr
                 LigandDescription(smiles=lig.smiles, xyz=xyz, role='coo')
                 for lig, xyz in zip(ligands, coo_xyzs)
             ) + (
-                LigandDescription(smiles=ligands[2].smiles, xyz=pillar_xyz, role='pillar'),
-            )
+                              LigandDescription(smiles=ligands[2].smiles, xyz=pillar_xyz, role='pillar'),
+                          )
 
             # Write the XYZ files to disk
             # TODO (wardlt): Refactor the above methods to keep everything in memory
