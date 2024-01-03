@@ -1,9 +1,9 @@
 from pathlib import Path
+from io import StringIO
 
 from rdkit import Chem
 from pytest import mark
 from ase.io import read
-from six import StringIO
 
 from mofa.assemble import assemble_pillaredPaddleWheel_pcuMOF
 from mofa.preprocess_linkers import clean_linker
@@ -16,6 +16,8 @@ def test_prepare_linker(smiles):
     mol = Chem.MolFromSmiles(smiles)
     linkers = clean_linker(mol)
     assert len(linkers) == 3
+    for xyz in linkers.values():
+        read(StringIO(xyz), format='xyz')  # Make sure it parses as an XYZ
 
 
 def test_paddlewheel_pcu():
