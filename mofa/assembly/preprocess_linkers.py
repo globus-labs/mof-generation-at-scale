@@ -1,3 +1,5 @@
+"""Convert molecules produced by the generator into forms usable by assembly code"""
+
 import itertools
 from rdkit import Chem
 from rdkit.Chem.rdchem import RWMol, Mol
@@ -371,6 +373,8 @@ def clean_linker(RDKitMOL: Mol) -> dict[str, str]:
     emol = realSanitizeMol(emol)
     emol = makeRigid(emol)
     emol = Chem.MolFromSmiles(Chem.MolToSmiles(emol))
+    if emol is None:
+        raise ValueError('Failed to clean linker')
     emol = AddHs(Chem.Mol(emol), addCoords=True)
 
     # Determine an geometry

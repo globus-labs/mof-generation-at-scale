@@ -11,8 +11,8 @@ import numpy as np
 import pymatgen.core as mg
 from rdkit import Chem
 
-from .model import NodeDescription, LigandDescription, MOFRecord
-from .preprocess_linkers import clean_linker
+from mofa.model import NodeDescription, LigandDescription, MOFRecord
+from mofa.assembly.preprocess_linkers import clean_linker
 
 _bond_length_path = Path(__file__).parent / "OChemDB_bond_threshold.csv"
 

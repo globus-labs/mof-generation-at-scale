@@ -14,3 +14,11 @@ Install the environment file appropriate for your system with a command similar 
 ```bash
 conda env create --file envs/environment-cpu.yml --force
 ```
+
+## Running MOFA
+
+The `run_serial_workflow.py` script defines a workflow using MOFA. 
+
+Set up the required input files by running `0_assemble-inputs.ipynb` in `input_files/zn-paddle-pillar`.
+
+Then invoke the workflow by running `example-run.sh`

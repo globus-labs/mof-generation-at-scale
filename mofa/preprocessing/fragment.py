@@ -1,8 +1,8 @@
 """Functions pertaining to fragmenting MOF linkers to generate data for generative model training and sampling"""
 from pathlib import Path
 
-from mofa.difflinker_fragmentation import fragmentation
-from mofa.difflinker_process_fragmentation import process_fragments
+from mofa.preprocessing.difflinker_fragmentation import fragmentation
+from mofa.preprocessing.difflinker_process_fragmentation import process_fragments
 from typing import Sequence
 
 
