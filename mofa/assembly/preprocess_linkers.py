@@ -373,6 +373,8 @@ def clean_linker(RDKitMOL: Mol) -> dict[str, str]:
     emol = realSanitizeMol(emol)
     emol = makeRigid(emol)
     emol = Chem.MolFromSmiles(Chem.MolToSmiles(emol))
+    if emol is None:
+        raise ValueError(f'Failed to clean linker')
     emol = AddHs(Chem.Mol(emol), addCoords=True)
 
     # Determine an geometry

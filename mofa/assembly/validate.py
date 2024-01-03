@@ -8,15 +8,17 @@ from rdkit.Chem import rdDetermineBonds
 
 
 def validate_xyz(atoms: Atoms) -> str:
-    """Generate the SMILES string from an XYZ file if it passes some quality checks
+    """Generate the SMILES string from n molecule structure if it passes some quality checks
 
     Quality checks:
         1. Molecule is only one fragment
 
     Args:
-        xyz: XYZ of a molecule produced by a generator
+        atoms: Atoms object produced by the generator
     Returns:
         SMILES string of a validated molecule
+    Raises:
+        ValueError if molecule fails validation checks
     """
 
     # Write the atoms to an XYZ
