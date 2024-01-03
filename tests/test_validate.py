@@ -1,29 +1,21 @@
 """Test functions which validate a molecule given an XYZ file"""
-from io import StringIO
-
+from ase import Atoms
 from ase.build import molecule
 from pytest import fixture, raises
 
 from mofa.assembly.validate import validate_xyz
 
 
-def _to_xyz(atoms):
-    fp = StringIO()
-    atoms.write(fp, format='xyz')
-    return fp.getvalue()
+@fixture()
+def methane() -> Atoms:
+    return molecule('CH4')
 
 
 @fixture()
-def methane() -> str:
-    atoms = molecule('CH4')
-    return _to_xyz(atoms)
-
-
-@fixture()
-def bad_methane() -> str:
+def bad_methane() -> Atoms:
     atoms = molecule('CH4')
     atoms.positions[3, 1] += 10
-    return _to_xyz(atoms)
+    return atoms
 
 
 def test_valid(methane):

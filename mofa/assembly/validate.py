@@ -1,10 +1,13 @@
 """Validate and standardize a generated molecule"""
+from io import StringIO
+
+from ase import Atoms
 
 from rdkit import Chem
 from rdkit.Chem import rdDetermineBonds
 
 
-def validate_xyz(xyz: str) -> str:
+def validate_xyz(atoms: Atoms) -> str:
     """Generate the SMILES string from an XYZ file if it passes some quality checks
 
     Quality checks:
@@ -15,6 +18,11 @@ def validate_xyz(xyz: str) -> str:
     Returns:
         SMILES string of a validated molecule
     """
+
+    # Write the atoms to an XYZ
+    fp = StringIO()
+    atoms.write(fp, format='xyz')
+    xyz = fp.getvalue()
 
     # Parse the XYZ and detect bonds
     mol = Chem.MolFromXYZBlock(xyz)
