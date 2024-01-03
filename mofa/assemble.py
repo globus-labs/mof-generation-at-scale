@@ -1,15 +1,18 @@
 """Functions for assembling a MOF structure"""
-from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Sequence
+from pathlib import Path
+import itertools
 import os
 import io
-import itertools
+
 import pandas as pd
 import numpy as np
 import pymatgen.core as mg
 from rdkit import Chem
 
 from .model import NodeDescription, LigandDescription, MOFRecord
+from .preprocess_linkers import clean_linker
 
 _bond_length_path = Path(__file__).parent / "OChemDB_bond_threshold.csv"
 
@@ -194,12 +197,12 @@ def assemble_COO_pcuMOF(nodePath, linkerPaths, newMOFpath, dummyElement="At"):
         linker_df.loc[:, ["x", "y", "z"]] = rotmat.dot(linker_df.loc[:, ["x", "y", "z"]].values.T).T
 
         displacementVec = node_df.loc[noderAnchorPair[0], ["x", "y", "z"]].astype(float).values - \
-            linker_df.loc[linkerCarbon1Idx, ["x", "y", "z"]].astype(float).values
+                          linker_df.loc[linkerCarbon1Idx, ["x", "y", "z"]].astype(float).values
         linker_df.loc[:, ["x", "y", "z"]] = linker_df.loc[:, ["x", "y", "z"]].values + displacementVec
 
         ldf.append(linker_df[linker_df["el"] != dummyElement].copy(deep=True))
         farAnchorNLPairDispVec = node_df.loc[noderAnchorPair[1], ["x", "y", "z"]].astype(float).values - \
-            linker_df.loc[linkerCarbon2Idx, ["x", "y", "z"]].astype(float).values
+                                 linker_df.loc[linkerCarbon2Idx, ["x", "y", "z"]].astype(float).values
         latVec.append(farAnchorNLPairDispVec)
         # pandas2xyzfile(linker_df, os.path.join(newMOFdir, "linker-"+str(_i_)+".xyz"))
 
@@ -246,9 +249,9 @@ def assemble_pillaredPaddleWheel_pcuMOF(nodePath,
     """assembly code for -COO and -N ligands MOF with pcu topology
 
     Args:
-        nodePath: node xyz file path,
-        COOLinkerPaths: -COO node xyz file paths,
-        PillarLinkerPath: -N node xyz file paths,
+        nodePath: node xyz file path
+        COOLinkerPaths: Paths of two -COO node xyz
+        PillarLinkerPath: Paths of a single -N node xyz
         dummyElementCOO: dummy element for -COO anchoring positions,
         dummyElementPillar: dummy element for -N anchoring positions
 
@@ -296,12 +299,12 @@ def assemble_pillaredPaddleWheel_pcuMOF(nodePath,
     linker_df.loc[:, ["x", "y", "z"]] = rotmat.dot(linker_df.loc[:, ["x", "y", "z"]].values.T).T
 
     displacementVec = node_df.loc[noderAnchorPair[0], ["x", "y", "z"]].astype(float).values - \
-        linker_df.loc[linkerNitrogen1Idx, ["x", "y", "z"]].astype(float).values
+                      linker_df.loc[linkerNitrogen1Idx, ["x", "y", "z"]].astype(float).values
     linker_df.loc[:, ["x", "y", "z"]] = linker_df.loc[:, ["x", "y", "z"]].values + displacementVec
 
     ldf.append(linker_df[linker_df["el"] != dummyElementPillar].copy(deep=True))
     farAnchorNLPairDispVec = node_df.loc[noderAnchorPair[1], ["x", "y", "z"]].astype(float).values - \
-        linker_df.loc[linkerNitrogen2Idx, ["x", "y", "z"]].astype(float).values
+                             linker_df.loc[linkerNitrogen2Idx, ["x", "y", "z"]].astype(float).values
     latVec.append(farAnchorNLPairDispVec)
 
     for _i_ in range(len(nodeAnchorsCOO)):
@@ -331,12 +334,12 @@ def assemble_pillaredPaddleWheel_pcuMOF(nodePath,
         linker_df.loc[:, ["x", "y", "z"]] = rotmat.dot(linker_df.loc[:, ["x", "y", "z"]].values.T).T
 
         displacementVec = node_df.loc[noderAnchorPair[0], ["x", "y", "z"]].astype(float).values - \
-            linker_df.loc[linkerCarbon1Idx, ["x", "y", "z"]].astype(float).values
+                          linker_df.loc[linkerCarbon1Idx, ["x", "y", "z"]].astype(float).values
         linker_df.loc[:, ["x", "y", "z"]] = linker_df.loc[:, ["x", "y", "z"]].values + displacementVec
 
         ldf.append(linker_df[linker_df["el"] != dummyElementCOO].copy(deep=True))
         farAnchorNLPairDispVec = node_df.loc[noderAnchorPair[1], ["x", "y", "z"]].astype(float).values - \
-            linker_df.loc[linkerCarbon2Idx, ["x", "y", "z"]].astype(float).values
+                                 linker_df.loc[linkerCarbon2Idx, ["x", "y", "z"]].astype(float).values
         latVec.append(farAnchorNLPairDispVec)
 
     # pandas2xyzfile(node_df, os.path.join(newMOFpath, "node.xyz"))
@@ -368,26 +371,73 @@ def assemble_pillaredPaddleWheel_pcuMOF(nodePath,
     distMat[distMat == 0] = np.inf
     bondLengthThresMat = np.array([[element2bondLengthMap["-".join(sorted([x.symbol, y.symbol]))] for x in MOFstruct.species] for y in MOFstruct.species])
     if np.all(distMat > bondLengthThresMat):
-        return MOFstruct.to(fmt="cif")
+        return MOFstruct.to(fmt="poscar")
     else:
         raise ValueError('Failed to create structure')
 
 
 def assemble_mof(nodes: Sequence[NodeDescription], ligands: Sequence[LigandDescription], topology: str) -> MOFRecord:
-    """Generate a new MOF from the description of the nodes, ligands and toplogy
+    """Generate a new MOF from the description of the nodes, ligands and topology
 
     Args:
         nodes: Descriptions of each node
-        ligands: Description of the ligands
+        ligands: Description of the ligands. The assembly code uses only the SMILES string
+            and will modify the chemical structure to have the proper end groups.
         topology: Name of the topology
 
     Returns:
-        A new MOF record
+        A new MOF record assembled from the node description and
+        ligands updated to reflect the XYZ used in the structure
     """
 
-    # Step 1: Detect which node type, use that to pick the assembly
-    if 'Zn' in nodes[0].xyz and topology == 'pcu':
-        # Step 2: Gather the XYZ files for the node and linker(s).
-        raise NotImplementedError()  # Waiting on code from Xiaoli about how to go from "generated linker->ligands"
-    else:
-        raise NotImplementedError('No assembly methods for this linker/topology pair')
+    # Step 1: Detect which node type, use that to pick the assembly method
+    with TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        if 'Zn' in nodes[0].xyz and topology == 'pcu':
+            # TODO (wardlt): Refactor to move all this to a separate function
+            # Make sure we have the correct number of linkers
+            if len(ligands) != 3:
+                raise ValueError('Expected 3 linkers for this topology')
+            if len(nodes) != 1:
+                raise ValueError('Expected 1 node for this topology')
+
+            # Transform the molecules to have the proper end groups, and generate XYZ formats
+            linkers = [clean_linker(Chem.MolFromSmiles(lig.smiles)) for lig in ligands]
+            coo_xyzs = [lin['COO'] for lin in linkers[:2]]
+            pillar_xyz = linkers[2]['cyano']
+
+            # Update the linker structures
+            new_ligands = tuple(
+                LigandDescription(smiles=lig.smiles, xyz=xyz, role='coo')
+                for lig, xyz in zip(ligands, coo_xyzs)
+            ) + (
+                LigandDescription(smiles=ligands[2].smiles, xyz=pillar_xyz, role='pillar'),
+            )
+
+            # Write the XYZ files to disk
+            # TODO (wardlt): Refactor the above methods to keep everything in memory
+            node_path = (tmpdir / 'node.xyz')
+            node_path.write_text(nodes[0].xyz)
+
+            coo_paths = [tmpdir / f'coo-{i}.xyz' for i in range(2)]
+            for path, linker in zip(coo_paths, coo_xyzs):
+                path.write_text(linker)
+
+            pillar_path = tmpdir / 'pillar.xyz'
+            pillar_path.write_text(pillar_xyz)
+
+            mof_poscar = assemble_pillaredPaddleWheel_pcuMOF(
+                node_path,
+                coo_paths,
+                pillar_path
+            )
+
+        else:
+            raise NotImplementedError('No assembly methods for linker/topology pair')
+
+    # Assemble the full system
+    return MOFRecord(
+        structure=mof_poscar,
+        nodes=tuple(nodes),
+        ligands=tuple(new_ligands)
+    )

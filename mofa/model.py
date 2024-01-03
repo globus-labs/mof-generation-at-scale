@@ -36,6 +36,8 @@ class LigandDescription:
     """SMILES-format designation of the molecule"""
     xyz: str | None = field(default=None, repr=False)
     """XYZ coordinates of each atom in the linker"""
+    role: str | None = field(default=None)
+    """Portion of the MOF to which this ligand corresponds"""
 
     fragment_atoms: list[list[int]] | None = field(default=None, repr=True)
     """Groups of atoms which attach to the nodes
@@ -72,9 +74,9 @@ class MOFRecord:
     """Description of the 3D network structure (e.g., pcu) as the topology"""
     catenation: int | None = None
     """Degree of catenation. 0 corresponds to no interpenetrating lattices"""
-    nodes: tuple[NodeDescription] = field(default_factory=tuple)
+    nodes: tuple[NodeDescription, ...] = field(default_factory=tuple)
     """Description of the nodes within the structure"""
-    ligands: tuple[LigandDescription] = field(default_factory=tuple)
+    ligands: tuple[LigandDescription, ...] = field(default_factory=tuple)
     """Description of each linker within the structure"""
 
     # Information about the 3D structure of the MOF
