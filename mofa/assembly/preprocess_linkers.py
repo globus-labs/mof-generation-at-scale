@@ -1,3 +1,5 @@
+"""Convert molecules produced by the generator into forms usable by assembly code"""
+
 import itertools
 from rdkit import Chem
 from rdkit.Chem.rdchem import RWMol, Mol

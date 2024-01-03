@@ -5,9 +5,9 @@ from rdkit import Chem
 from pytest import mark
 from ase.io import read
 
-from mofa.assemble import assemble_pillaredPaddleWheel_pcuMOF, assemble_mof
+from mofa.assembly.assemble import assemble_pillaredPaddleWheel_pcuMOF, assemble_mof
 from mofa.model import NodeDescription, LigandDescription
-from mofa.preprocess_linkers import clean_linker
+from mofa.assembly.preprocess_linkers import clean_linker
 
 _files_dir = Path(__file__).parent / 'files' / 'assemble'
 

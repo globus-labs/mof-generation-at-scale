@@ -2,7 +2,7 @@ from pathlib import Path
 
 from pytest import mark
 
-from mofa.fragment import fragment_mof_linkers
+from mofa.preprocessing.fragment import fragment_mof_linkers
 
 _data_path = Path(__file__).parent / 'files' / 'difflinker' / 'hMOF_CO2_info.csv.gz'
 

@@ -8,9 +8,6 @@ from mofa.utils.rdkit_conf_parallel import compute_confs_worker
 import mofa.utils.prepare_dataset as prep
 from mofa.utils.filter_and_merge import run as fm_run
 
-# create necessary folders
-os.makedirs('mofa/data/sdf', exist_ok=True)
-
 
 def process_fragments(fragment_dir: Path,
                       nodes: Sequence[str] = ('CuCu',)):
