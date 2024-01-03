@@ -362,8 +362,7 @@ def clean_linker(RDKitMOL: Mol) -> dict[str, str]:
         RDKitMOL: a rdkit.Chem.rdchem.Mol instance of the input molecule
 
     Returns:
-        A dictionary mapping the type of linker to a version of molecule ready for use in that type.
-        Known types: "COO", "pyridine", "cynano"
+        A dictionary mapping the type of linker to a version of molecule ready for use in that type
     """
 
     # Prepare the molecule

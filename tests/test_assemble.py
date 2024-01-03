@@ -30,8 +30,8 @@ def test_paddlewheel_pcu():
     pillar_linker = next(f for f in chosen_folders[2].glob("*.xyz") if 'COO' not in f.name)
     node = _files_dir / 'nodes/zinc_paddle_pillar.xyz'
 
-    cif = assemble_pillaredPaddleWheel_pcuMOF(node, coo_linkers, pillar_linker)
-    atoms = read(StringIO(cif), format='vasp')
+    vasp = assemble_pillaredPaddleWheel_pcuMOF(node, coo_linkers, pillar_linker)
+    atoms = read(StringIO(vasp), format='vasp')
     assert len(atoms) > 0
 
 
