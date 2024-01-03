@@ -7,6 +7,7 @@ from pathlib import Path
 from random import sample
 
 from rdkit import Chem
+from rdkit import RDLogger
 
 from mofa.assembly.assemble import assemble_mof
 from mofa.assembly.preprocess_linkers import clean_linker
@@ -15,6 +16,8 @@ from mofa.generator import run_generator
 from mofa.model import MOFRecord, NodeDescription
 from mofa.scoring.geometry import MinimumDistance
 from mofa.simulation.lammps import LAMMPSRunner
+
+RDLogger.DisableLog('rdApp.*')
 
 if __name__ == "__main__":
     # Make the argument parser
