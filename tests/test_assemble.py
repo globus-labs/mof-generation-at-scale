@@ -1,11 +1,12 @@
 from pathlib import Path
+from io import StringIO
 
 from rdkit import Chem
 from pytest import mark
 from ase.io import read
-from six import StringIO
 
-from mofa.assemble import assemble_pillaredPaddleWheel_pcuMOF
+from mofa.assemble import assemble_pillaredPaddleWheel_pcuMOF, assemble_mof
+from mofa.model import NodeDescription, LigandDescription
 from mofa.preprocess_linkers import clean_linker
 
 _files_dir = Path(__file__).parent / 'files' / 'assemble'
@@ -16,6 +17,8 @@ def test_prepare_linker(smiles):
     mol = Chem.MolFromSmiles(smiles)
     linkers = clean_linker(mol)
     assert len(linkers) == 3
+    for xyz in linkers.values():
+        read(StringIO(xyz), format='xyz')  # Make sure it parses as an XYZ
 
 
 def test_paddlewheel_pcu():
@@ -27,6 +30,27 @@ def test_paddlewheel_pcu():
     pillar_linker = next(f for f in chosen_folders[2].glob("*.xyz") if 'COO' not in f.name)
     node = _files_dir / 'nodes/zinc_paddle_pillar.xyz'
 
-    cif = assemble_pillaredPaddleWheel_pcuMOF(node, coo_linkers, pillar_linker)
-    atoms = read(StringIO(cif), format='cif')
+    vasp = assemble_pillaredPaddleWheel_pcuMOF(node, coo_linkers, pillar_linker)
+    atoms = read(StringIO(vasp), format='vasp')
     assert len(atoms) > 0
+
+
+@mark.parametrize('node_name,topology,ligand_count', [('zinc_paddle_pillar', 'pcu', 3)])
+def test_assemble(node_name, topology, ligand_count, linker_smiles='C=Cc1ccccc1C=C'):
+    """Test the full integration"""
+
+    # Format the node and linker descriptions
+    node_path = _files_dir / f'nodes/{node_name}.xyz'
+    node = NodeDescription(
+        smiles='NA',
+        xyz=node_path.read_text()
+    )
+
+    ligands = [LigandDescription(smiles=linker_smiles) for _ in range(ligand_count)]
+
+    # Run the assembly code
+    mof_record = assemble_mof([node], ligands, topology)
+    assert len(mof_record.atoms) > 0  # Make sure a full MOF is available
+    for ligand in mof_record.ligands:
+        assert ligand.xyz is not None
+    assert mof_record.name is not None
