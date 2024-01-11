@@ -2,6 +2,7 @@
 from tempfile import TemporaryDirectory
 from pathlib import Path
 
+from mofa.model import LigandDescription, LigandTemplate
 from mofa.utils.difflinker_sample_and_analyze import main_run
 from mofa.difflinker_train import get_args, main
 from ase.io import read
@@ -58,30 +59,30 @@ def train_generator(
 
 def run_generator(
         model: str | Path,
-        input_path: str | Path,
+        templates: list[LigandTemplate],
         n_atoms: int | str = 8,
         n_samples: int = 1,
         n_steps: int = None,
         device: str = 'cpu'
-) -> list[ase.Atoms]:
+) -> list[LigandDescription]:
     """Produce a set of new linkers given a model
 
     Args:
         n_atoms: Number of heavy atoms in the linker molecules to generate
-        input_path: Path to MOF linker fragments use as seeds
+        templates: Templates of ligands to be generated
         model: Path to the starting weights
         n_samples: Number of samples of molecules to generate
         n_steps: Number of denoising steps; if None, this value is 1,000 by default
         device: Device on which to run model
 
     Returns:
-        3D geometries of the generated linkers
+        New ligands
     """
 
     with TemporaryDirectory(prefix='mofagen-') as tmpdir:
         # Produce a sample directory full of XYZ files
-        main_run(
-            input_path=input_path,
+        return main_run(
+            templates=templates,
             output_dir=tmpdir,
             model=model,
             linker_size=str(n_atoms),
@@ -90,9 +91,3 @@ def run_generator(
             anchors=None,
             device=device
         )
-
-        # Load them from disk
-        return [
-            read(path)
-            for path in Path(tmpdir).glob('*xyz')
-        ]

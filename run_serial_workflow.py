@@ -18,7 +18,7 @@ from mofa.assembly.assemble import assemble_mof
 from mofa.assembly.preprocess_linkers import clean_linker
 from mofa.assembly.validate import validate_xyz
 from mofa.generator import run_generator
-from mofa.model import MOFRecord, NodeDescription, LigandDescription
+from mofa.model import MOFRecord, NodeDescription, LigandDescription, LigandTemplate
 from mofa.scoring.geometry import MinimumDistance
 from mofa.simulation.lammps import LAMMPSRunner
 
@@ -33,7 +33,7 @@ if __name__ == "__main__":
 
     group = parser.add_argument_group(title='Generator Settings', description='Options related to how the generation is performed')
     group.add_argument('--fragment-path', required=True,
-                       help='Path to an SDF file containing the fragments')
+                       help='Path to an JSON file containing a description of the ligands to be created')
     group.add_argument('--generator-path', required=True,
                        help='Path to the PyTorch files describing model architecture and weights')
     group.add_argument('--molecule-sizes', nargs='+', type=int, default=(10, 11, 12), help='Sizes of molecules we should generate')
@@ -72,23 +72,31 @@ if __name__ == "__main__":
     # Save the run parameters to disk
     (run_dir / 'params.json').write_text(json.dumps(run_params))
 
+    # Load the ligand descriptions
+    with open(args.fragment_path) as fp:
+        templates = [LigandTemplate(**asdict(json.loads(s))) for s in fp]
+    logger.info(f'Loaded {len(templates)} for MOF. {", ".join(t.role for t in templates)}')
+
     # Load a pretrained generator from disk and use it to create ligands
-    generated_ligand_atoms = []
-    for n_atoms in args.molecule_sizes:
-        logger.info(f'Generating molecules with {n_atoms} atoms on {args.torch_device}')
-        generated_ligand_atoms.extend(run_generator(
-            model=args.generator_path,
-            n_atoms=n_atoms,
-            input_path=args.fragment_path,
-            n_samples=args.num_samples,
-            device=args.torch_device
-        ))
-    logger.info(f'Generated {len(generated_ligand_atoms)} ligands')
+    examples = []
+    for template in templates:
+        generated_ligands = []
+        for n_atoms in args.molecule_sizes:
+            logger.info(f'Generating molecules with {n_atoms} atoms for {template.role} on {args.torch_device}')
+            generated_ligands.extend(run_generator(
+                templates=[template],
+                model=args.generator_path,
+                n_atoms=n_atoms,
+                n_samples=args.num_samples,
+                device=args.torch_device
+            ))
+        logger.info(f'Generated a total of {len(generated_ligands)} ligands for {template.role}')
 
     # Initial quality checks and post-processing on the generated ligands
+    raise NotImplementedError('Stopped here. Need to re-write assembly to work with ligand descriptions')
     valid_ligands = []
     all_ligands = []
-    for generated_atoms in generated_ligand_atoms:
+    for generated_atoms in generated_ligands:
         # Initialize a record for this ligand and put it in the output dictionary
         fp = StringIO()  # TODO (wardlt): Make a utility operation
         generated_atoms.write(fp, format='xyz')

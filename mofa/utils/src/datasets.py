@@ -23,6 +23,7 @@ def get_one_hot(atom, atoms_dict):
 
 
 def parse_molecule(mol, is_geom):
+    """Produce a 3D representation of a molecule given an RDKit molecule"""
     one_hot = []
     charges = []
     atom2idx = const.GEOM_ATOM2IDX if is_geom else const.ATOM2IDX

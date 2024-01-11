@@ -7,9 +7,12 @@ from io import StringIO
 import json
 from uuid import uuid4
 
+import numpy as np
 from ase.io import read
 from ase.io.vasp import read_vasp
 import ase
+
+from mofa.utils.conversions import read_from_string
 
 
 @dataclass
@@ -29,6 +32,49 @@ class NodeDescription:
 
 
 @dataclass
+class LigandTemplate:
+    """Beginning of a new ligand to be generated.
+
+    Contains only the proper end groups oriented in the sizes needed by our MOF."""
+
+    role: str
+    """Portion of the MOF to which this ligand corresponds"""
+
+    xyzs: tuple[str]
+    """XYZ coordinates of the end groups"""
+
+    dummy_element: str
+    """Dummy element used to replace end group when assembling MOF"""
+
+    def prepare_inputs(self) -> tuple[list[str], np.ndarray]:
+        """Produce the inputs needed for DiffLinker
+
+        Returns:
+            - List of chemical symbols
+            - Array of atomic positions
+        """
+        symbols = []
+        positions = []
+        for xyz in self.xyzs:
+            atoms = read_from_string(xyz, fmt='xyz')
+            symbols.extend(atoms.get_chemical_symbols())
+            positions.append(atoms.positions)
+        return symbols, np.concatenate(positions, axis=0)
+
+    def create_description(self, atom_types: np.ndarray, coordinates: np.ndarray) -> 'LigandDescription':
+        """Produce a ligand description given atomic coordinates which include the infilled atoms
+
+        Args:
+            atom_types: Types of all atoms
+            coordinates: Coordinates of all atoms
+        Returns:
+            Ligand description using the new coordinates
+        """
+
+        raise NotImplementedError()
+
+
+@dataclass
 class LigandDescription:
     """Description of organic sections which connect inorganic nodes"""
 
@@ -44,21 +90,11 @@ class LigandDescription:
 
     There are typically two groups of fragment atoms, and these are
     never altered during MOF generation."""
+    dummy_atom: str = field(default=None, repr=False)
+    """Element used to represent the end group during assembly"""
 
-    @property
-    def linker_atoms(self) -> list[int]:
-        """All atoms which are not part of a fragment"""
-        raise NotImplementedError()
-
-    def generate_template(self, spacing_distance: float | None = None) -> ase.Atoms:
-        """Generate a version of the ligand with only the fragments at the end
-
-        Args:
-            spacing_distance: Distance to enforce between the fragments. Set to ``None``
-                to keep the current distance
-        Returns:
-            The template with the desired spacing
-        """
+    def replace_with_dummy_atoms(self) -> ase.Atoms:
+        """Replace the fragments which attach to nodes with dummy atoms"""
         raise NotImplementedError()
 
 
