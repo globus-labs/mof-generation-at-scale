@@ -5,9 +5,7 @@ from pathlib import Path
 from mofa.model import LigandDescription, LigandTemplate
 from mofa.utils.difflinker_sample_and_analyze import main_run
 from mofa.difflinker_train import get_args, main
-from ase.io import read
 import yaml
-import ase
 
 
 def train_generator(

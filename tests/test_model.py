@@ -1,6 +1,7 @@
 from math import isclose
 
-from mofa.model import MOFRecord
+from mofa.model import MOFRecord, LigandTemplate
+from mofa.utils.conversions import read_from_string
 
 
 def test_create(example_cif):
@@ -19,3 +20,10 @@ def test_name(example_cif):
     mof_3 = MOFRecord()
     mof_4 = MOFRecord()
     assert mof_3.name != mof_4.name
+
+
+def test_load_ligand(file_path):
+    template = LigandTemplate.from_yaml(file_path / 'difflinker' / 'templates' / 'template_COO.yml')
+    assert template.role == 'pillar'
+    for xyz in template.xyzs:
+        read_from_string(xyz, 'xyz')

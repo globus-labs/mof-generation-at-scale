@@ -7,6 +7,7 @@ from io import StringIO
 import json
 from uuid import uuid4
 
+import yaml
 import numpy as np
 from ase.io import read
 from ase.io.vasp import read_vasp
@@ -72,6 +73,19 @@ class LigandTemplate:
         """
 
         raise NotImplementedError()
+
+    @classmethod
+    def from_yaml(cls, path: Path) -> 'LigandTemplate':
+        """Load a template description from YAML
+
+        Args:
+            path: Path to the YAML file
+        Returns:
+            The ligand description
+        """
+
+        with path.open() as fp:
+            return cls(**yaml.safe_load(fp))
 
 
 @dataclass
