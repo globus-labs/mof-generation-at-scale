@@ -1,5 +1,7 @@
 from math import isclose
 
+import numpy as np
+
 from mofa.model import MOFRecord, LigandTemplate
 from mofa.utils.conversions import read_from_string
 
@@ -22,8 +24,17 @@ def test_name(example_cif):
     assert mof_3.name != mof_4.name
 
 
-def test_load_ligand(file_path):
+def test_ligand_model(file_path):
     template = LigandTemplate.from_yaml(file_path / 'difflinker' / 'templates' / 'template_COO.yml')
     assert template.role == 'pillar'
     for xyz in template.xyzs:
         read_from_string(xyz, 'xyz')
+
+    # Test making a new ligand
+    ligand = template.create_description(
+        atom_types=['O', 'C', 'O'] * 2 + ['C', 'C'],
+        coordinates=np.arange(8 * 3).reshape(-1, 3)
+    )
+    assert ligand.role == template.role
+    assert ligand.anchor_atoms == [[0, 1, 2], [3, 4, 5]]
+    assert ligand.dummy_element == template.dummy_element

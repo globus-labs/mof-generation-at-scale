@@ -4,8 +4,8 @@ from functools import cached_property
 from hashlib import sha512
 from pathlib import Path
 from io import StringIO
-import json
 from uuid import uuid4
+import json
 
 import yaml
 import numpy as np
@@ -13,7 +13,7 @@ from ase.io import read
 from ase.io.vasp import read_vasp
 import ase
 
-from mofa.utils.conversions import read_from_string
+from mofa.utils.conversions import read_from_string, write_to_string
 
 
 @dataclass
@@ -40,12 +40,15 @@ class LigandTemplate:
 
     role: str
     """Portion of the MOF to which this ligand corresponds"""
-
     xyzs: tuple[str]
-    """XYZ coordinates of the end groups"""
-
+    """XYZ coordinates of the anchor groups"""
     dummy_element: str
     """Dummy element used to replace end group when assembling MOF"""
+
+    @cached_property
+    def anchors(self) -> list[ase.Atoms]:
+        """The anchor groups as ASE objects"""
+        return [read_from_string(xyz, 'xyz') for xyz in self.xyzs]
 
     def prepare_inputs(self) -> tuple[list[str], np.ndarray]:
         """Produce the inputs needed for DiffLinker
@@ -62,17 +65,37 @@ class LigandTemplate:
             positions.append(atoms.positions)
         return symbols, np.concatenate(positions, axis=0)
 
-    def create_description(self, atom_types: np.ndarray, coordinates: np.ndarray) -> 'LigandDescription':
+    def create_description(self, atom_types: list[str], coordinates: np.ndarray) -> 'LigandDescription':
         """Produce a ligand description given atomic coordinates which include the infilled atoms
 
         Args:
-            atom_types: Types of all atoms
+            atom_types: Types of all atoms as chemical symbols
             coordinates: Coordinates of all atoms
         Returns:
             Ligand description using the new coordinates
         """
 
-        raise NotImplementedError()
+        # The linker groups should be up from, make sure the types have not changed and change if they have
+        pos = 0
+        anchor_atoms = []
+        for anchor in self.anchors:
+            # Determine the fragment positions
+            found_types = atom_types[pos:pos + len(anchor)]
+            anchor_atoms.append(list(range(pos, pos + len(anchor))))
+            expected_types = anchor.get_chemical_symbols()
+
+            # Make sure the types match, and increment position
+            assert found_types == expected_types, f'Anchor changed. Found: {found_types} - Expected: {expected_types}'
+            pos += len(anchor)
+
+        # Build the XYZ file
+        atoms = ase.Atoms(symbols=atom_types, positions=coordinates)
+        return LigandDescription(
+            xyz=write_to_string(atoms, 'xyz'),
+            role=self.role,
+            anchor_atoms=anchor_atoms,
+            dummy_element=self.dummy_element
+        )
 
     @classmethod
     def from_yaml(cls, path: Path) -> 'LigandTemplate':
@@ -81,7 +104,7 @@ class LigandTemplate:
         Args:
             path: Path to the YAML file
         Returns:
-            The ligand description
+            The ligand template
         """
 
         with path.open() as fp:
@@ -92,24 +115,40 @@ class LigandTemplate:
 class LigandDescription:
     """Description of organic sections which connect inorganic nodes"""
 
-    smiles: str = field()
+    smiles: str | None = field(default=None)
     """SMILES-format designation of the molecule"""
     xyz: str | None = field(default=None, repr=False)
     """XYZ coordinates of each atom in the linker"""
     role: str | None = field(default=None)
     """Portion of the MOF to which this ligand corresponds"""
 
-    fragment_atoms: list[list[int]] | None = field(default=None, repr=True)
+    anchor_atoms: list[list[int]] | None = field(default=None, repr=True)
     """Groups of atoms which attach to the nodes
 
     There are typically two groups of fragment atoms, and these are
     never altered during MOF generation."""
-    dummy_atom: str = field(default=None, repr=False)
+    dummy_element: str = field(default=None, repr=False)
     """Element used to represent the end group during assembly"""
+
+    @cached_property
+    def atoms(self):
+        return read_from_string(self.xyz, "xyz")
 
     def replace_with_dummy_atoms(self) -> ase.Atoms:
         """Replace the fragments which attach to nodes with dummy atoms"""
         raise NotImplementedError()
+
+    @classmethod
+    def from_yaml(cls, path: Path) -> 'LigandDescription':
+        """Load a ligand description from YAML
+
+        Args:
+            path: Path to the YAML file
+        Returns:
+            The ligand description
+        """
+        with path.open() as fp:
+            return cls(**yaml.safe_load(fp))
 
 
 @dataclass

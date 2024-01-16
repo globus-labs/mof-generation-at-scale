@@ -79,6 +79,7 @@ def main_run(templates: list[LigandTemplate],
 
     # Get the lookup tables for atom types
     atom2idx = const.GEOM_ATOM2IDX if ddpm.is_geom else const.ATOM2IDX
+    idx2atom = const.GEOM_IDX2ATOM if ddpm.is_geom else const.IDX2ATOM
     charges_dict = const.GEOM_CHARGES if ddpm.is_geom else const.CHARGES
 
     # Reading input fragments
@@ -94,6 +95,7 @@ def main_run(templates: list[LigandTemplate],
             for anchor in anchors.split(','):
                 anchor_flags[int(anchor) - 1] = 1
 
+        # Perform the sampling
         dataset = [{
             'uuid': '0',
             'name': '0',
@@ -111,7 +113,6 @@ def main_run(templates: list[LigandTemplate],
         # Sampling
         output = []
         for batch_i, data in enumerate(dataloader):
-            # print('Sampling only the FINAL output...')
             chain, node_mask = ddpm.sample_chain(data, sample_fn=sample_fn, keep_frames=1)
             x = chain[0][:, :, :ddpm.n_dims]
             h = chain[0][:, :, ddpm.n_dims:]
@@ -123,12 +124,15 @@ def main_run(templates: list[LigandTemplate],
             mean = torch.sum(pos_masked, dim=1, keepdim=True) / N
             x = x + mean * node_mask
 
-            # Convert the atom types to from one-hot to atomic numbers/symbols
-            raise NotImplementedError('Write code to conver')
-            # atom_types = f(h)
+            # Write out each generated structure
+            batch_idx_selections = torch.argmax(h, dim=-1).detach().cpu().numpy()
+            batch_coordinates = x.detach().cpu().numpy()
+            for i in range(batch_size):
+                # Convert the atom types to from one-hot to atomic numbers/symbols
+                atom_types = [idx2atom[i] for i in batch_idx_selections[i, :]]
 
-            # Make the output
-            output.append(
-                LigandTemplate.create_description(atom_types, x)
-            )
+                # Make the output
+                output.append(
+                    template.create_description(atom_types, batch_coordinates[i, :, :])
+                )
         return output
