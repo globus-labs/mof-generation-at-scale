@@ -15,6 +15,16 @@ import ase
 
 from mofa.utils.conversions import read_from_string, write_to_string
 
+from openbabel import pybel
+from openbabel import openbabel as obb
+import numpy as np
+
+import itertools
+from rdkit import Chem
+from rdkit.Chem import AllChem
+from rdkit.Chem.rdchem import RWMol
+from rdkit.Chem.rdmolops import GetMolFrags, SanitizeMol
+
 
 @dataclass
 class NodeDescription:
@@ -111,6 +121,42 @@ class LigandTemplate:
             return cls(**yaml.safe_load(fp))
 
 
+
+def bulkRemoveAtoms(emol, atoms2rm):
+    emol_copy = RWMol(emol)
+    for a2rm in atoms2rm:
+        emol_copy.GetAtomWithIdx(a2rm).SetAtomicNum(0)
+    emol_copy = Chem.DeleteSubstructs(emol_copy, Chem.MolFromSmarts('[#0]'))
+    emol = RWMol(emol_copy)
+    return emol
+
+def bulkRemoveBonds(emol, bonds2rm, fragAllowed=False):
+    emol_copy = RWMol(emol)
+    for b2rm in bonds2rm:
+        _emol_copy = RWMol(emol_copy)
+        _emol_copy.RemoveBond(b2rm[0], b2rm[1])
+        if not fragAllowed:
+            if len(GetMolFrags(_emol_copy)) == 1:
+                emol_copy = RWMol(_emol_copy)
+        else:
+            emol_copy = RWMol(_emol_copy)
+    emol = RWMol(emol_copy)
+    return emol
+
+def rdkitGetLargestCC(emol):
+    GetMolFrags(emol)
+    atoms2rm = list(
+        itertools.chain(
+            *
+            sorted(
+                GetMolFrags(emol),
+                key=lambda x: len(x),
+                reverse=True)[
+                1:]))
+    emol = bulkRemoveAtoms(emol, atoms2rm)
+    return emol
+
+
 @dataclass
 class LigandDescription:
     """Description of organic sections which connect inorganic nodes"""
@@ -130,13 +176,52 @@ class LigandDescription:
     dummy_element: str = field(default=None, repr=False)
     """Element used to represent the end group during assembly"""
 
+
+
     @cached_property
     def atoms(self):
         return read_from_string(self.xyz, "xyz")
 
-    def replace_with_dummy_atoms(self) -> ase.Atoms:
+    def replace_with_dummy_atoms(self, anchor_types: str="COO") -> ase.Atoms:
         """Replace the fragments which attach to nodes with dummy atoms"""
-        raise NotImplementedError()
+        rdmol = Chem.MolFromSmiles(self.smiles)
+        rdmol = Chem.AddHs(rdmol)
+        AllChem.EmbedMolecule(rdmol)
+        AllChem.UFFOptimizeMolecule(rdmol)
+        old_Natoms = rdmol.GetNumAtoms() + 1
+        curr_Natoms = rdmol.GetNumAtoms()
+        while old_Natoms != curr_Natoms:
+            dummyElement = "At"
+            dummyAtomicNum = Chem.rdchem.Atom(dummyElement).GetAtomicNum()
+            match_ids = rdmol.GetSubstructMatch(Chem.MolFromSmiles("C(=O)O"))
+            carboxylicC = [at for at in match_ids if rdmol.GetAtomWithIdx(at).GetSymbol() == "C"]
+            if len(carboxylicC) > 0:
+                carboxylicC = carboxylicC[0]
+            else:
+                break
+            bonds2rm = [tuple(sorted((at, carboxylicC)))
+                        for at in match_ids if rdmol.GetAtomWithIdx(at).GetSymbol() == "O"]
+            rdmol.GetAtomWithIdx(carboxylicC).SetAtomicNum(dummyAtomicNum)
+            rdmol = bulkRemoveBonds(rdmol, bonds2rm, fragAllowed=True)
+            rdmol = rdkitGetLargestCC(rdmol)
+            SanitizeMol(rdmol)
+            old_Natoms = curr_Natoms
+            curr_Natoms = rdmol.GetNumAtoms()
+        
+        #rdmol = Chem.RemoveHs(rdmol)
+        rdatoms = list(rdmol.GetAtoms())
+        conf = rdmol.GetConformer()
+        
+        atom_list = []
+        for i, atom in enumerate(rdmol.GetAtoms()):
+            pos = rdmol.GetConformer().GetAtomPosition(i)
+            atom_list.append(
+                ase.atom.Atom(
+                    atom.GetSymbol(),
+                    position=(pos.x,
+                              pos.y,
+                              pos.z)))
+        return ase.Atoms(atom_list)
 
     @classmethod
     def from_yaml(cls, path: Path) -> 'LigandDescription':
