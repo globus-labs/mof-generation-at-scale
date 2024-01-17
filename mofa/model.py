@@ -140,16 +140,29 @@ class LigandDescription:
     def atoms(self):
         return read_from_string(self.xyz, "xyz")
 
-    def replace_with_dummy_atoms(self, anchor_types: str="COO") -> ase.Atoms:
+    def replace_with_dummy_atoms(self, anchor_type: str="COO") -> ase.Atoms:
         """Replace the fragments which attach to nodes with dummy atoms"""
         
         df = pd.read_csv(io.StringIO(self.xyz), skiprows=2, sep=r"\s+", header=None, names=["element", "x", "y", "z"])
         anchor_ids = list(itertools.chain(*self.anchor_atoms))
         anchor_df = df.loc[anchor_ids, :]
-        at_id = anchor_df[anchor_df["element"]=="C"].index
-        remove_ids = anchor_df[anchor_df["element"]=="O"].index
-        df.loc[at_id, "element"] = "At"
-        df = df.loc[list(set(df.index)-set(remove_ids)), :]
+        if anchor_type == "COO":
+            at_id = anchor_df[anchor_df["element"]=="C"].index
+            remove_ids = anchor_df[anchor_df["element"]=="O"].index
+            df.loc[at_id, "element"] = "At"
+            df = df.loc[list(set(df.index)-set(remove_ids)), :]
+        elif anchor_type == "cyano":
+            df_list = [df]
+            for curr_anchor in li.anchor_atoms:
+                anchor_df = df.loc[curr_anchor, :]
+                N = anchor_df[anchor_df["element"]=="N"]
+                C = anchor_df[anchor_df["element"]=="C"]
+                Nxyz = N[["x", "y", "z"]].values
+                Cxyz = C[["x", "y", "z"]].values
+                NC_vec = Nxyz - Cxyz
+                df_list.append(pd.DataFrame([["Fr"] + (2. * NC_vec / np.linalg.norm(NC_vec) + Cxyz).tolist()[0]],
+                                            columns=["element", "x", "y", "z"]))
+            df = pd.concat(df_list, axis=0).reset_index(drop=True)
         return ase.Atoms(df["element"], df.loc[:, ["x", "y", "z"]].values)
 
     @classmethod
