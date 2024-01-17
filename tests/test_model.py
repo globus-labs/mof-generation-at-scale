@@ -26,6 +26,7 @@ def test_name(example_cif):
 
 def test_ligand_model(file_path):
     template = LigandTemplate.from_yaml(file_path / 'difflinker' / 'templates' / 'template_COO.yml')
+    template = LigandTemplate.from_yaml(file_path / 'difflinker' / 'templates' / 'template_cyano.yml')
     assert template.role == 'pillar'
     for xyz in template.xyzs:
         read_from_string(xyz, 'xyz')
