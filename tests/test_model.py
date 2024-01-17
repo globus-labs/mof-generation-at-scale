@@ -1,5 +1,6 @@
 from math import isclose
 
+from pytest import mark
 import numpy as np
 
 from mofa.model import MOFRecord, LigandTemplate, LigandDescription
@@ -26,8 +27,7 @@ def test_name(example_cif):
 
 def test_ligand_model(file_path):
     template = LigandTemplate.from_yaml(file_path / 'difflinker' / 'templates' / 'template_COO.yml')
-    template = LigandTemplate.from_yaml(file_path / 'difflinker' / 'templates' / 'template_cyano.yml')
-    assert template.role == 'pillar'
+    assert template.anchor_type == 'COO'
     for xyz in template.xyzs:
         read_from_string(xyz, 'xyz')
 
@@ -36,18 +36,15 @@ def test_ligand_model(file_path):
         atom_types=['O', 'C', 'O', 'C', 'O', 'O', 'C', 'C'],
         coordinates=np.arange(8 * 3).reshape(-1, 3)
     )
-    assert ligand.role == template.role
+    assert ligand.anchor_type == template.anchor_type
     assert ligand.anchor_atoms == [[0, 1, 2], [3, 4, 5]]
     assert ligand.dummy_element == template.dummy_element
 
 
-def test_ligand_description(file_path):
-    desc = LigandDescription.from_yaml(file_path / 'difflinker' / 'templates' / 'description_COO.yml')
-    assert desc.role == 'pillar'
-
-    # Test that anchor groups match up
-    assert np.equal(desc.atoms.symbols[desc.anchor_atoms[0]], ['O', 'C', 'O']).all()
-    assert np.equal(desc.atoms.symbols[desc.anchor_atoms[1]], ['C', 'O', 'O']).all()
+@mark.parametrize('anchor_type', ['COO', 'cyano'])
+def test_ligand_description(file_path, anchor_type):
+    desc = LigandDescription.from_yaml(file_path / 'difflinker' / 'templates' / f'description_{anchor_type}.yml')
 
     # Test the ability to replace anchors with dummy atoms
-    pass
+    with_dummies = desc.replace_with_dummy_atoms()
+    assert with_dummies.symbols.count(desc.dummy_element) == 2

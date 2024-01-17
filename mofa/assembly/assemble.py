@@ -408,10 +408,10 @@ def assemble_mof(nodes: Sequence[NodeDescription], ligands: Sequence[LigandDescr
 
             # Update the linker structures
             new_ligands = tuple(
-                LigandDescription(smiles=lig.smiles, xyz=xyz, role='coo')
+                LigandDescription(smiles=lig.smiles, xyz=xyz, anchor_type='coo')
                 for lig, xyz in zip(ligands, coo_xyzs)
             )
-            new_ligands += (LigandDescription(smiles=ligands[2].smiles, xyz=pillar_xyz, role='pillar'),)
+            new_ligands += (LigandDescription(smiles=ligands[2].smiles, xyz=pillar_xyz, anchor_type='pillar'),)
 
             # Write the XYZ files to disk
             # TODO (wardlt): Refactor the above methods to keep everything in memory

@@ -42,8 +42,8 @@ class LigandTemplate:
 
     Contains only the proper end groups oriented in the sizes needed by our MOF."""
 
-    role: str
-    """Portion of the MOF to which this ligand corresponds"""
+    anchor_type: str
+    """Type of anchoring group"""
     xyzs: tuple[str]
     """XYZ coordinates of the anchor groups"""
     dummy_element: str
@@ -96,7 +96,7 @@ class LigandTemplate:
         atoms = ase.Atoms(symbols=atom_types, positions=coordinates)
         return LigandDescription(
             xyz=write_to_string(atoms, 'xyz'),
-            role=self.role,
+            anchor_type=self.anchor_type,
             anchor_atoms=anchor_atoms,
             dummy_element=self.dummy_element
         )
@@ -123,33 +123,41 @@ class LigandDescription:
     """SMILES-format designation of the molecule"""
     xyz: str | None = field(default=None, repr=False)
     """XYZ coordinates of each atom in the linker"""
-    role: str | None = field(default=None)
-    """Portion of the MOF to which this ligand corresponds"""
 
+    # Information about how this ligand anchors to the inorganic portions
+    anchor_type: str | None = field(default=None)
+    """Name of the functional group used for anchoring"""
     anchor_atoms: list[list[int]] | None = field(default=None, repr=True)
     """Groups of atoms which attach to the nodes
 
     There are typically two groups of fragment atoms, and these are
     never altered during MOF generation."""
     dummy_element: str = field(default=None, repr=False)
-    """Element used to represent the end group during assembly"""
+    """Element used to represent the anchor group during assembly"""
 
     @cached_property
     def atoms(self):
         return read_from_string(self.xyz, "xyz")
 
-    def replace_with_dummy_atoms(self, anchor_type: str = "COO") -> ase.Atoms:
-        """Replace the fragments which attach to nodes with dummy atoms"""
+    def replace_with_dummy_atoms(self) -> ase.Atoms:
+        """Replace the fragments which attach to nodes with dummy atoms
 
+        Returns:
+            ASE atoms version of this
+        """
+
+        # Get the locations of the
         df = pd.read_csv(io.StringIO(self.xyz), skiprows=2, sep=r"\s+", header=None, names=["element", "x", "y", "z"])
         anchor_ids = list(itertools.chain(*self.anchor_atoms))
         anchor_df = df.loc[anchor_ids, :]
-        if anchor_type == "COO":
+
+        # Each anchor type has different logic for where to place the dummy atom
+        if self.anchor_type == "COO":
             at_id = anchor_df[anchor_df["element"] == "C"].index
             remove_ids = anchor_df[anchor_df["element"] == "O"].index
-            df.loc[at_id, "element"] = "At"
+            df.loc[at_id, "element"] = self.dummy_element
             df = df.loc[list(set(df.index)-set(remove_ids)), :]
-        elif anchor_type == "cyano":
+        elif self.anchor_type == "cyano":
             df_list = [df]
             for curr_anchor in self.anchor_atoms:
                 anchor_df = df.loc[curr_anchor, :]
@@ -158,9 +166,14 @@ class LigandDescription:
                 Nxyz = N[["x", "y", "z"]].values
                 Cxyz = C[["x", "y", "z"]].values
                 NC_vec = Nxyz - Cxyz
-                df_list.append(pd.DataFrame([["Fr"] + (2. * NC_vec / np.linalg.norm(NC_vec) + Cxyz).tolist()[0]],
-                                            columns=["element", "x", "y", "z"]))
+                df_list.append(pd.DataFrame(
+                    [[self.dummy_element] + (2. * NC_vec / np.linalg.norm(NC_vec) + Cxyz).tolist()[0]],
+                    columns=["element", "x", "y", "z"])
+                )
             df = pd.concat(df_list, axis=0).reset_index(drop=True)
+        else:
+            raise NotImplementedError(f'Logic not yet defined for anchor_type={self.anchor_type}')
+
         return ase.Atoms(df["element"], df.loc[:, ["x", "y", "z"]].values)
 
     @classmethod
