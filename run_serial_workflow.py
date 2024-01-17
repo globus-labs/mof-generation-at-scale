@@ -112,16 +112,19 @@ if __name__ == "__main__":
             except (ValueError,):
                 continue
 
+            # Store the smiles string
+            Chem.RemoveHs(mol)
+            smiles = Chem.MolToSmiles(mol)
+            record['smiles'] = smiles
+
             if len(Chem.GetMolFrags(mol)) > 1:
                 continue
 
             # If passes, save the SMILES string and store the molecules
-            Chem.RemoveHs(mol)
             ligand.smiles = Chem.MolToSmiles(mol)
             valid_ligands[anchor_type].append(ligand)
 
             # Update the record
-            record['smiles'] = ligand.smiles
             record['valid'] = True
 
         logger.info(f'{len(valid_ligands[anchor_type])} of {len(new_ligands)} for {anchor_type} pass quality checks')
