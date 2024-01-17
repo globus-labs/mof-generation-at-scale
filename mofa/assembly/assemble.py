@@ -12,7 +12,6 @@ import pymatgen.core as mg
 from rdkit import Chem
 
 from mofa.model import NodeDescription, LigandDescription, MOFRecord
-from mofa.assembly.preprocess_linkers import clean_linker
 
 _bond_length_path = Path(__file__).parent / "OChemDB_bond_threshold.csv"
 
@@ -376,13 +375,12 @@ def assemble_pillaredPaddleWheel_pcuMOF(nodePath,
         raise ValueError('Failed to create structure')
 
 
-def assemble_mof(nodes: Sequence[NodeDescription], ligands: Sequence[LigandDescription], topology: str) -> MOFRecord:
+def assemble_mof(nodes: Sequence[NodeDescription], ligands: dict[str, Sequence[LigandDescription]], topology: str) -> MOFRecord:
     """Generate a new MOF from the description of the nodes, ligands and topology
 
     Args:
         nodes: Descriptions of each node
-        ligands: Description of the ligands. The assembly code uses only the SMILES string
-            and will modify the chemical structure to have the proper end groups.
+        ligands: A map of anchor type to chosen ligands for a certain MOF
         topology: Name of the topology
 
     Returns:
@@ -395,35 +393,27 @@ def assemble_mof(nodes: Sequence[NodeDescription], ligands: Sequence[LigandDescr
         tmpdir = Path(tmpdir)
         if 'Zn' in nodes[0].xyz and topology == 'pcu':
             # TODO (wardlt): Refactor to move all this to a separate function
-            # Make sure we have the correct number of linkers
-            if len(ligands) != 3:
-                raise ValueError('Expected 3 linkers for this topology')
+            # Make sure we have the correct number of linkers and nodes
+            requirements = {'COO': 2, 'cyano': 1}
+            for anchor_type, expected in requirements.items():
+                found = len(ligands.get(anchor_type, []))
+                if found != expected:
+                    raise ValueError(f'Expected {expected} ligands for {anchor_type}, found {found}')
             if len(nodes) != 1:
                 raise ValueError('Expected 1 node for this topology')
 
-            # Transform the molecules to have the proper end groups, and generate XYZ formats
-            linkers = [clean_linker(Chem.MolFromSmiles(lig.smiles)) for lig in ligands]
-            coo_xyzs = [lin['COO'] for lin in linkers[:2]]
-            pillar_xyz = linkers[2]['cyano']
-
-            # Update the linker structures
-            new_ligands = tuple(
-                LigandDescription(smiles=lig.smiles, xyz=xyz, role='coo')
-                for lig, xyz in zip(ligands, coo_xyzs)
-            )
-            new_ligands += (LigandDescription(smiles=ligands[2].smiles, xyz=pillar_xyz, role='pillar'),)
-
-            # Write the XYZ files to disk
+            # Write the XYZ files with dummy atoms to disk
             # TODO (wardlt): Refactor the above methods to keep everything in memory
             node_path = (tmpdir / 'node.xyz')
             node_path.write_text(nodes[0].xyz)
 
-            coo_paths = [tmpdir / f'coo-{i}.xyz' for i in range(2)]
-            for path, linker in zip(coo_paths, coo_xyzs):
-                path.write_text(linker)
-
             pillar_path = tmpdir / 'pillar.xyz'
-            pillar_path.write_text(pillar_xyz)
+            ligands['cyano'][0].replace_with_dummy_atoms().write(pillar_path)
+
+            coo_paths = []
+            for i, ligand in enumerate(ligands['COO']):
+                coo_paths.append(path := tmpdir / f'coo-{i}.xyz')
+                ligand.replace_with_dummy_atoms().write(path)
 
             mof_poscar = assemble_pillaredPaddleWheel_pcuMOF(
                 node_path,
@@ -438,5 +428,5 @@ def assemble_mof(nodes: Sequence[NodeDescription], ligands: Sequence[LigandDescr
     return MOFRecord(
         structure=mof_poscar,
         nodes=tuple(nodes),
-        ligands=tuple(new_ligands)
+        ligands=tuple(itertools.chain(*ligands.values()))
     )

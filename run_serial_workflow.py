@@ -18,9 +18,10 @@ from mofa.assembly.assemble import assemble_mof
 from mofa.assembly.preprocess_linkers import clean_linker
 from mofa.assembly.validate import validate_xyz
 from mofa.generator import run_generator
-from mofa.model import MOFRecord, NodeDescription, LigandDescription
+from mofa.model import MOFRecord, NodeDescription, LigandDescription, LigandTemplate
 from mofa.scoring.geometry import MinimumDistance
 from mofa.simulation.lammps import LAMMPSRunner
+from mofa.utils.xyz import xyz_to_mol
 
 RDLogger.DisableLog('rdApp.*')
 
@@ -32,8 +33,8 @@ if __name__ == "__main__":
     group.add_argument('--node-path', required=True, help='Path to a node record')
 
     group = parser.add_argument_group(title='Generator Settings', description='Options related to how the generation is performed')
-    group.add_argument('--fragment-path', required=True,
-                       help='Path to an SDF file containing the fragments')
+    group.add_argument('--ligand-templates', required=True, nargs='+',
+                       help='Path to YAML files containing a description of the ligands to be created')
     group.add_argument('--generator-path', required=True,
                        help='Path to the PyTorch files describing model architecture and weights')
     group.add_argument('--molecule-sizes', nargs='+', type=int, default=(10, 11, 12), help='Sizes of molecules we should generate')
@@ -72,58 +73,76 @@ if __name__ == "__main__":
     # Save the run parameters to disk
     (run_dir / 'params.json').write_text(json.dumps(run_params))
 
+    # Load the ligand descriptions
+    templates = {}
+    for path in args.ligand_templates:
+        template = LigandTemplate.from_yaml(path)
+        templates[template.anchor_type] = template
+    logger.info(f'Loaded {len(templates)} ligand templates: {", ".join(templates.keys())}')
+
     # Load a pretrained generator from disk and use it to create ligands
-    generated_ligand_atoms = []
-    for n_atoms in args.molecule_sizes:
-        logger.info(f'Generating molecules with {n_atoms} atoms on {args.torch_device}')
-        generated_ligand_atoms.extend(run_generator(
-            model=args.generator_path,
-            n_atoms=n_atoms,
-            input_path=args.fragment_path,
-            n_samples=args.num_samples,
-            device=args.torch_device
-        ))
-    logger.info(f'Generated {len(generated_ligand_atoms)} ligands')
+    generated_ligands = {}
+    for template in templates.values():
+        my_ligands = []
+        for n_atoms in args.molecule_sizes:
+            logger.info(f'Generating molecules with {n_atoms} atoms for {template.anchor_type} on {args.torch_device}')
+            my_ligands.extend(run_generator(
+                templates=[template],
+                model=args.generator_path,
+                n_atoms=n_atoms,
+                n_samples=args.num_samples,
+                device=args.torch_device
+            ))
+        generated_ligands[template.anchor_type] = my_ligands
+        logger.info(f'Generated a total of {len(my_ligands)} ligands for {template.anchor_type}')
 
     # Initial quality checks and post-processing on the generated ligands
-    valid_ligands = []
-    all_ligands = []
-    for generated_atoms in generated_ligand_atoms:
-        # Initialize a record for this ligand and put it in the output dictionary
-        fp = StringIO()  # TODO (wardlt): Make a utility operation
-        generated_atoms.write(fp, format='xyz')
-        xyz = fp.getvalue()
+    valid_ligands = {}  # Ligands to be used during assembly
+    all_ligands = []  # All ligands which were generated
+    for anchor_type, new_ligands in generated_ligands.items():
+        valid_ligands[anchor_type] = []
+        for ligand in new_ligands:
+            # Store the ligand information for debugging purposes
+            record = {'anchor_type': anchor_type, 'xyz': ligand.xyz, 'valid': False}
+            all_ligands.append(record)
 
-        record = {'xyz': xyz, 'valid': False}
-        all_ligands.append(record)  # We will still alter the record
+            # Parse each new ligand, determine whether it is a single molecule
+            try:
+                mol = xyz_to_mol(ligand.xyz)
+            except (ValueError,):
+                continue
 
-        # Ensure that it validates and we can clean it
-        try:
-            smiles = validate_xyz(generated_atoms)
+            # Store the smiles string
+            Chem.RemoveHs(mol)
+            smiles = Chem.MolToSmiles(mol)
             record['smiles'] = smiles
-            clean_linker(Chem.MolFromSmiles(smiles))
-        except (ValueError, KeyError, IndexError):
-            continue
 
-        # Store it as a LigandRecord
-        record['valid'] = True
-        valid_ligands.append(LigandDescription(smiles=smiles))
-    logger.info(f'Screened generated ligands. {len(valid_ligands)} pass quality checks')
+            if len(Chem.GetMolFrags(mol)) > 1:
+                continue
+
+            # If passes, save the SMILES string and store the molecules
+            ligand.smiles = Chem.MolToSmiles(mol)
+            valid_ligands[anchor_type].append(ligand)
+
+            # Update the record
+            record['valid'] = True
+
+        logger.info(f'{len(valid_ligands[anchor_type])} of {len(new_ligands)} for {anchor_type} pass quality checks')
 
     # Save the ligands
     pd.DataFrame(all_ligands).to_csv(run_dir / 'all-ligands.csv', index=False)
-
-    # Check if we can proceed
-    if len(valid_ligands) < 3:
-        raise ValueError('Too few passed quality checks')
 
     # Combine them with the template MOF to create new MOFs
     new_mofs = []
     attempts = 0
     while len(new_mofs) < args.num_to_assemble and attempts < args.max_assemble_attempts * args.num_to_assemble:
-        # TODO (wardlt): Do not hard-code generation options
         attempts += 1
-        ligand_choices = sample(valid_ligands, 3)
+        # TODO (wardlt): Do not hard-code requirements
+        requirements = {'COO': 2, 'cyano': 1}
+        ligand_choices = {}
+        for anchor_type, count in requirements.items():
+            ligand_choices[anchor_type] = sample(valid_ligands[anchor_type], count)
+
         try:
             new_mof = assemble_mof(
                 nodes=[node_record],

@@ -4,8 +4,9 @@ import numpy as np
 import torch
 from rdkit import Chem
 
+from mofa.model import LigandTemplate, LigandDescription
 from mofa.utils.src import const
-from mofa.utils.src.datasets import collate_with_fragment_edges, get_dataloader, parse_molecule
+from mofa.utils.src.datasets import collate_with_fragment_edges, get_dataloader, parse_molecule, get_one_hot
 from mofa.utils.src.lightning import DDPM
 from mofa.utils.src.linker_size_lightning import SizeClassifier
 from mofa.utils.src.visualizer import save_xyz_file, visualize_chain
@@ -42,7 +43,10 @@ def generate_animation(ddpm, chain_batch, node_mask, n_mol):
         visualize_chain(chain_output, wandb=None, mode=name, is_geom=ddpm.is_geom)  # set wandb None for now!
 
 
-def main_run(input_path, model, output_dir, n_samples, n_steps, linker_size, anchors, device: str = 'cpu'):
+def main_run(templates: list[LigandTemplate],
+             model, output_dir, n_samples, n_steps, linker_size, anchors,
+             device: str = 'cpu') -> list[LigandDescription]:
+    """Run the linker generation"""
     if linker_size.isdigit():
         linker_size = int(linker_size)
 
@@ -68,25 +72,22 @@ def main_run(input_path, model, output_dir, n_samples, n_steps, linker_size, anc
         ddpm.edm.T = n_steps  # otherwise, ddpm.edm.T = 1000 default
 
     if ddpm.center_of_mass == 'anchors' and anchors is None:
-        print(
+        raise ValueError(
             'Please pass anchor atoms indices '
             'or use another DiffLinker model that does not require information about anchors'
         )
-        return
+
+    # Get the lookup tables for atom types
+    atom2idx = const.GEOM_ATOM2IDX if ddpm.is_geom else const.ATOM2IDX
+    idx2atom = const.GEOM_IDX2ATOM if ddpm.is_geom else const.IDX2ATOM
+    charges_dict = const.GEOM_CHARGES if ddpm.is_geom else const.CHARGES
 
     # Reading input fragments
-    extension = input_path.split('.')[-1]
-    if extension not in ['sdf', 'pdb', 'mol', 'mol2']:
-        print('Please upload the file in one of the following formats: .pdb, .sdf, .mol, .mol2')
-        return
-
-    try:
-        molecules = read_molecules(input_path)
-    except Exception as e:
-        raise ValueError(f'Could not read the molecule: {e}')
-
-    for n_mol, molecule in enumerate(molecules):
-        positions, one_hot, charges = parse_molecule(molecule, is_geom=ddpm.is_geom)
+    for n_mol, template in enumerate(templates):
+        # Prepare the inputs for this structure
+        symbols, positions = template.prepare_inputs()
+        one_hot = np.array([get_one_hot(s, atom2idx) for s in symbols])
+        charges = np.array([charges_dict[s] for s in symbols])
         fragment_mask = np.ones_like(charges)
         linker_mask = np.zeros_like(charges)
         anchor_flags = np.zeros_like(charges)
@@ -94,6 +95,7 @@ def main_run(input_path, model, output_dir, n_samples, n_steps, linker_size, anc
             for anchor in anchors.split(','):
                 anchor_flags[int(anchor) - 1] = 1
 
+        # Perform the sampling
         dataset = [{
             'uuid': '0',
             'name': '0',
@@ -109,8 +111,8 @@ def main_run(input_path, model, output_dir, n_samples, n_steps, linker_size, anc
         dataloader = get_dataloader(dataset, batch_size=batch_size, collate_fn=collate_with_fragment_edges)
 
         # Sampling
+        output = []
         for batch_i, data in enumerate(dataloader):
-            # print('Sampling only the FINAL output...')
             chain, node_mask = ddpm.sample_chain(data, sample_fn=sample_fn, keep_frames=1)
             x = chain[0][:, :, :ddpm.n_dims]
             h = chain[0][:, :, ddpm.n_dims:]
@@ -122,6 +124,15 @@ def main_run(input_path, model, output_dir, n_samples, n_steps, linker_size, anc
             mean = torch.sum(pos_masked, dim=1, keepdim=True) / N
             x = x + mean * node_mask
 
-            offset_idx = batch_i * batch_size
-            names = [f'mol_{n_mol}_{i + offset_idx}' for i in range(batch_size)]
-            save_xyz_file(output_dir, h, x, node_mask, names=names, is_geom=ddpm.is_geom, suffix='')
+            # Write out each generated structure
+            batch_idx_selections = torch.argmax(h, dim=-1).detach().cpu().numpy()
+            batch_coordinates = x.detach().cpu().numpy()
+            for i in range(batch_size):
+                # Convert the atom types to from one-hot to atomic numbers/symbols
+                atom_types = [idx2atom[i] for i in batch_idx_selections[i, :]]
+
+                # Make the output
+                output.append(
+                    template.create_description(atom_types, batch_coordinates[i, :, :])
+                )
+        return output

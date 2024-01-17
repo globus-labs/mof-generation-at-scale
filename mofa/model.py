@@ -4,12 +4,20 @@ from functools import cached_property
 from hashlib import sha512
 from pathlib import Path
 from io import StringIO
-import json
 from uuid import uuid4
+import json
 
+import yaml
+import numpy as np
 from ase.io import read
 from ase.io.vasp import read_vasp
 import ase
+
+from mofa.utils.conversions import read_from_string, write_to_string
+
+import pandas as pd
+import itertools
+import io
 
 
 @dataclass
@@ -29,37 +37,156 @@ class NodeDescription:
 
 
 @dataclass
+class LigandTemplate:
+    """Beginning of a new ligand to be generated.
+
+    Contains only the proper end groups oriented in the sizes needed by our MOF."""
+
+    anchor_type: str
+    """Type of anchoring group"""
+    xyzs: tuple[str]
+    """XYZ coordinates of the anchor groups"""
+    dummy_element: str
+    """Dummy element used to replace end group when assembling MOF"""
+
+    @cached_property
+    def anchors(self) -> list[ase.Atoms]:
+        """The anchor groups as ASE objects"""
+        return [read_from_string(xyz, 'xyz') for xyz in self.xyzs]
+
+    def prepare_inputs(self) -> tuple[list[str], np.ndarray]:
+        """Produce the inputs needed for DiffLinker
+
+        Returns:
+            - List of chemical symbols
+            - Array of atomic positions
+        """
+        symbols = []
+        positions = []
+        for xyz in self.xyzs:
+            atoms = read_from_string(xyz, fmt='xyz')
+            symbols.extend(atoms.get_chemical_symbols())
+            positions.append(atoms.positions)
+        return symbols, np.concatenate(positions, axis=0)
+
+    def create_description(self, atom_types: list[str], coordinates: np.ndarray) -> 'LigandDescription':
+        """Produce a ligand description given atomic coordinates which include the infilled atoms
+
+        Args:
+            atom_types: Types of all atoms as chemical symbols
+            coordinates: Coordinates of all atoms
+        Returns:
+            Ligand description using the new coordinates
+        """
+
+        # The linker groups should be up from, make sure the types have not changed and change if they have
+        pos = 0
+        anchor_atoms = []
+        for anchor in self.anchors:
+            # Determine the fragment positions
+            found_types = atom_types[pos:pos + len(anchor)]
+            anchor_atoms.append(list(range(pos, pos + len(anchor))))
+            expected_types = anchor.get_chemical_symbols()
+
+            # Make sure the types match, and increment position
+            assert found_types == expected_types, f'Anchor changed. Found: {found_types} - Expected: {expected_types}'
+            pos += len(anchor)
+
+        # Build the XYZ file
+        atoms = ase.Atoms(symbols=atom_types, positions=coordinates)
+        return LigandDescription(
+            xyz=write_to_string(atoms, 'xyz'),
+            anchor_type=self.anchor_type,
+            anchor_atoms=anchor_atoms,
+            dummy_element=self.dummy_element
+        )
+
+    @classmethod
+    def from_yaml(cls, path: Path | str) -> 'LigandTemplate':
+        """Load a template description from YAML
+
+        Args:
+            path: Path to the YAML file
+        Returns:
+            The ligand template
+        """
+
+        with Path(path).open() as fp:
+            return cls(**yaml.safe_load(fp))
+
+
+@dataclass
 class LigandDescription:
     """Description of organic sections which connect inorganic nodes"""
 
-    smiles: str = field()
+    smiles: str | None = field(default=None)
     """SMILES-format designation of the molecule"""
     xyz: str | None = field(default=None, repr=False)
     """XYZ coordinates of each atom in the linker"""
-    role: str | None = field(default=None)
-    """Portion of the MOF to which this ligand corresponds"""
 
-    fragment_atoms: list[list[int]] | None = field(default=None, repr=True)
+    # Information about how this ligand anchors to the inorganic portions
+    anchor_type: str | None = field(default=None)
+    """Name of the functional group used for anchoring"""
+    anchor_atoms: list[list[int]] | None = field(default=None, repr=True)
     """Groups of atoms which attach to the nodes
 
     There are typically two groups of fragment atoms, and these are
     never altered during MOF generation."""
+    dummy_element: str = field(default=None, repr=False)
+    """Element used to represent the anchor group during assembly"""
 
-    @property
-    def linker_atoms(self) -> list[int]:
-        """All atoms which are not part of a fragment"""
-        raise NotImplementedError()
+    @cached_property
+    def atoms(self):
+        return read_from_string(self.xyz, "xyz")
 
-    def generate_template(self, spacing_distance: float | None = None) -> ase.Atoms:
-        """Generate a version of the ligand with only the fragments at the end
+    def replace_with_dummy_atoms(self) -> ase.Atoms:
+        """Replace the fragments which attach to nodes with dummy atoms
+
+        Returns:
+            ASE atoms version of this
+        """
+
+        # Get the locations of the
+        df = pd.read_csv(io.StringIO(self.xyz), skiprows=2, sep=r"\s+", header=None, names=["element", "x", "y", "z"])
+        anchor_ids = list(itertools.chain(*self.anchor_atoms))
+        anchor_df = df.loc[anchor_ids, :]
+
+        # Each anchor type has different logic for where to place the dummy atom
+        if self.anchor_type == "COO":
+            at_id = anchor_df[anchor_df["element"] == "C"].index
+            remove_ids = anchor_df[anchor_df["element"] == "O"].index
+            df.loc[at_id, "element"] = self.dummy_element
+            df = df.loc[list(set(df.index)-set(remove_ids)), :]
+        elif self.anchor_type == "cyano":
+            df_list = [df]
+            for curr_anchor in self.anchor_atoms:
+                anchor_df = df.loc[curr_anchor, :]
+                N = anchor_df[anchor_df["element"] == "N"]
+                C = anchor_df[anchor_df["element"] == "C"]
+                Nxyz = N[["x", "y", "z"]].values
+                Cxyz = C[["x", "y", "z"]].values
+                NC_vec = Nxyz - Cxyz
+                df_list.append(pd.DataFrame(
+                    [[self.dummy_element] + (2. * NC_vec / np.linalg.norm(NC_vec) + Cxyz).tolist()[0]],
+                    columns=["element", "x", "y", "z"])
+                )
+            df = pd.concat(df_list, axis=0).reset_index(drop=True)
+        else:
+            raise NotImplementedError(f'Logic not yet defined for anchor_type={self.anchor_type}')
+
+        return ase.Atoms(df["element"], df.loc[:, ["x", "y", "z"]].values)
+
+    @classmethod
+    def from_yaml(cls, path: Path) -> 'LigandDescription':
+        """Load a ligand description from YAML
 
         Args:
-            spacing_distance: Distance to enforce between the fragments. Set to ``None``
-                to keep the current distance
+            path: Path to the YAML file
         Returns:
-            The template with the desired spacing
+            The ligand description
         """
-        raise NotImplementedError()
+        with path.open() as fp:
+            return cls(**yaml.safe_load(fp))
 
 
 @dataclass

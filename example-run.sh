@@ -3,6 +3,6 @@
 python run_serial_workflow.py \
       --node-path input-files/zn-paddle-pillar/node.json \
       --generator-path input-files/zn-paddle-pillar/geom_difflinker.ckpt \
-      --fragment-path input-files/zn-paddle-pillar/hMOF_frag_frag.sdf \
-      --num-samples 256 \
+      --ligand-templates input-files/zn-paddle-pillar/template_*.yml \
+      --num-samples 64 \
       --torch-device cuda

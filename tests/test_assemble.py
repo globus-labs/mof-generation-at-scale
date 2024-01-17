@@ -35,9 +35,20 @@ def test_paddlewheel_pcu():
     assert len(atoms) > 0
 
 
-@mark.parametrize('node_name,topology,ligand_count', [('zinc_paddle_pillar', 'pcu', 3)])
-def test_assemble(node_name, topology, ligand_count, linker_smiles='C=Cc1ccccc1C=C'):
-    """Test the full integration"""
+@mark.parametrize('node_name,topology,ligand_counts', [
+    ('zinc_paddle_pillar', 'pcu', {
+        'COO': 2,
+        'cyano': 1
+    })
+])
+def test_assemble(node_name, topology, ligand_counts, file_path):
+    """Test the full integration
+
+    Args:
+        node_name: Name of the node, which should map to an XYZ in the `files/assemble/nodes` directory
+        topology: Name of the topology
+        ligand_counts: Map of the name of a ligand description in `files/difflinker/templates/` to number required
+    """
 
     # Format the node and linker descriptions
     node_path = _files_dir / f'nodes/{node_name}.xyz'
@@ -46,7 +57,11 @@ def test_assemble(node_name, topology, ligand_count, linker_smiles='C=Cc1ccccc1C
         xyz=node_path.read_text()
     )
 
-    ligands = [LigandDescription(smiles=linker_smiles) for _ in range(ligand_count)]
+    # Load the ligand examples
+    ligands = {}
+    for name, count in ligand_counts.items():
+        ligand_desc = LigandDescription.from_yaml(file_path / 'difflinker' / 'templates' / f'description_{name}.yml')
+        ligands[name] = [ligand_desc] * count
 
     # Run the assembly code
     mof_record = assemble_mof([node], ligands, topology)
