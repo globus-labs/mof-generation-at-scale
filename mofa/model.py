@@ -19,6 +19,8 @@ import pandas as pd
 import itertools
 import io
 
+from mofa.utils.xyz import unsaturated_xyz_to_mol
+
 
 @dataclass
 class NodeDescription:
@@ -92,10 +94,14 @@ class LigandTemplate:
             assert found_types == expected_types, f'Anchor changed. Found: {found_types} - Expected: {expected_types}'
             pos += len(anchor)
 
-        # Build the XYZ file
+        # Add Hydrogens to the molecule
+        #  TODO (wardlt): This this with a real example Ligand
         atoms = ase.Atoms(symbols=atom_types, positions=coordinates)
+        unsat_xyz = write_to_string(atoms, 'xyz')
+        sat_xyz = unsaturated_xyz_to_mol(unsat_xyz, exclude_atoms=list(itertools.chain(*anchor_atoms)))
+
         return LigandDescription(
-            xyz=write_to_string(atoms, 'xyz'),
+            xyz=sat_xyz,
             anchor_type=self.anchor_type,
             anchor_atoms=anchor_atoms,
             dummy_element=self.dummy_element
@@ -156,7 +162,7 @@ class LigandDescription:
             at_id = anchor_df[anchor_df["element"] == "C"].index
             remove_ids = anchor_df[anchor_df["element"] == "O"].index
             df.loc[at_id, "element"] = self.dummy_element
-            df = df.loc[list(set(df.index)-set(remove_ids)), :]
+            df = df.loc[list(set(df.index) - set(remove_ids)), :]
         elif self.anchor_type == "cyano":
             df_list = [df]
             for curr_anchor in self.anchor_atoms:

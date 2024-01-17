@@ -1,5 +1,6 @@
 """Utilities to go between XYZ files and SMILES strings"""
 from threading import Lock
+from typing import Collection
 
 from rdkit.Chem import rdDetermineBonds, AllChem
 from rdkit import Chem
@@ -62,8 +63,18 @@ def smiles_to_xyz(smiles: str) -> str:
         return xyz
 
 
-def unsaturated_xyz_to_mol(xyz: str) -> Chem.Mol:
-    """"""
+def unsaturated_xyz_to_mol(xyz: str, exclude_atoms: Collection[int] = ()) -> Chem.Mol:
+    """Infer a molecule with reasonable bond orders from the positions of the backbone atoms
+
+    Uses the distances between atoms to determine which atoms are bonded
+    and the bond order.
+
+    Args:
+        xyz: 3D coordinates of atomic environments
+        exclude_atoms: Indices of atoms on which no additional Hydrogens will be added, such as anchor groups
+    Returns:
+        Best guess of a saturated molecule
+    """
 
     # First determine connectivity given 3D coordinates
     mol: Chem.Mol = Chem.MolFromXYZBlock(xyz)
@@ -96,12 +107,34 @@ def unsaturated_xyz_to_mol(xyz: str) -> Chem.Mol:
                     thr_bond3 = const.BONDS_3[type_1][type_2] + margins[2]
                     if distance < thr_bond3:
                         bond_type = Chem.BondType.TRIPLE
+
+        # TODO (wardlt): Only increase the bond order if it will not violate the valency rules of bond molecules
         bond.SetBondType(bond_type)
 
     # Add hydrogens to the molecule
     mol.UpdatePropertyCache()  # Detects the valency
-    Chem.AddHs(mol, explicitOnly=True, addCoords=True)
-
-    # TODO (wardlt): Generate positions for the hydrogen atoms, probably by just re-generating the whole conformer
+    allowed_atoms = list(set(range(mol.GetNumAtoms())).difference(exclude_atoms))
 
     return mol
+
+
+def unsaturated_xyz_to_xyz(xyz: str, exclude_atoms: Collection[int] = ()) -> str:
+    """Add hydrogens to a molecule given only the backbone atoms
+
+    Args:
+        xyz: Positions of the backbone atoms
+        exclude_atoms: Indices of atoms on which no additional Hydrogens will be added, such as anchor groups
+    Returns:
+        Best guess coordinates
+    """
+
+    # Infer the bond orders and place implicit hydrogens
+    #  TODO (wardlt): This doesn't seem to add Hs into the 3D geometry. I would go Mol->SMILES->Mol, but
+    #   am not sure if it would preserve the order of the atoms in the original molecule
+    mol = unsaturated_xyz_to_mol(xyz, exclude_atoms)
+    mol.RemoveAllConformers()
+    Chem.SanitizeMol(mol)
+    Chem.AddHs(mol)
+    AllChem.EmbedMolecule(mol, randomSeed=1)
+    AllChem.MMFFOptimizeMolecule(mol)
+    return Chem.MolToXYZBlock(mol)

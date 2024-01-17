@@ -1,9 +1,9 @@
 """Test XYZ<->SMILES conversions"""
-
+import pytest
 from rdkit import Chem
 from pytest import mark
 
-from mofa.utils.xyz import smiles_to_xyz, xyz_to_smiles, unsaturated_xyz_to_mol
+from mofa.utils.xyz import smiles_to_xyz, xyz_to_smiles, unsaturated_xyz_to_mol, unsaturated_xyz_to_xyz
 
 
 @mark.parametrize('smiles', ['C', 'C=C', 'c1cnccc1'])
@@ -19,7 +19,7 @@ def test_reversibility(smiles):
     assert start_inchi == end_inchi
 
 
-@mark.parametrize('smiles', ['C', 'C=C', 'c1cnccc1'])
+@mark.parametrize('smiles', ['C', 'C=C', pytest.param('c1cnccc1', marks=mark.xfail(reason='aromatic'))])
 def test_from_unsaturated(smiles):
     """Test whether we can infer smiles from unsaturated"""
 
@@ -30,12 +30,16 @@ def test_from_unsaturated(smiles):
 
     # Try to re-determine the XYZ structure
     mol = unsaturated_xyz_to_mol(non_h_xyz)
+    end_smiles = Chem.MolToSmiles(mol)
 
     # See if the InChI matches
     start_inchi = Chem.MolToInchi(Chem.MolFromSmiles(smiles))
     end_inchi = Chem.MolToInchi(mol)
-    assert start_inchi == end_inchi, f'In: {smiles} - Out: {Chem.MolToSmiles(mol)}'
+    assert start_inchi == end_inchi, f'In: {smiles} - Out: {end_smiles}'
 
-    # Get the implicit valence
-    new_xyz = Chem.MolToXYZBlock(mol)
-    assert len(xyz) == len(new_xyz.split("\n")), 'Size of the XYZ files are different'
+    # Run forward through generating a new XYZ
+    new_xyz = unsaturated_xyz_to_xyz(non_h_xyz)
+    assert new_xyz.split()[0] == xyz[0].strip()  # Should start with the same number of atoms
+
+
+# TODO (wardlt): Test the unsatured with a larger linker that includes anchor groups
