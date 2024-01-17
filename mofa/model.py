@@ -15,15 +15,9 @@ import ase
 
 from mofa.utils.conversions import read_from_string, write_to_string
 
-from openbabel import pybel
-from openbabel import openbabel as obb
-import numpy as np
-
+import pandas as pd
 import itertools
-from rdkit import Chem
-from rdkit.Chem import AllChem
-from rdkit.Chem.rdchem import RWMol
-from rdkit.Chem.rdmolops import GetMolFrags, SanitizeMol
+import io
 
 
 @dataclass
@@ -184,44 +178,15 @@ class LigandDescription:
 
     def replace_with_dummy_atoms(self, anchor_types: str="COO") -> ase.Atoms:
         """Replace the fragments which attach to nodes with dummy atoms"""
-        rdmol = Chem.MolFromSmiles(self.smiles)
-        rdmol = Chem.AddHs(rdmol)
-        AllChem.EmbedMolecule(rdmol)
-        AllChem.UFFOptimizeMolecule(rdmol)
-        old_Natoms = rdmol.GetNumAtoms() + 1
-        curr_Natoms = rdmol.GetNumAtoms()
-        while old_Natoms != curr_Natoms:
-            dummyElement = "At"
-            dummyAtomicNum = Chem.rdchem.Atom(dummyElement).GetAtomicNum()
-            match_ids = rdmol.GetSubstructMatch(Chem.MolFromSmiles("C(=O)O"))
-            carboxylicC = [at for at in match_ids if rdmol.GetAtomWithIdx(at).GetSymbol() == "C"]
-            if len(carboxylicC) > 0:
-                carboxylicC = carboxylicC[0]
-            else:
-                break
-            bonds2rm = [tuple(sorted((at, carboxylicC)))
-                        for at in match_ids if rdmol.GetAtomWithIdx(at).GetSymbol() == "O"]
-            rdmol.GetAtomWithIdx(carboxylicC).SetAtomicNum(dummyAtomicNum)
-            rdmol = bulkRemoveBonds(rdmol, bonds2rm, fragAllowed=True)
-            rdmol = rdkitGetLargestCC(rdmol)
-            SanitizeMol(rdmol)
-            old_Natoms = curr_Natoms
-            curr_Natoms = rdmol.GetNumAtoms()
         
-        #rdmol = Chem.RemoveHs(rdmol)
-        rdatoms = list(rdmol.GetAtoms())
-        conf = rdmol.GetConformer()
-        
-        atom_list = []
-        for i, atom in enumerate(rdmol.GetAtoms()):
-            pos = rdmol.GetConformer().GetAtomPosition(i)
-            atom_list.append(
-                ase.atom.Atom(
-                    atom.GetSymbol(),
-                    position=(pos.x,
-                              pos.y,
-                              pos.z)))
-        return ase.Atoms(atom_list)
+        df = pd.read_csv(io.StringIO(li.xyz), skiprows=2, sep=r"\s+", header=None, names=["element", "x", "y", "z"])
+        anchor_ids = list(itertools.chain(*li.anchor_atoms))
+        anchor_df = df.loc[anchor_ids, :]
+        at_id = anchor_df[anchor_df["element"]=="C"].index
+        remove_ids = anchor_df[anchor_df["element"]=="O"].index
+        df.loc[at_id, "element"] = "At"
+        df = df.loc[list(set(df.index)-set(remove_ids)), :]
+        return ase.Atoms(df["element"], df.loc[:, ["x", "y", "z"]].values)
 
     @classmethod
     def from_yaml(cls, path: Path) -> 'LigandDescription':
