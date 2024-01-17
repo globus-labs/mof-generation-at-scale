@@ -115,42 +115,6 @@ class LigandTemplate:
             return cls(**yaml.safe_load(fp))
 
 
-
-def bulkRemoveAtoms(emol, atoms2rm):
-    emol_copy = RWMol(emol)
-    for a2rm in atoms2rm:
-        emol_copy.GetAtomWithIdx(a2rm).SetAtomicNum(0)
-    emol_copy = Chem.DeleteSubstructs(emol_copy, Chem.MolFromSmarts('[#0]'))
-    emol = RWMol(emol_copy)
-    return emol
-
-def bulkRemoveBonds(emol, bonds2rm, fragAllowed=False):
-    emol_copy = RWMol(emol)
-    for b2rm in bonds2rm:
-        _emol_copy = RWMol(emol_copy)
-        _emol_copy.RemoveBond(b2rm[0], b2rm[1])
-        if not fragAllowed:
-            if len(GetMolFrags(_emol_copy)) == 1:
-                emol_copy = RWMol(_emol_copy)
-        else:
-            emol_copy = RWMol(_emol_copy)
-    emol = RWMol(emol_copy)
-    return emol
-
-def rdkitGetLargestCC(emol):
-    GetMolFrags(emol)
-    atoms2rm = list(
-        itertools.chain(
-            *
-            sorted(
-                GetMolFrags(emol),
-                key=lambda x: len(x),
-                reverse=True)[
-                1:]))
-    emol = bulkRemoveAtoms(emol, atoms2rm)
-    return emol
-
-
 @dataclass
 class LigandDescription:
     """Description of organic sections which connect inorganic nodes"""
@@ -179,8 +143,8 @@ class LigandDescription:
     def replace_with_dummy_atoms(self, anchor_types: str="COO") -> ase.Atoms:
         """Replace the fragments which attach to nodes with dummy atoms"""
         
-        df = pd.read_csv(io.StringIO(li.xyz), skiprows=2, sep=r"\s+", header=None, names=["element", "x", "y", "z"])
-        anchor_ids = list(itertools.chain(*li.anchor_atoms))
+        df = pd.read_csv(io.StringIO(self.xyz), skiprows=2, sep=r"\s+", header=None, names=["element", "x", "y", "z"])
+        anchor_ids = list(itertools.chain(*self.anchor_atoms))
         anchor_df = df.loc[anchor_ids, :]
         at_id = anchor_df[anchor_df["element"]=="C"].index
         remove_ids = anchor_df[anchor_df["element"]=="O"].index
