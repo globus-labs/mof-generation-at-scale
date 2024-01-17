@@ -102,7 +102,7 @@ class LigandTemplate:
         )
 
     @classmethod
-    def from_yaml(cls, path: Path) -> 'LigandTemplate':
+    def from_yaml(cls, path: Path | str) -> 'LigandTemplate':
         """Load a template description from YAML
 
         Args:
@@ -111,7 +111,7 @@ class LigandTemplate:
             The ligand template
         """
 
-        with path.open() as fp:
+        with Path(path).open() as fp:
             return cls(**yaml.safe_load(fp))
 
 
