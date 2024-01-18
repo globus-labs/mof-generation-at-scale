@@ -149,7 +149,7 @@ class LigandDescription:
         """Replace the fragments which attach to nodes with dummy atoms
 
         Returns:
-            ASE atoms version of this
+            ASE atoms version of the molecule without
         """
 
         # Get the locations of the

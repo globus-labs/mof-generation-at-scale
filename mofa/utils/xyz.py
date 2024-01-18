@@ -63,7 +63,7 @@ def smiles_to_xyz(smiles: str) -> str:
         return xyz
 
 
-def unsaturated_xyz_to_mol(xyz: str, exclude_atoms: Collection[int] = ()) -> Chem.Mol:
+def unsaturated_xyz_to_mol(xyz: str) -> Chem.Mol:
     """Infer a molecule with reasonable bond orders from the positions of the backbone atoms
 
     Uses the distances between atoms to determine which atoms are bonded
@@ -112,9 +112,12 @@ def unsaturated_xyz_to_mol(xyz: str, exclude_atoms: Collection[int] = ()) -> Che
         bond.SetBondType(bond_type)
 
     # Add hydrogens to the molecule
+    Chem.SanitizeMol(mol)
+    for atom in mol.GetAtoms():
+        # Force RDKit to place as many hydrogens on atom as possible
+        atom.SetNumRadicalElectrons(0)
+        atom.SetNoImplicit(False)
     mol.UpdatePropertyCache()  # Detects the valency
-    allowed_atoms = list(set(range(mol.GetNumAtoms())).difference(exclude_atoms))
-
     return mol
 
 
@@ -129,12 +132,7 @@ def unsaturated_xyz_to_xyz(xyz: str, exclude_atoms: Collection[int] = ()) -> str
     """
 
     # Infer the bond orders and place implicit hydrogens
-    #  TODO (wardlt): This doesn't seem to add Hs into the 3D geometry. I would go Mol->SMILES->Mol, but
-    #   am not sure if it would preserve the order of the atoms in the original molecule
-    mol = unsaturated_xyz_to_mol(xyz, exclude_atoms)
-    mol.RemoveAllConformers()
-    Chem.SanitizeMol(mol)
-    Chem.AddHs(mol)
-    AllChem.EmbedMolecule(mol, randomSeed=1)
-    AllChem.MMFFOptimizeMolecule(mol)
+    mol: Chem.Mol = unsaturated_xyz_to_mol(xyz)
+    allowed_atoms = list(set(range(mol.GetNumAtoms())).difference(exclude_atoms))
+    mol = Chem.AddHs(mol, addCoords=True, onlyOnAtoms=allowed_atoms)
     return Chem.MolToXYZBlock(mol)
