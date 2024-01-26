@@ -199,11 +199,10 @@ class LigandDescription:
         obmol.SetTotalCharge(0)
         obmol.SetHydrogensAdded(False)
         for x in range(0, obmol.NumAtoms()):
-            if x not in list(itertools.chain(*ld.anchor_atoms)):  # excluding the archor atoms such that no H is added to the -COO, -C#N, etc.
+            if x not in list(itertools.chain(*(self.anchor_atoms))):  # excluding the archor atoms such that no H is added to the -COO, -C#N, etc.
                 obatom = obmol.GetAtom(x+1)
                 obatom.SetFormalCharge(0)
                 obatomicnum = obatom.GetAtomicNum()
-                maxBO = OB.GetMaxBonds(obatomicnum)
                 currBO = obatom.GetTotalValence()
                 nH = OB.GetTypicalValence(obatomicnum, currBO, 0) - currBO
                 obatom.SetImplicitHCount(nH)
