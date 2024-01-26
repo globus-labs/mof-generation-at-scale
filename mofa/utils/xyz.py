@@ -129,5 +129,5 @@ def unsaturated_xyz_to_xyz(xyz: str, exclude_atoms: Collection[int] = ()) -> str
     # go back to OBB python API
     pbmol = pybel.Molecule(obmol)
     # convert to RDKitMol by converting SDF first
-    xyz_str = mol.write(format='xyz', filename=None)
+    xyz_str = pdmol.write(format='xyz', filename=None)
     return xyz_str
