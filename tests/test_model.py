@@ -59,7 +59,7 @@ def test_ligand_description_H_inference(file_path, anchor_type):
 
     # test if none of the Hs are added to the anchor atoms
     # rdmol = Chem.rdmolfiles.MolFromMolBlock(desc.sdf)
-    rdmol = Chem.rdmolfiles.MolFromXYZBlock(desc.xyz)
+    rdmol = Chem.rdmolfiles.MolFromXYZBlock(desc.xyz_H)
     H_is_detected_on_an_anchor = False
     for x in list(itertools.chain(*desc.anchor_atoms)):
         rdatom = rdmol.GetAtomWithIdx(x)
