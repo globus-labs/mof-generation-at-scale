@@ -6,6 +6,9 @@ from rdkit.Chem import rdDetermineBonds, AllChem
 from rdkit import Chem
 import numpy as np
 
+from openbabel import pybel
+from openbabel import openbabel as OB
+
 from mofa.utils.src import const
 
 _generate_lock = Lock()
