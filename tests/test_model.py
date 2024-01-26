@@ -1,5 +1,7 @@
 from math import isclose
 
+from ase.io import read
+from rdkit import Chem
 from pytest import mark
 import numpy as np
 import pandas as pd
@@ -8,7 +10,6 @@ import itertools
 
 from mofa.model import MOFRecord, LigandTemplate, LigandDescription
 from mofa.utils.conversions import read_from_string
-from rdkit import Chem
 
 
 def test_create(example_cif):
@@ -47,10 +48,14 @@ def test_ligand_model(file_path):
 
 @mark.parametrize('anchor_type', ['COO'])
 def test_ligand_description_H_inference(file_path, anchor_type):
-    desc = LigandDescription.from_yaml(file_path / 'difflinker' / 'templates' / f'description_{anchor_type}2.yml')
-    desc.infer_H_and_bond_safe()
+    # Load the template and the new coordinates
+    template = LigandTemplate.from_yaml(file_path / 'difflinker' / 'templates' / 'template_COO.yml')
+    example_xyz = read(file_path / 'difflinker' / 'templates' / 'difflinker-coo-example.xyz')
+
+    # Instantiate the template
+    desc = template.create_description(example_xyz.get_chemical_symbols(), example_xyz.positions)
     needed_orig_xyz_str = "\n".join(desc.xyz.split("\n")[2:])
-    needed_new_xyz_str = "\n".join(desc.xyz_H.split("\n")[2:])
+    needed_new_xyz_str = "\n".join(desc.xyz.split("\n")[2:])
     xyz_diff = needed_new_xyz_str.replace(needed_orig_xyz_str, "")
     df = pd.read_csv(io.StringIO(xyz_diff), sep=r"\s+", header=None, index_col=None, names=["element", "x", "y", "z"])
 
@@ -59,7 +64,7 @@ def test_ligand_description_H_inference(file_path, anchor_type):
 
     # test if none of the Hs are added to the anchor atoms
     # rdmol = Chem.rdmolfiles.MolFromMolBlock(desc.sdf)
-    rdmol = Chem.rdmolfiles.MolFromXYZBlock(desc.xyz_H)
+    rdmol = Chem.rdmolfiles.MolFromXYZBlock(desc.xyz)
     H_is_detected_on_an_anchor = False
     for x in list(itertools.chain(*desc.anchor_atoms)):
         rdatom = rdmol.GetAtomWithIdx(x)

@@ -12,16 +12,14 @@ import numpy as np
 from ase.io import read
 from ase.io.vasp import read_vasp
 import ase
-
-from mofa.utils.conversions import read_from_string, write_to_string
-
 import pandas as pd
 import itertools
 
-from mofa.utils.xyz import unsaturated_xyz_to_mol
 
-from openbabel import pybel
-from openbabel import openbabel as OB
+from mofa.utils.conversions import read_from_string, write_to_string
+
+
+from mofa.utils.xyz import unsaturated_xyz_to_xyz
 
 
 @dataclass
@@ -76,6 +74,8 @@ class LigandTemplate:
     def create_description(self, atom_types: list[str], coordinates: np.ndarray) -> 'LigandDescription':
         """Produce a ligand description given atomic coordinates which include the infilled atoms
 
+        Assumes the provided coordinates are of the backbone atom and not the
+
         Args:
             atom_types: Types of all atoms as chemical symbols
             coordinates: Coordinates of all atoms
@@ -97,10 +97,10 @@ class LigandTemplate:
             pos += len(anchor)
 
         # Add Hydrogens to the molecule
-        #  TODO (wardlt): This this with a real example Ligand
+        #  TODO (wardlt): Test this with a real example Ligand
         atoms = ase.Atoms(symbols=atom_types, positions=coordinates)
         unsat_xyz = write_to_string(atoms, 'xyz')
-        sat_xyz = unsaturated_xyz_to_mol(unsat_xyz, exclude_atoms=list(itertools.chain(*anchor_atoms)))
+        sat_xyz = unsaturated_xyz_to_xyz(unsat_xyz, exclude_atoms=list(itertools.chain(*anchor_atoms)))
 
         return LigandDescription(
             xyz=sat_xyz,
@@ -129,10 +129,8 @@ class LigandDescription:
 
     smiles: str | None = field(default=None)
     """SMILES-format designation of the molecule"""
-    xyz_H: str | None = field(default=None, repr=False)
-    """XYZ coordinates of all atoms in the linker including all Hs"""
     xyz: str | None = field(default=None, repr=False)
-    """raw XYZ coordinates of each heavy atom in the linker without any Hs, one can safely assume this is coming straight from the DiffLinker output"""
+    """XYZ coordinates of all atoms in the linker including all Hs"""
     sdf: str | None = field(default=None, repr=False)
     """SDF file string with atom positions and bond (with order) information (optional)"""
 
@@ -187,29 +185,6 @@ class LigandDescription:
             raise NotImplementedError(f'Logic not yet defined for anchor_type={self.anchor_type}')
 
         return ase.Atoms(df["element"], df.loc[:, ["x", "y", "z"]].values)
-
-    def infer_H_and_bond_safe(self):
-        mol = pybel.readstring("xyz", self.xyz)
-        # to make sure the old xyz is written by OBB
-        self.xyz = mol.write(format='xyz', filename=None)
-        obmol = mol.OBMol
-        obmol.SetTotalCharge(0)
-        obmol.SetHydrogensAdded(False)
-        for x in range(0, obmol.NumAtoms()):
-            if x not in list(itertools.chain(*(self.anchor_atoms))):  # excluding the archor atoms such that no H is added to the -COO, -C#N, etc.
-                obatom = obmol.GetAtom(x+1)
-                obatom.SetFormalCharge(0)
-                obatomicnum = obatom.GetAtomicNum()
-                currBO = obatom.GetTotalValence()
-                nH = OB.GetTypicalValence(obatomicnum, currBO, 0) - currBO
-                obatom.SetImplicitHCount(nH)
-        obmol.ConvertDativeBonds()
-        obmol.AddHydrogens()
-        mol = pybel.Molecule(obmol)
-        # to make sure the new xyz is also written by OBB
-        self.xyz_H = mol.write(format='xyz', filename=None)
-        self.sdf = mol.write(format='sdf', filename=None)
-        return
 
     @classmethod
     def from_yaml(cls, path: Path) -> 'LigandDescription':
