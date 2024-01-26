@@ -152,7 +152,6 @@ class LigandDescription:
     def atoms(self):
         return read_from_string(self.xyz, "xyz")
 
-    @classmethod
     def replace_with_dummy_atoms(self) -> ase.Atoms:
         """Replace the fragments which attach to nodes with dummy atoms
 
@@ -190,7 +189,6 @@ class LigandDescription:
 
         return ase.Atoms(df["element"], df.loc[:, ["x", "y", "z"]].values)
 
-    @classmethod
     def infer_H_and_bond_safe(self):
         mol = pybel.readstring("xyz", self.xyz)
         # to make sure the old xyz is written by OBB
