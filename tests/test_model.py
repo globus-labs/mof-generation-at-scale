@@ -47,7 +47,7 @@ def test_ligand_model(file_path):
 
 @mark.parametrize('anchor_type', ['COO'])
 def test_ligand_description_H_inference(file_path, anchor_type):
-    desc = LigandDescription.from_yaml(file_path / 'difflinker' / 'templates' / f'description_{anchor_type}.yml')
+    desc = LigandDescription.from_yaml(file_path / 'difflinker' / 'templates' / f'description_{anchor_type}2.yml')
     desc.infer_H_and_bond_safe()
     needed_orig_xyz_str = "\n".join(desc.xyz.split("\n")[2:])
     needed_new_xyz_str = "\n".join(desc.xyz_H.split("\n")[2:])
