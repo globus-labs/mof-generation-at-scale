@@ -12,12 +12,14 @@ import numpy as np
 from ase.io import read
 from ase.io.vasp import read_vasp
 import ase
+import pandas as pd
+import itertools
+
 
 from mofa.utils.conversions import read_from_string, write_to_string
 
-import pandas as pd
-import itertools
-import io
+
+from mofa.utils.xyz import unsaturated_xyz_to_xyz
 
 
 @dataclass
@@ -72,6 +74,8 @@ class LigandTemplate:
     def create_description(self, atom_types: list[str], coordinates: np.ndarray) -> 'LigandDescription':
         """Produce a ligand description given atomic coordinates which include the infilled atoms
 
+        Assumes the provided coordinates are of the backbone atom and not the
+
         Args:
             atom_types: Types of all atoms as chemical symbols
             coordinates: Coordinates of all atoms
@@ -92,10 +96,13 @@ class LigandTemplate:
             assert found_types == expected_types, f'Anchor changed. Found: {found_types} - Expected: {expected_types}'
             pos += len(anchor)
 
-        # Build the XYZ file
+        # Add Hydrogens to the molecule
         atoms = ase.Atoms(symbols=atom_types, positions=coordinates)
+        unsat_xyz = write_to_string(atoms, 'xyz')
+        sat_xyz = unsaturated_xyz_to_xyz(unsat_xyz, exclude_atoms=list(itertools.chain(*anchor_atoms)))
+
         return LigandDescription(
-            xyz=write_to_string(atoms, 'xyz'),
+            xyz=sat_xyz,
             anchor_type=self.anchor_type,
             anchor_atoms=anchor_atoms,
             dummy_element=self.dummy_element
@@ -122,7 +129,9 @@ class LigandDescription:
     smiles: str | None = field(default=None)
     """SMILES-format designation of the molecule"""
     xyz: str | None = field(default=None, repr=False)
-    """XYZ coordinates of each atom in the linker"""
+    """XYZ coordinates of all atoms in the linker including all Hs"""
+    sdf: str | None = field(default=None, repr=False)
+    """SDF file string with atom positions and bond (with order) information (optional)"""
 
     # Information about how this ligand anchors to the inorganic portions
     anchor_type: str | None = field(default=None)
@@ -143,11 +152,11 @@ class LigandDescription:
         """Replace the fragments which attach to nodes with dummy atoms
 
         Returns:
-            ASE atoms version of this
+            ASE atoms version of the molecule without
         """
 
         # Get the locations of the
-        df = pd.read_csv(io.StringIO(self.xyz), skiprows=2, sep=r"\s+", header=None, names=["element", "x", "y", "z"])
+        df = pd.read_csv(StringIO(self.xyz), skiprows=2, sep=r"\s+", header=None, names=["element", "x", "y", "z"])
         anchor_ids = list(itertools.chain(*self.anchor_atoms))
         anchor_df = df.loc[anchor_ids, :]
 
@@ -156,7 +165,7 @@ class LigandDescription:
             at_id = anchor_df[anchor_df["element"] == "C"].index
             remove_ids = anchor_df[anchor_df["element"] == "O"].index
             df.loc[at_id, "element"] = self.dummy_element
-            df = df.loc[list(set(df.index)-set(remove_ids)), :]
+            df = df.loc[list(set(df.index) - set(remove_ids)), :]
         elif self.anchor_type == "cyano":
             df_list = [df]
             for curr_anchor in self.anchor_atoms:

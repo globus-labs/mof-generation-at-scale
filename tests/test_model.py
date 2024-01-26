@@ -1,7 +1,12 @@
 from math import isclose
 
+from ase.io import read
+from rdkit import Chem
 from pytest import mark
 import numpy as np
+import pandas as pd
+import io
+import itertools
 
 from mofa.model import MOFRecord, LigandTemplate, LigandDescription
 from mofa.utils.conversions import read_from_string
@@ -39,6 +44,35 @@ def test_ligand_model(file_path):
     assert ligand.anchor_type == template.anchor_type
     assert ligand.anchor_atoms == [[0, 1, 2], [3, 4, 5]]
     assert ligand.dummy_element == template.dummy_element
+
+
+@mark.parametrize('anchor_type', ['COO'])
+def test_ligand_description_H_inference(file_path, anchor_type):
+    # Load the template and the new coordinates
+    template = LigandTemplate.from_yaml(file_path / 'difflinker' / 'templates' / 'template_COO.yml')
+    example_xyz = read(file_path / 'difflinker' / 'templates' / 'difflinker-coo-example.xyz')
+
+    # Instantiate the template
+    desc = template.create_description(example_xyz.get_chemical_symbols(), example_xyz.positions)
+    needed_orig_xyz_str = "\n".join(desc.xyz.split("\n")[2:])
+    needed_new_xyz_str = "\n".join(desc.xyz.split("\n")[2:])
+    xyz_diff = needed_new_xyz_str.replace(needed_orig_xyz_str, "")
+    df = pd.read_csv(io.StringIO(xyz_diff), sep=r"\s+", header=None, index_col=None, names=["element", "x", "y", "z"])
+
+    # test if all added atoms are Hs
+    all_added_atoms_are_Hs = np.all(df["element"].to_numpy() == "H")
+
+    # test if none of the Hs are added to the anchor atoms
+    # rdmol = Chem.rdmolfiles.MolFromMolBlock(desc.sdf)
+    rdmol = Chem.rdmolfiles.MolFromXYZBlock(desc.xyz)
+    H_is_detected_on_an_anchor = False
+    for x in list(itertools.chain(*desc.anchor_atoms)):
+        rdatom = rdmol.GetAtomWithIdx(x)
+        nbrs = [x.GetSymbol() for x in list(rdatom.GetNeighbors())]
+        if "H" in nbrs:
+            H_is_detected_on_an_anchor = True
+            break
+    assert (not H_is_detected_on_an_anchor) and all_added_atoms_are_Hs
 
 
 @mark.parametrize('anchor_type', ['COO', 'cyano'])

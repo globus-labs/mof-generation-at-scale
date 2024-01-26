@@ -67,4 +67,4 @@ def test_sampling_num_atoms(n_atoms, example_template, n_samples, file_dir, tmp_
     assert len(samples) == n_samples
     anchor_count = sum(len(a) for a in example_template.anchors)
     for sample in samples:
-        assert len(sample.atoms) == anchor_count + n_atoms
+        assert len(sample.atoms) > anchor_count + n_atoms  # There will be more atoms once H's are added
