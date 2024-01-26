@@ -16,6 +16,7 @@ def test_create(example_cif):
     assert mof.identifiers['local'] == 'test'
     assert isclose(mof.atoms.cell.lengths()[0], 39.87968858)
 
+
 def test_name(example_cif):
     # Same CIF, same name
     mof_1 = MOFRecord.from_file(example_cif)
@@ -43,6 +44,7 @@ def test_ligand_model(file_path):
     assert ligand.anchor_atoms == [[0, 1, 2], [3, 4, 5]]
     assert ligand.dummy_element == template.dummy_element
 
+
 @mark.parametrize('anchor_type', ['COO'])
 def test_ligand_description_H_inference(file_path, anchor_type):
     desc = LigandDescription.from_yaml(file_path / 'difflinker' / 'templates' / f'description_{anchor_type}.yml')
@@ -56,7 +58,7 @@ def test_ligand_description_H_inference(file_path, anchor_type):
     all_added_atoms_are_Hs = np.all(df["element"].to_numpy() == "H")
 
     # test if none of the Hs are added to the anchor atoms
-    #rdmol = Chem.rdmolfiles.MolFromMolBlock(desc.sdf)
+    # rdmol = Chem.rdmolfiles.MolFromMolBlock(desc.sdf)
     rdmol = Chem.rdmolfiles.MolFromXYZBlock(desc.xyz)
     H_is_detected_on_an_anchor = False
     for x in list(itertools.chain(*desc.anchor_atoms)):
@@ -66,6 +68,7 @@ def test_ligand_description_H_inference(file_path, anchor_type):
             H_is_detected_on_an_anchor = True
             break
     assert (not H_is_detected_on_an_anchor) and all_added_atoms_are_Hs
+
 
 @mark.parametrize('anchor_type', ['COO', 'cyano'])
 def test_ligand_description(file_path, anchor_type):
