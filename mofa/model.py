@@ -160,7 +160,7 @@ class LigandDescription:
         """
 
         # Get the locations of the
-        df = pd.read_csv(io.StringIO(self.xyz), skiprows=2, sep=r"\s+", header=None, names=["element", "x", "y", "z"])
+        df = pd.read_csv(StringIO(self.xyz), skiprows=2, sep=r"\s+", header=None, names=["element", "x", "y", "z"])
         anchor_ids = list(itertools.chain(*self.anchor_atoms))
         anchor_df = df.loc[anchor_ids, :]
 
