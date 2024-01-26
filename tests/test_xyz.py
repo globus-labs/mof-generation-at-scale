@@ -30,4 +30,3 @@ def test_from_unsaturated(smiles):
     # Generate an XYZ with the correct number of atoms
     new_xyz = unsaturated_xyz_to_xyz(non_h_xyz)
     assert new_xyz.split()[0] == xyz[0].strip()  # Should start with the same number of atoms
-
