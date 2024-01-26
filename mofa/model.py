@@ -191,6 +191,8 @@ class LigandDescription:
     @classmethod
     def infer_H_bond_safe(self):
         mol = pybel.readstring("xyz", self.xyz)
+        # to make sure the old xyz is written by OBB
+        self.xyz = mol.write(format='xyz', filename=None)
         obmol = mol.OBMol
         obmol.SetTotalCharge(0)
         obmol.SetHydrogensAdded(False)
@@ -206,6 +208,7 @@ class LigandDescription:
         obmol.ConvertDativeBonds()
         obmol.AddHydrogens()
         mol = pybel.Molecule(obmol)
+        # to make sure the new xyz is also written by OBB
         self.xyz = mol.write(format='xyz', filename=None)
         self.sdf = mol.write(format='sdf', filename=None)
         return
