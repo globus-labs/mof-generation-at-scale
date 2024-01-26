@@ -130,8 +130,10 @@ class LigandDescription:
 
     smiles: str | None = field(default=None)
     """SMILES-format designation of the molecule"""
+    xyz_H: str | None = field(default=None, repr=False)
+    """XYZ coordinates of all atoms in the linker including all Hs"""
     xyz: str | None = field(default=None, repr=False)
-    """XYZ coordinates of each atom in the linker"""
+    """raw XYZ coordinates of each heavy atom in the linker without any Hs, one can safely assume this is coming straight from the DiffLinker output"""
     sdf: str | None = field(default=None, repr=False)
     """SDF file string with atom positions and bond (with order) information (optional)"""
 
@@ -209,7 +211,7 @@ class LigandDescription:
         obmol.AddHydrogens()
         mol = pybel.Molecule(obmol)
         # to make sure the new xyz is also written by OBB
-        self.xyz = mol.write(format='xyz', filename=None)
+        self.xyz_H = mol.write(format='xyz', filename=None)
         self.sdf = mol.write(format='sdf', filename=None)
         return
 
