@@ -40,6 +40,16 @@ def test_ligand_model(file_path):
     assert ligand.anchor_atoms == [[0, 1, 2], [3, 4, 5]]
     assert ligand.dummy_element == template.dummy_element
 
+@mark.parametrize('anchor_type', ['COO', 'cyano'])
+def test_ligand_description_H_inference(file_path, anchor_type):
+    desc = LigandDescription.from_yaml(file_path / 'difflinker' / 'templates' / f'description_{anchor_type}.yml')
+    orig_xyz_str = desc.xyz
+    desc.infer_H_and_bond_safe()
+    new_xyz_str = desc.xyz
+
+    # Test if the Hs are added and no heavy atom information has been modified
+    with_dummies = desc.replace_with_dummy_atoms()
+    assert with_dummies.symbols.count(desc.dummy_element) == 2
 
 @mark.parametrize('anchor_type', ['COO', 'cyano'])
 def test_ligand_description(file_path, anchor_type):
