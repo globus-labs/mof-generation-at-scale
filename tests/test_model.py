@@ -10,11 +10,11 @@ from mofa.model import MOFRecord, LigandTemplate, LigandDescription
 from mofa.utils.conversions import read_from_string
 from rdkit import Chem
 
+
 def test_create(example_cif):
     mof = MOFRecord.from_file(example_cif, identifiers={'local': 'test'})
     assert mof.identifiers['local'] == 'test'
     assert isclose(mof.atoms.cell.lengths()[0], 39.87968858)
-
 
 def test_name(example_cif):
     # Same CIF, same name
