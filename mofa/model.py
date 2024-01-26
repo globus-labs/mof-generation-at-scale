@@ -17,7 +17,6 @@ from mofa.utils.conversions import read_from_string, write_to_string
 
 import pandas as pd
 import itertools
-import io
 
 from mofa.utils.xyz import unsaturated_xyz_to_mol
 
