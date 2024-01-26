@@ -63,7 +63,7 @@ def smiles_to_xyz(smiles: str) -> str:
         return xyz
 
 
-def unsaturated_xyz_to_mol(xyz: str) -> Chem.Mol:
+def unsaturated_xyz_to_mol(xyz: str, exclude_atoms: Collection[int] = ()) -> Chem.Mol:
     """Infer a molecule with reasonable bond orders from the positions of the backbone atoms
 
     Uses the distances between atoms to determine which atoms are bonded
@@ -75,50 +75,27 @@ def unsaturated_xyz_to_mol(xyz: str) -> Chem.Mol:
     Returns:
         Best guess of a saturated molecule
     """
-
-    # First determine connectivity given 3D coordinates
-    mol: Chem.Mol = Chem.MolFromXYZBlock(xyz)
-    rdDetermineBonds.DetermineConnectivity(mol)
-    conformer: Chem.Conformer = mol.GetConformer(0)
-    positions = conformer.GetPositions()
-
-    # Based on that connectivity, infer the bond order
-    for bond in mol.GetBonds():
-        bond: Chem.Bond = bond
-
-        # Get the distance between atoms
-        atom_1, atom_2 = bond.GetBeginAtom(), bond.GetEndAtom()
-        atom_1: Chem.Atom = atom_1
-        distance = np.linalg.norm(
-            positions[atom_1.GetIdx(), :] - positions[atom_2.GetIdx(), :]
-        ) * 100  # Distance in pm, to match with the database
-
-        # Infer if the bond order is larger than single
-        # Adapted from "utils/src/molecule_builder.py
-        type_1, type_2 = atom_1.GetSymbol(), atom_2.GetSymbol()
-        margins = const.MARGINS_EDM
-        bond_type = Chem.BondType.SINGLE
-
-        if type_1 in const.BONDS_2 and type_2 in const.BONDS_2[type_1]:
-            thr_bond2 = const.BONDS_2[type_1][type_2] + margins[1]
-            if distance < thr_bond2:
-                bond_type = Chem.BondType.DOUBLE
-                if type_1 in const.BONDS_3 and type_2 in const.BONDS_3[type_1]:
-                    thr_bond3 = const.BONDS_3[type_1][type_2] + margins[2]
-                    if distance < thr_bond3:
-                        bond_type = Chem.BondType.TRIPLE
-
-        # TODO (wardlt): Only increase the bond order if it will not violate the valency rules of bond molecules
-        bond.SetBondType(bond_type)
-
-    # Add hydrogens to the molecule
-    Chem.SanitizeMol(mol)
-    for atom in mol.GetAtoms():
-        # Force RDKit to place as many hydrogens on atom as possible
-        atom.SetNumRadicalElectrons(0)
-        atom.SetNoImplicit(False)
-    mol.UpdatePropertyCache()  # Detects the valency
-    return mol
+    pbmol = pybel.readstring("xyz", xyz)
+    # some OBB C++ API black magic
+    obmol = pbmol.OBMol
+    obmol.SetTotalCharge(0)
+    obmol.SetHydrogensAdded(False)
+    for x in range(0, obmol.NumAtoms()):
+        if x not in exclude_atoms:  # excluding the archor atoms such that no H is added to the -COO, -C#N, etc.
+            obatom = obmol.GetAtom(x+1)
+            obatom.SetFormalCharge(0)
+            obatomicnum = obatom.GetAtomicNum()
+            currBO = obatom.GetTotalValence()
+            nH = OB.GetTypicalValence(obatomicnum, currBO, 0) - currBO
+            obatom.SetImplicitHCount(nH)
+    obmol.ConvertDativeBonds()
+    obmol.AddHydrogens()
+    # go back to OBB python API
+    pbmol = pybel.Molecule(obmol)
+    # convert to RDKitMol by converting SDF first
+    sdf_str = mol.write(format='sdf', filename=None)
+    rdmol = Chem.rdmolfiles.MolFromMolBlock(sdf_str)
+    return rdmol
 
 
 def unsaturated_xyz_to_xyz(xyz: str, exclude_atoms: Collection[int] = ()) -> str:
@@ -131,8 +108,23 @@ def unsaturated_xyz_to_xyz(xyz: str, exclude_atoms: Collection[int] = ()) -> str
         Best guess coordinates
     """
 
-    # Infer the bond orders and place implicit hydrogens
-    mol: Chem.Mol = unsaturated_xyz_to_mol(xyz)
-    allowed_atoms = list(set(range(mol.GetNumAtoms())).difference(exclude_atoms))
-    mol = Chem.AddHs(mol, addCoords=True, onlyOnAtoms=allowed_atoms)
-    return Chem.MolToXYZBlock(mol)
+    pbmol = pybel.readstring("xyz", xyz)
+    # some OBB C++ API black magic
+    obmol = pbmol.OBMol
+    obmol.SetTotalCharge(0)
+    obmol.SetHydrogensAdded(False)
+    for x in range(0, obmol.NumAtoms()):
+        if x not in exclude_atoms:  # excluding the archor atoms such that no H is added to the -COO, -C#N, etc.
+            obatom = obmol.GetAtom(x+1)
+            obatom.SetFormalCharge(0)
+            obatomicnum = obatom.GetAtomicNum()
+            currBO = obatom.GetTotalValence()
+            nH = OB.GetTypicalValence(obatomicnum, currBO, 0) - currBO
+            obatom.SetImplicitHCount(nH)
+    obmol.ConvertDativeBonds()
+    obmol.AddHydrogens()
+    # go back to OBB python API
+    pbmol = pybel.Molecule(obmol)
+    # convert to RDKitMol by converting SDF first
+    xyz_str = mol.write(format='xyz', filename=None)
+    return xyz_str
