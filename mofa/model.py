@@ -191,7 +191,7 @@ class LigandDescription:
         return ase.Atoms(df["element"], df.loc[:, ["x", "y", "z"]].values)
 
     @classmethod
-    def infer_H_bond_safe(self):
+    def infer_H_and_bond_safe(self):
         mol = pybel.readstring("xyz", self.xyz)
         # to make sure the old xyz is written by OBB
         self.xyz = mol.write(format='xyz', filename=None)
