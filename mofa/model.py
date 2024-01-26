@@ -21,6 +21,9 @@ import io
 
 from mofa.utils.xyz import unsaturated_xyz_to_mol
 
+from openbabel import pybel
+from openbabel import openbabel as OB
+
 
 @dataclass
 class NodeDescription:
@@ -129,6 +132,8 @@ class LigandDescription:
     """SMILES-format designation of the molecule"""
     xyz: str | None = field(default=None, repr=False)
     """XYZ coordinates of each atom in the linker"""
+    sdf: str | None = field(default=None, repr=False)
+    """SDF file string with atom positions and bond (with order) information (optional)"""
 
     # Information about how this ligand anchors to the inorganic portions
     anchor_type: str | None = field(default=None)
@@ -145,6 +150,7 @@ class LigandDescription:
     def atoms(self):
         return read_from_string(self.xyz, "xyz")
 
+    @classmethod
     def replace_with_dummy_atoms(self) -> ase.Atoms:
         """Replace the fragments which attach to nodes with dummy atoms
 
@@ -181,6 +187,28 @@ class LigandDescription:
             raise NotImplementedError(f'Logic not yet defined for anchor_type={self.anchor_type}')
 
         return ase.Atoms(df["element"], df.loc[:, ["x", "y", "z"]].values)
+
+    @classmethod
+    def infer_H_bond_safe(self):
+        mol = pybel.readstring("xyz", self.xyz)
+        obmol = mol.OBMol
+        obmol.SetTotalCharge(0)
+        obmol.SetHydrogensAdded(False)
+        for x in range(0, obmol.NumAtoms()):
+            if x not in list(itertools.chain(*ld.anchor_atoms)):  # excluding the archor atoms such that no H is added to the -COO, -C#N, etc.
+                obatom = obmol.GetAtom(x+1)
+                obatom.SetFormalCharge(0)
+                obatomicnum = obatom.GetAtomicNum()
+                maxBO = OB.GetMaxBonds(obatomicnum)
+                currBO = obatom.GetTotalValence()
+                nH = OB.GetTypicalValence(obatomicnum, currBO, 0) - currBO
+                obatom.SetImplicitHCount(nH)
+        obmol.ConvertDativeBonds()
+        obmol.AddHydrogens()
+        mol = pybel.Molecule(obmol)
+        self.xyz = mol.write(format='xyz', filename=None)
+        self.sdf = mol.write(format='sdf', filename=None)
+        return
 
     @classmethod
     def from_yaml(cls, path: Path) -> 'LigandDescription':
