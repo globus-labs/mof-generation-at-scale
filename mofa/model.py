@@ -97,7 +97,6 @@ class LigandTemplate:
             pos += len(anchor)
 
         # Add Hydrogens to the molecule
-        #  TODO (wardlt): Test this with a real example Ligand
         atoms = ase.Atoms(symbols=atom_types, positions=coordinates)
         unsat_xyz = write_to_string(atoms, 'xyz')
         sat_xyz = unsaturated_xyz_to_xyz(unsat_xyz, exclude_atoms=list(itertools.chain(*anchor_atoms)))

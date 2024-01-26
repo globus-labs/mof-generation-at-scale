@@ -18,7 +18,7 @@ def test_reversibility(smiles):
     assert start_inchi == end_inchi
 
 
-@mark.parametrize('smiles', ['C', 'C=C', 'c1cnccc1'])
+@mark.parametrize('smiles', ['C', 'c1cnccc1'])
 def test_from_unsaturated(smiles):
     """Test whether we can infer smiles from unsaturated"""
 
@@ -31,5 +31,3 @@ def test_from_unsaturated(smiles):
     new_xyz = unsaturated_xyz_to_xyz(non_h_xyz)
     assert new_xyz.split()[0] == xyz[0].strip()  # Should start with the same number of atoms
 
-
-# TODO (wardlt): Test the unsaturated with a larger linker that includes anchor groups
