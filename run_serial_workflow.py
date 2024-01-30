@@ -6,24 +6,24 @@ import sys
 from argparse import ArgumentParser
 from dataclasses import asdict
 from datetime import datetime
-from random import sample
+from random import choice
 from pathlib import Path
-from io import StringIO
 
 import pandas as pd
 from rdkit import Chem
 from rdkit import RDLogger
+from openbabel import openbabel as ob
 
 from mofa.assembly.assemble import assemble_mof
-from mofa.assembly.preprocess_linkers import clean_linker
-from mofa.assembly.validate import validate_xyz
 from mofa.generator import run_generator
-from mofa.model import MOFRecord, NodeDescription, LigandDescription, LigandTemplate
+from mofa.model import MOFRecord, NodeDescription, LigandTemplate
 from mofa.scoring.geometry import MinimumDistance
 from mofa.simulation.lammps import LAMMPSRunner
 from mofa.utils.xyz import xyz_to_mol
 
 RDLogger.DisableLog('rdApp.*')
+ob.obErrorLog.SetOutputLevel(0)
+
 
 if __name__ == "__main__":
     # Make the argument parser
@@ -141,7 +141,7 @@ if __name__ == "__main__":
         requirements = {'COO': 2, 'cyano': 1}
         ligand_choices = {}
         for anchor_type, count in requirements.items():
-            ligand_choices[anchor_type] = sample(valid_ligands[anchor_type], count)
+            ligand_choices[anchor_type] = [choice(valid_ligands[anchor_type])] * count
 
         try:
             new_mof = assemble_mof(
