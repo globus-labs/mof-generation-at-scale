@@ -103,7 +103,8 @@ if __name__ == "__main__":
         valid_ligands[anchor_type] = []
         for ligand in new_ligands:
             # Store the ligand information for debugging purposes
-            record = {'anchor_type': anchor_type, 'xyz': ligand.xyz, 'valid': False}
+            record = {"anchor_type": ligand.anchor_type, "xyz": ligand.xyz,
+                      "anchor_atoms": ligand.anchor_atoms, "valid": False}
             all_ligands.append(record)
 
             # Parse each new ligand, determine whether it is a single molecule
