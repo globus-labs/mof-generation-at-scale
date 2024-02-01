@@ -105,6 +105,15 @@ def unsaturated_xyz_to_xyz(xyz: str, exclude_atoms: Collection[int] = ()) -> str
 
 
 def rubber_banding_COO_ligands_xyz(xyz: str, exclude_atoms: list[list[int]] = []) -> str:
+    """force -COO groups to be attached to the closest C or N atoms
+
+    Args:
+        xyz: existing ligand
+        exclude_atoms: Indices of atoms on which no additional Hydrogens will be added, such as anchor groups
+    Returns:
+        xyz string with rubberbanded conformation
+    """
+
     xyz_df = pd.read_csv(StringIO(xyz), sep=r"\s+", skiprows=2, header=None, index_col=None, names=["el", "x", "y", "z"])
     aa = xyz_df.loc[list(chain(*exclude_atoms)), :]
     nonaa = xyz_df[xyz_df.index.isin(list(set(xyz_df.index) - set(aa.index)))]
@@ -118,12 +127,12 @@ def rubber_banding_COO_ligands_xyz(xyz: str, exclude_atoms: list[list[int]] = []
     j2 = min2_indices[i2]
     dist1 = pdmat[i1, j1]
     dist2 = pdmat[i2, j2]
-    
+
     C1i = COO_X.index[j1]
     C2i = COO_X.index[j2]
     aaC1i = aaC.index[i1]
     aaC2i = aaC.index[i2]
-    
+
     C1 = xyz_df.loc[C1i, ["x", "y", "z"]].values
     C2 = xyz_df.loc[C2i, ["x", "y", "z"]].values
     aaC1 = xyz_df.loc[aaC1i, ["x", "y", "z"]].values
@@ -147,7 +156,15 @@ def rubber_banding_COO_ligands_xyz(xyz: str, exclude_atoms: list[list[int]] = []
     return str(len(xyz_df)) + "\n\n" + xyz_df.to_string(header=None, index=None)
 
 
-def check_interatomic_distance(xyz):
+def check_interatomic_distance(xyz: str) -> bool:
+    """check the interatomic distance based on the experimental threshold
+
+    Args:
+        xyz: existing ligand
+    Returns:
+        if the ligand has interatomic distance violation
+    """
+
     xyz_df = pd.read_csv(StringIO(xyz), sep=r"\s+", skiprows=2, header=None, index_col=None, names=["el", "x", "y", "z"])
 
     df = pd.read_csv(_bond_length_path, index_col=0)
