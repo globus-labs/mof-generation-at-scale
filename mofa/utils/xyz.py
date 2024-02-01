@@ -115,7 +115,7 @@ def rubber_banding_COO_ligands_xyz(xyz: str, exclude_atoms: list[list[int]] = []
     aa = xyz_df.loc[list(chain(*exclude_atoms)), :]
     nonaa = xyz_df[xyz_df.index.isin(list(set(xyz_df.index) - set(aa.index)))]
     aaC = aa[aa["el"]=="C"]#.reset_index(drop=True)
-    COO_X = nonaa[nonaa["el"]=="C"]#.reset_index(drop=True)
+    COO_X = nonaa[nonaa["el"].isin(["C", "N"])]#.reset_index(drop=True)
     pdmat = pdist(aaC.loc[:, ["x", "y", "z"]].values, COO_X.loc[:, ["x", "y", "z"]].values)
     min2_indices = pdmat.argsort(axis=1)[:, 0]
     i1 = 0
