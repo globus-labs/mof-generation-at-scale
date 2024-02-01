@@ -19,7 +19,7 @@ import itertools
 from mofa.utils.conversions import read_from_string, write_to_string
 
 
-from mofa.utils.xyz import unsaturated_xyz_to_xyz
+from mofa.utils.xyz import unsaturated_xyz_to_xyz, rubber_banding_COO_ligands_xyz
 
 
 @dataclass
@@ -99,6 +99,10 @@ class LigandTemplate:
         # Add Hydrogens to the molecule
         atoms = ase.Atoms(symbols=atom_types, positions=coordinates)
         unsat_xyz = write_to_string(atoms, 'xyz')
+        # run rubber banding on -COO ligands only
+        unique_anchor_elements = list(set(pd.Series(atom_types)[anchor_atoms[0]]))
+        if len(anchor_atoms[0]) == 3 and "C" in unique_anchor_elements and "O" in unique_anchor_elements:
+            unsat_xyz = rubber_banding_COO_ligands_xyz(unsat_xyz, anchor_atoms)
         sat_xyz = unsaturated_xyz_to_xyz(unsat_xyz, exclude_atoms=list(itertools.chain(*anchor_atoms)))
 
         return LigandDescription(
