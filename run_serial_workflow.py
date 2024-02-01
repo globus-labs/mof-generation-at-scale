@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pandas as pd
 from rdkit import Chem
+from rdkit.Chem import AllChem
 from rdkit import RDLogger
 from openbabel import openbabel as ob
 
@@ -19,7 +20,7 @@ from mofa.generator import run_generator
 from mofa.model import MOFRecord, NodeDescription, LigandTemplate
 from mofa.scoring.geometry import MinimumDistance
 from mofa.simulation.lammps import LAMMPSRunner
-from mofa.utils.xyz import xyz_to_mol
+from mofa.utils.xyz import xyz_to_mol, check_interatomic_distance
 
 RDLogger.DisableLog('rdApp.*')
 ob.obErrorLog.SetOutputLevel(0)
@@ -109,7 +110,11 @@ if __name__ == "__main__":
 
             # Parse each new ligand, determine whether it is a single molecule
             try:
+                assert check_interatomic_distance(ligand.xyz)
                 mol = xyz_to_mol(ligand.xyz)
+                AllChem.EmbedMolecule(mol, randomSeed=1)
+                AllChem.MMFFOptimizeMolecule(mol)
+                ligand.xyz = Chem.MolToXYZBlock(mol)
             except (ValueError,):
                 continue
 
