@@ -7,6 +7,13 @@ from rdkit import Chem
 from openbabel import pybel
 from openbabel import openbabel as OB
 
+from sklearn.metrics import pairwise_distances as pdist
+import pandas as pd
+from numpy import array
+from numpy.linalg import norm
+from itertools import chain
+from io import StringIO
+
 _generate_lock = Lock()
 
 
@@ -92,3 +99,55 @@ def unsaturated_xyz_to_xyz(xyz: str, exclude_atoms: Collection[int] = ()) -> str
     # convert to RDKitMol by converting SDF first
     xyz_str = pbmol.write(format='xyz', filename=None)
     return xyz_str
+
+
+def rubber_banding_COO_ligands_xyz(xyz: str, exclude_atoms: list[list[int]] = []) -> str:
+    """Add hydrogens to a molecule given only the backbone atoms
+
+    Args:
+        xyz: xyz string of the back bone atoms
+        exclude_atoms: grouped anchor atom ids
+    Returns:
+        rubber banded xyz string
+    """
+    
+    xyz_df = pd.read_csv(StringIO(xyz), sep=r"\s+", skiprows=2, header=None, index_col=None, names=["el", "x", "y", "z"])
+    aa = xyz_df.loc[list(chain(*exclude_atoms)), :]
+    nonaa = xyz_df[xyz_df.index.isin(list(set(xyz_df.index) - set(aa.index)))]
+    aaC = aa[aa["el"]=="C"]#.reset_index(drop=True)
+    COO_X = nonaa[nonaa["el"]=="C"]#.reset_index(drop=True)
+    pdmat = pdist(aaC.loc[:, ["x", "y", "z"]].values, COO_X.loc[:, ["x", "y", "z"]].values)
+    min2_indices = pdmat.argsort(axis=1)[:, 0]
+    i1 = 0
+    j1 = min2_indices[i1]
+    i2 = 1
+    j2 = min2_indices[i2]
+    dist1 = pdmat[i1, j1]
+    dist2 = pdmat[i2, j2]
+    
+    C1i = COO_X.index[j1]
+    C2i = COO_X.index[j2]
+    aaC1i = aaC.index[i1]
+    aaC2i = aaC.index[i2]
+    
+    C1 = xyz_df.loc[C1i, ["x", "y", "z"]].values
+    C2 = xyz_df.loc[C2i, ["x", "y", "z"]].values
+    aaC1 = xyz_df.loc[aaC1i, ["x", "y", "z"]].values
+    aaC2 = xyz_df.loc[aaC2i, ["x", "y", "z"]].values
+    CCdirction = C1 - C2
+    CCdirction = CCdirction / norm(CCdirction)
+    CC_single_bond_length = 1.54
+    anc1 = C1 + (CCdirction * CC_single_bond_length)
+    anc2 = C2 - (CCdirction * CC_single_bond_length)
+    for COO in exclude_atoms:
+        anc = -9999
+        aaC = array([-9999, -9999, -9999])
+        if aaC1i in COO:
+            anc = anc1
+            aaC = aaC1
+        elif aaC2i in COO:
+            anc = anc2
+            aaC = aaC2
+        disp = anc - aaC
+        xyz_df.loc[COO, ["x", "y", "z"]] = xyz_df.loc[COO, ["x", "y", "z"]].values + disp
+    return str(len(xyz_df)) + "\n\n" + xyz_df.to_string(header=None, index=None)
