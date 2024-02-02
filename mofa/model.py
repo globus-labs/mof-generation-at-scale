@@ -148,6 +148,17 @@ class LigandDescription:
     def atoms(self):
         return read_from_string(self.xyz, "xyz")
 
+    def find_anchor_C_idx(self) -> list:
+        """Finds the indices of carbon atoms in the anchors
+
+        Returns:
+            list of indices
+        """
+        xyzdf = pd.read_csv(io.StringIO(self.xyz), sep=r"\s+", header=None, index_col=None, names=["el", "x", "y", "z"], skiprows=2)
+        anchor_df = xyzdf.loc[list(itertools.chain(*(self.anchor_atoms))), :]
+        anchor_C_idx = anchor_df[anchor_df["el"]=="C"].index
+        return list(anchor_C_idx)
+
     def replace_with_dummy_atoms(self) -> ase.Atoms:
         """Replace the fragments which attach to nodes with dummy atoms
 
