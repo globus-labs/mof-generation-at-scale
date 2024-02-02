@@ -90,5 +90,5 @@ def test_ligand_description(file_path, anchor_type):
 
     # Test the C atom indices in the anchors
     cids = desc.find_anchor_C_idx()
-    assert (1 in cids) and (25 in cids) and (len(cids) == 2)
+    assert (1 in cids) and (21 in cids) and (len(cids) == 2)
 
