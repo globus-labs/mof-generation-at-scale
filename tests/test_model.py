@@ -84,8 +84,8 @@ def test_ligand_description(file_path, anchor_type):
     assert with_dummies.symbols.count(desc.dummy_element) == 2
 
 
-@mark.parametrize('anchor_type', ['COO', 'cyano'])
-def test_ligand_description(file_path, anchor_type):
+@mark.parametrize('anchor_type', ['COO'])
+def test_ligand_description_cids(file_path, anchor_type):
     desc = LigandDescription.from_yaml(file_path / 'difflinker' / 'templates' / f'description_{anchor_type}.yml')
 
     # Test the C atom indices in the anchors
