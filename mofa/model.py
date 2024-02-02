@@ -154,7 +154,7 @@ class LigandDescription:
         Returns:
             list of indices
         """
-        xyzdf = pd.read_csv(io.StringIO(self.xyz), sep=r"\s+", header=None, index_col=None, names=["el", "x", "y", "z"], skiprows=2)
+        xyzdf = pd.read_csv(StringIO(self.xyz), sep=r"\s+", header=None, index_col=None, names=["el", "x", "y", "z"], skiprows=2)
         anchor_df = xyzdf.loc[list(itertools.chain(*(self.anchor_atoms))), :]
         anchor_C_idx = anchor_df[anchor_df["el"]=="C"].index
         return list(anchor_C_idx)
