@@ -85,7 +85,7 @@ def main_run(templates: list[LigandTemplate],
     # Reading input fragments
     for n_mol, template in enumerate(templates):
         # Prepare the inputs for this structure
-        symbols, positions = template.prepare_inputs()
+        symbols, positions, connector_ids = template.prepare_inputs()
         one_hot = np.array([get_one_hot(s, atom2idx) for s in symbols])
         charges = np.array([charges_dict[s] for s in symbols])
         fragment_mask = np.ones_like(charges)
