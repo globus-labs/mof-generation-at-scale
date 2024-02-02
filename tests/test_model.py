@@ -36,9 +36,15 @@ def test_ligand_model(file_path):
     for xyz in template.xyzs:
         read_from_string(xyz, 'xyz')
 
+    # Test initializing the positions
+    symbols, positions, connect_ids = template.prepare_inputs()
+    assert symbols == ['C', 'O', 'O'] * 2
+    assert positions.shape == (6, 3)
+    assert np.equal(connect_ids, [0, 3]).all()
+
     # Test making a new ligand
     ligand = template.create_description(
-        atom_types=['O', 'C', 'O', 'C', 'O', 'O', 'C', 'C'],
+        atom_types=['C', 'O', 'O', 'C', 'O', 'O', 'C', 'C'],
         coordinates=np.arange(8 * 3).reshape(-1, 3)
     )
     assert ligand.anchor_type == template.anchor_type

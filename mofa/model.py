@@ -15,9 +15,7 @@ import ase
 import pandas as pd
 import itertools
 
-
 from mofa.utils.conversions import read_from_string, write_to_string
-
 
 from mofa.utils.xyz import unsaturated_xyz_to_xyz
 
@@ -47,7 +45,9 @@ class LigandTemplate:
     anchor_type: str
     """Type of anchoring group"""
     xyzs: tuple[str]
-    """XYZ coordinates of the anchor groups"""
+    """XYZ coordinates of the anchor groups.
+
+    Each XYZ must be arranged such that the first atom is the one which connects to the rest of the molecule."""
     dummy_element: str
     """Dummy element used to replace end group when assembling MOF"""
 
@@ -56,20 +56,27 @@ class LigandTemplate:
         """The anchor groups as ASE objects"""
         return [read_from_string(xyz, 'xyz') for xyz in self.xyzs]
 
-    def prepare_inputs(self) -> tuple[list[str], np.ndarray]:
+    def prepare_inputs(self) -> tuple[list[str], np.ndarray, np.ndarray]:
         """Produce the inputs needed for DiffLinker
 
         Returns:
             - List of chemical symbols
             - Array of atomic positions
+            - Indices of the atom in each linker which connects to the rest of the molecule
         """
         symbols = []
         positions = []
+        start_ids = []
         for xyz in self.xyzs:
+            # Mark the ID of the start atom
+            start_ids.append(len(symbols))  # The next atom to be is the connecting atom
+
+            # Add the atoms and positions to the outputs
             atoms = read_from_string(xyz, fmt='xyz')
             symbols.extend(atoms.get_chemical_symbols())
             positions.append(atoms.positions)
-        return symbols, np.concatenate(positions, axis=0)
+
+        return symbols, np.concatenate(positions, axis=0), np.array(start_ids)
 
     def create_description(self, atom_types: list[str], coordinates: np.ndarray) -> 'LigandDescription':
         """Produce a ligand description given atomic coordinates which include the infilled atoms
