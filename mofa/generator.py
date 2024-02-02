@@ -61,6 +61,7 @@ def run_generator(
         n_atoms: int | str = 8,
         n_samples: int = 1,
         n_steps: int = None,
+        anchors: str = None,
         device: str = 'cpu'
 ) -> list[LigandDescription]:
     """Produce a set of new linkers given a model
@@ -86,6 +87,6 @@ def run_generator(
             linker_size=str(n_atoms),
             n_samples=n_samples,
             n_steps=n_steps,
-            anchors=None,
+            anchors=anchors,
             device=device
         )
