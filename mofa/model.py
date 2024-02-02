@@ -156,7 +156,7 @@ class LigandDescription:
         """
         xyzdf = pd.read_csv(StringIO(self.xyz), sep=r"\s+", header=None, index_col=None, names=["el", "x", "y", "z"], skiprows=2)
         anchor_df = xyzdf.loc[list(itertools.chain(*(self.anchor_atoms))), :]
-        anchor_C_idx = anchor_df[anchor_df["el"]=="C"].index
+        anchor_C_idx = anchor_df[anchor_df["el"] == "C"].index
         return list(anchor_C_idx)
 
     def replace_with_dummy_atoms(self) -> ase.Atoms:
