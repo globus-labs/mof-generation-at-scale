@@ -55,14 +55,13 @@ def test_training(file_dir, tmpdir):
 @mark.parametrize('n_atoms', [8])
 @mark.parametrize('n_samples', [1, 3])
 def test_sampling_num_atoms(n_atoms, example_template, n_samples, file_dir, filename, tmp_path):
-    anchors = "1,5" if "anchors" in filename else None ####Give 1st and 5th atom of FRAGMENT-only molecule (i.e., we can keep track of atom indices in fragment SDF/XYZ etc files)
+    # anchors = "1,5" if "anchors" in filename else None ####Give 1st and 5th atom of FRAGMENT-only molecule (i.e., we can keep track of atom indices in fragment SDF/XYZ etc files)
     samples = run_generator(
         model=file_dir / filename,
         templates=[example_template],
         n_atoms=n_atoms,
         n_samples=n_samples,
         n_steps=64,
-        anchors=anchors
     )
 
     # Make sure we created molecules of the correct size
