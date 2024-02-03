@@ -44,7 +44,7 @@ def generate_animation(ddpm, chain_batch, node_mask, n_mol):
 
 
 def main_run(templates: list[LigandTemplate],
-             model, output_dir, n_samples, n_steps, linker_size, anchors,
+             model, output_dir, n_samples, n_steps, linker_size,
              device: str = 'cpu') -> list[LigandDescription]:
     """Run the linker generation"""
     if linker_size.isdigit():
@@ -71,12 +71,6 @@ def main_run(templates: list[LigandTemplate],
     if n_steps is not None:
         ddpm.edm.T = n_steps  # otherwise, ddpm.edm.T = 1000 default
 
-    if ddpm.center_of_mass == 'anchors' and anchors is None:
-        raise ValueError(
-            'Please pass anchor atoms indices '
-            'or use another DiffLinker model that does not require information about anchors'
-        )
-
     # Get the lookup tables for atom types
     atom2idx = const.GEOM_ATOM2IDX if ddpm.is_geom else const.ATOM2IDX
     idx2atom = const.GEOM_IDX2ATOM if ddpm.is_geom else const.IDX2ATOM
@@ -86,6 +80,14 @@ def main_run(templates: list[LigandTemplate],
     for n_mol, template in enumerate(templates):
         # Prepare the inputs for this structure
         symbols, positions, connector_ids = template.prepare_inputs()
+        anchors: str = connector_ids
+        if ddpm.center_of_mass == 'anchors' and anchors is None:
+            raise ValueError(
+                'Please pass anchor atoms indices '
+                'or use another DiffLinker model that does not require information about anchors'
+            )
+            continue
+        
         one_hot = np.array([get_one_hot(s, atom2idx) for s in symbols])
         charges = np.array([charges_dict[s] for s in symbols])
         fragment_mask = np.ones_like(charges)
