@@ -86,6 +86,5 @@ def run_generator(
             linker_size=str(n_atoms),
             n_samples=n_samples,
             n_steps=n_steps,
-            anchors=None,
             device=device
         )
