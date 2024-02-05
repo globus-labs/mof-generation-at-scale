@@ -56,13 +56,13 @@ class LigandTemplate:
         """The anchor groups as ASE objects"""
         return [read_from_string(xyz, 'xyz') for xyz in self.xyzs]
 
-    def prepare_inputs(self) -> tuple[list[str], np.ndarray, str]:
+    def prepare_inputs(self) -> tuple[list[str], np.ndarray, np.ndarray | None]:
         """Produce the inputs needed for DiffLinker
 
         Returns:
             - List of chemical symbols
             - Array of atomic positions
-            - Indices of the atom in each linker which connects to the rest of the molecule
+            - Indices of the atom in each linker which connects to the rest of the molecule, if known
         """
         symbols = []
         positions = []
@@ -76,7 +76,7 @@ class LigandTemplate:
             symbols.extend(atoms.get_chemical_symbols())
             positions.append(atoms.positions)
 
-        return symbols, np.concatenate(positions, axis=0), ",".join(start_ids)  # np.array(start_ids)
+        return symbols, np.concatenate(positions, axis=0), start_ids
 
     def create_description(self, atom_types: list[str], coordinates: np.ndarray) -> 'LigandDescription':
         """Produce a ligand description given atomic coordinates which include the infilled atoms

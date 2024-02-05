@@ -79,14 +79,12 @@ def main_run(templates: list[LigandTemplate],
     # Reading input fragments
     for n_mol, template in enumerate(templates):
         # Prepare the inputs for this structure
-        symbols, positions, connector_ids = template.prepare_inputs()
-        anchors: str = connector_ids
+        symbols, positions, anchors = template.prepare_inputs()
         if ddpm.center_of_mass == 'anchors' and anchors is None:
             raise ValueError(
                 'Please pass anchor atoms indices '
                 'or use another DiffLinker model that does not require information about anchors'
             )
-            continue
         
         one_hot = np.array([get_one_hot(s, atom2idx) for s in symbols])
         charges = np.array([charges_dict[s] for s in symbols])
@@ -94,8 +92,7 @@ def main_run(templates: list[LigandTemplate],
         linker_mask = np.zeros_like(charges)
         anchor_flags = np.zeros_like(charges)
         if anchors is not None:
-            for anchor in anchors.split(','):
-                anchor_flags[int(anchor) - 1] = 1
+            anchor_flags[anchors] = 1
 
         # Perform the sampling
         dataset = [{
