@@ -88,3 +88,10 @@ def test_ligand_description(file_path, anchor_type):
     # Test the ability to replace anchors with dummy atoms
     with_dummies = desc.replace_with_dummy_atoms()
     assert with_dummies.symbols.count(desc.dummy_element) == 2
+
+
+@mark.parametrize('anchor_type', ['cyano'])
+def test_ligand_description(file_path, anchor_type):
+    desc = LigandDescription.from_yaml(file_path / 'difflinker' / 'templates' / f'description_{anchor_type}.yml')
+    new_desc = desc.swap_cyano_with_COO()
+    assert new_desc.anchor_type == "COO" and new_desc.dummy_element == "At"
