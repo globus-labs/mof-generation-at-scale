@@ -159,7 +159,7 @@ if __name__ == "__main__":
             # end of swap cyano for COO
 
         logger.info(f'{len(valid_ligands[anchor_type])} of {len(new_ligands)} for {anchor_type} pass quality checks')
-        logger.info(f'{len(valid_ligands[anchor_type])} of {len(new_ligands)} for {anchor_type} pass quality checks')
+        logger.info(f'{len(valid_ligands["COO"])} of {len(new_ligands)} for COO pass quality checks')
 
     # Save the ligands
     pd.DataFrame(all_ligands).to_csv(run_dir / 'all-ligands.csv', index=False)
