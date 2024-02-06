@@ -100,12 +100,13 @@ if __name__ == "__main__":
     valid_ligands = {}  # Ligands to be used during assembly
     all_ligands = []  # All ligands which were generated
     for anchor_type, new_ligands in generated_ligands.items():
+        if anchor_type == "COO":
+            continue
         valid_ligands[anchor_type] = []
         for ligand in new_ligands:
             # Store the ligand information for debugging purposes
             record = {"anchor_type": ligand.anchor_type, "xyz": ligand.xyz,
                       "anchor_atoms": ligand.anchor_atoms, "valid": False}
-            all_ligands.append(record)
 
             # Parse each new ligand, determine whether it is a single molecule
             try:
@@ -127,6 +128,35 @@ if __name__ == "__main__":
 
             # Update the record
             record['valid'] = True
+            all_ligands.append(record)
+
+            # begin of swap cyano for COO
+            coo_ligand = ligand.swap_cyano_with_COO()
+            coo_record = {"anchor_type": coo_ligand.anchor_type, "xyz": coo_ligand.xyz,
+                      "anchor_atoms": coo_ligand.anchor_atoms, "valid": False}
+
+            # Parse each new ligand, determine whether it is a single molecule
+            try:
+                mol = xyz_to_mol(coo_ligand.xyz)
+            except (ValueError,):
+                continue
+
+            # Store the smiles string
+            Chem.RemoveHs(mol)
+            smiles = Chem.MolToSmiles(mol)
+            coo_record['smiles'] = smiles
+
+            if len(Chem.GetMolFrags(mol)) > 1:
+                continue
+
+            # If passes, save the SMILES string and store the molecules
+            coo_ligand.smiles = Chem.MolToSmiles(mol)
+            valid_ligands["COO"].append(coo_ligand)
+
+            # Update the record
+            coo_record['valid'] = True
+            all_ligands.append(coo_record)
+            # end of swap cyano for COO
 
         logger.info(f'{len(valid_ligands[anchor_type])} of {len(new_ligands)} for {anchor_type} pass quality checks')
 
