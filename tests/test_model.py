@@ -91,7 +91,7 @@ def test_ligand_description(file_path, anchor_type):
 
 
 @mark.parametrize('anchor_type', ['cyano'])
-def test_ligand_description(file_path, anchor_type):
+def test_ligand_description_swap(file_path, anchor_type):
     desc = LigandDescription.from_yaml(file_path / 'difflinker' / 'templates' / f'description_{anchor_type}.yml')
     new_desc = desc.swap_cyano_with_COO()
     assert new_desc.anchor_type == "COO" and new_desc.dummy_element == "At"
