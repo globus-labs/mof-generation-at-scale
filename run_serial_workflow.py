@@ -100,9 +100,9 @@ if __name__ == "__main__":
     valid_ligands = {}  # Ligands to be used during assembly
     all_ligands = []  # All ligands which were generated
     for anchor_type, new_ligands in generated_ligands.items():
+        valid_ligands[anchor_type] = []
         if anchor_type == "COO":
             continue
-        valid_ligands[anchor_type] = []
         for ligand in new_ligands:
             # Store the ligand information for debugging purposes
             record = {"anchor_type": ligand.anchor_type, "xyz": ligand.xyz,
@@ -158,6 +158,7 @@ if __name__ == "__main__":
             all_ligands.append(coo_record)
             # end of swap cyano for COO
 
+        logger.info(f'{len(valid_ligands[anchor_type])} of {len(new_ligands)} for {anchor_type} pass quality checks')
         logger.info(f'{len(valid_ligands[anchor_type])} of {len(new_ligands)} for {anchor_type} pass quality checks')
 
     # Save the ligands
