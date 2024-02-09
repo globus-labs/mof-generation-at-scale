@@ -178,7 +178,6 @@ class LigandDescription:
             ff.MMFFAddPositionConstraint(i, xyz_tol, force_constant)
         ff.Minimize(maxIts=max_iterations)
         self.xyz = Chem.MolToXYZBlock(mol)
-    
 
     def swap_cyano_with_COO(self):
         """create a new LigandDescription object with the same middle part but with the -COO instead of -cyano groups
