@@ -108,6 +108,12 @@ if __name__ == "__main__":
             record = {"anchor_type": ligand.anchor_type, "xyz": ligand.xyz,
                       "anchor_atoms": ligand.anchor_atoms, "valid": False}
 
+            # Try constrained optimization on the ligand
+            try:
+                ligand.anchor_constrained_optimization()
+            except (ValueError,):
+                continue
+
             # Parse each new ligand, determine whether it is a single molecule
             try:
                 mol = xyz_to_mol(ligand.xyz)
@@ -134,6 +140,12 @@ if __name__ == "__main__":
             coo_ligand = ligand.swap_cyano_with_COO()
             coo_record = {"anchor_type": coo_ligand.anchor_type, "xyz": coo_ligand.xyz,
                       "anchor_atoms": coo_ligand.anchor_atoms, "valid": False}
+
+            # Try constrained optimization on the ligand
+            try:
+                coo_ligand.anchor_constrained_optimization()
+            except (ValueError,):
+                continue
 
             # Parse each new ligand, determine whether it is a single molecule
             try:
