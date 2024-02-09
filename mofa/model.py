@@ -14,9 +14,10 @@ from ase.io.vasp import read_vasp
 import ase
 import pandas as pd
 import itertools
+from rdkit import Chem
+from rdkit.Chem import rdDetermineBonds, AllChem
 
 from mofa.utils.conversions import read_from_string, write_to_string
-
 from mofa.utils.xyz import unsaturated_xyz_to_xyz
 
 
@@ -154,6 +155,30 @@ class LigandDescription:
     @cached_property
     def atoms(self):
         return read_from_string(self.xyz, "xyz")
+
+    def anchor_constrained_optimization(self, xyz_tol=0.001, force_constant=10000.0, max_iterations=1000):
+        """optimize the ligand while the anchor atoms are constrained
+
+        Args:
+            xyz_tol: coordinate tolerance for constrained atoms
+            force_constant: the spring force constant to keep the constrained atoms in original position
+            max_iterations: maximum number of iterations for optimization
+        Returns:
+            inplace function, no return
+        """
+
+        mol = Chem.MolFromXYZBlock(self.xyz)
+        all_anchor_atoms = list(itertools.chain(*self.anchor_atoms))
+        rdDetermineBonds.DetermineConnectivity(mol)
+        rdDetermineBonds.DetermineBondOrders(mol)
+        molprop = AllChem.MMFFGetMoleculeProperties(mol)
+        ff = AllChem.MMFFGetMoleculeForceField(mol, molprop)
+        # set constraints
+        for i in all_anchor_atoms:
+            ff.MMFFAddPositionConstraint(i, xyz_tol, force_constant)
+        ff.Minimize(maxIts=max_iterations)
+        self.xyz = Chem.MolToXYZBlock(mol)
+    
 
     def swap_cyano_with_COO(self):
         """create a new LigandDescription object with the same middle part but with the -COO instead of -cyano groups
