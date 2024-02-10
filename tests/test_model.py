@@ -96,6 +96,7 @@ def test_ligand_description_swap(file_path, anchor_type):
     new_desc = desc.swap_cyano_with_COO()
     assert new_desc.anchor_type == "COO" and new_desc.dummy_element == "At"
 
+
 @mark.parametrize('anchor_type', ['COO', 'cyano'])
 def test_constrained_optimization(file_path, anchor_type):
     desc = LigandDescription.from_yaml(file_path / 'difflinker' / 'templates' / f'description_{anchor_type}.yml')
