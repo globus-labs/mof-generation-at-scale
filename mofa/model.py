@@ -169,6 +169,11 @@ class LigandDescription:
 
         mol = Chem.MolFromXYZBlock(self.xyz)
         all_anchor_atoms = list(itertools.chain(*self.anchor_atoms))
+        if self.anchor_type != "COO" and self.dummy_element != "At" and len(self.anchor_atoms[0]) != 3:
+            charge = int(0)
+        else:
+            charge = int(-len(self.anchor_atoms))
+        rdDetermineBonds.DetermineBonds(mol, charge=charge)
         rdDetermineBonds.DetermineConnectivity(mol)
         rdDetermineBonds.DetermineBondOrders(mol)
         molprop = AllChem.MMFFGetMoleculeProperties(mol)
