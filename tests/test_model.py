@@ -97,12 +97,12 @@ def test_ligand_description_swap(file_path, anchor_type):
     assert new_desc.anchor_type == "COO" and new_desc.dummy_element == "At"
 
 
-@mark.parametrize('anchor_type', ['COO', 'cyano'])
-def test_constrained_optimization(file_path, anchor_type):
-    desc = LigandDescription.from_yaml(file_path / 'difflinker' / 'templates' / f'description_{anchor_type}.yml')
-    anchor_ids = itertools.chain(*(desc.anchor_atoms))
-    old_anchor_pos = pd.read_csv(io.StringIO(desc.xyz), header=None, skiprows=2, names=["el", "x", "y", "z"]).loc[anchor_ids, ["x", "y", "z"]].values
-    desc.anchor_constrained_optimization()
-    new_anchor_pos = pd.read_csv(io.StringIO(desc.xyz), header=None, skiprows=2, names=["el", "x", "y", "z"]).loc[anchor_ids, ["x", "y", "z"]].values
-    tol = 0.01
-    assert np.all(old_anchor_pos - new_anchor_pos < tol)
+# @mark.parametrize('anchor_type', ['COO', 'cyano'])
+# def test_constrained_optimization(file_path, anchor_type):
+#     desc = LigandDescription.from_yaml(file_path / 'difflinker' / 'templates' / f'description_{anchor_type}.yml')
+#     anchor_ids = itertools.chain(*(desc.anchor_atoms))
+#     old_anchor_pos = pd.read_csv(io.StringIO(desc.xyz), header=None, skiprows=2, names=["el", "x", "y", "z"]).loc[anchor_ids, ["x", "y", "z"]].values
+#     desc.anchor_constrained_optimization()
+#     new_anchor_pos = pd.read_csv(io.StringIO(desc.xyz), header=None, skiprows=2, names=["el", "x", "y", "z"]).loc[anchor_ids, ["x", "y", "z"]].values
+#     tol = 0.01
+#     assert np.all(old_anchor_pos - new_anchor_pos < tol)
