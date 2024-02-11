@@ -111,7 +111,7 @@ if __name__ == "__main__":
             # Try constrained optimization on the ligand
             try:
                 ligand.anchor_constrained_optimization()
-            except (ValueError,):
+            except (ValueError, AttributeError, ):
                 continue
 
             # Parse each new ligand, determine whether it is a single molecule
@@ -144,7 +144,7 @@ if __name__ == "__main__":
             # Try constrained optimization on the ligand
             try:
                 coo_ligand.anchor_constrained_optimization()
-            except (ValueError,):
+            except (ValueError, AttributeError, ):
                 continue
 
             # Parse each new ligand, determine whether it is a single molecule
