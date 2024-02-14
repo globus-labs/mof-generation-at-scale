@@ -3,6 +3,7 @@ import json
 import logging
 import hashlib
 import sys
+import warnings
 from argparse import ArgumentParser
 from dataclasses import asdict
 from datetime import datetime
@@ -207,11 +208,18 @@ if __name__ == "__main__":
     logger.info(f'Scored all {len(new_mofs)} MOFs')
 
     # Run LAMMPS on the top MOF
-    ranked_mofs: list[tuple[float, MOFRecord]] = sorted(zip(scores, new_mofs))
-    lmp_runner = LAMMPSRunner('lmp_serial')
+    ranked_mofs: list[tuple[float, MOFRecord]] = sorted(zip(scores, new_mofs), key=lambda x: x[0])
+    lmp_runner = LAMMPSRunner(['lmp_serial'], lmp_sims_root_path=str(run_dir / 'lmp_run'))
+    successes = 0
     for _, mof in ranked_mofs:
-        lmp_runner.run_molecular_dynamics(ranked_mofs[-1][1], 100, 1)
-    logger.info('Ran LAMMPS for all MOFs')
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore')
+                lmp_runner.run_molecular_dynamics(mof, 100, 1)
+            successes += 1
+        except ValueError as e:
+            logger.warning(f'LAMMPS failed to run: {e}')
+    logger.info(f'Ran LAMMPS for all MOFs. {successes}/{len(ranked_mofs)} successful')
 
     # Save the completed MOFs to disk
     with (run_dir / 'completed-mofs.json').open('w') as fp:

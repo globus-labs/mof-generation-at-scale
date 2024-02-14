@@ -101,10 +101,8 @@ write_data          relaxing.*.data
 """)
             os.remove(os.path.join(lmp_path, in_file_name))
             shutil.move(os.path.join(lmp_path, data_file_name), os.path.join(lmp_path, data_file_rename))
-            logger.info("Success!!")
 
         except Exception as e:
-            logger.warning("Failed!! Removing files...")
             shutil.rmtree(lmp_path)
             raise e
 
