@@ -14,9 +14,10 @@ from ase.io.vasp import read_vasp
 import ase
 import pandas as pd
 import itertools
+from rdkit import Chem
+from rdkit.Chem import rdDetermineBonds, AllChem
 
 from mofa.utils.conversions import read_from_string, write_to_string
-
 from mofa.utils.xyz import unsaturated_xyz_to_xyz
 
 
@@ -154,6 +155,74 @@ class LigandDescription:
     @cached_property
     def atoms(self):
         return read_from_string(self.xyz, "xyz")
+
+    def anchor_constrained_optimization(self, xyz_tol=0.001, force_constant=10000.0, max_iterations=1000):
+        """optimize the ligand while the anchor atoms are constrained
+
+        Args:
+            xyz_tol: coordinate tolerance for constrained atoms
+            force_constant: the spring force constant to keep the constrained atoms in original position
+            max_iterations: maximum number of iterations for optimization
+        Returns:
+            inplace function, no return
+        """
+
+        mol = Chem.MolFromXYZBlock(self.xyz)
+        all_anchor_atoms = list(itertools.chain(*self.anchor_atoms))
+        if self.anchor_type != "COO" and self.dummy_element != "At" and len(self.anchor_atoms[0]) != 3:
+            charge = int(0)
+        else:
+            charge = int(-len(self.anchor_atoms))
+        rdDetermineBonds.DetermineBonds(mol, charge=charge)
+        rdDetermineBonds.DetermineConnectivity(mol)
+        rdDetermineBonds.DetermineBondOrders(mol)
+        molprop = AllChem.MMFFGetMoleculeProperties(mol)
+        ff = AllChem.MMFFGetMoleculeForceField(mol, molprop)
+        # set constraints
+        for i in all_anchor_atoms:
+            ff.MMFFAddPositionConstraint(i, xyz_tol, force_constant)
+        ff.Minimize(maxIts=max_iterations)
+        self.xyz = Chem.MolToXYZBlock(mol)
+
+    def swap_cyano_with_COO(self):
+        """create a new LigandDescription object with the same middle part but with the -COO instead of -cyano groups
+
+        Returns:
+            the new -COO LigandDescription object
+        """
+
+        if self.dummy_element != "Fr" or self.anchor_type == "COO":
+            raise ValueError()
+
+        # Generate the new XYZ file
+        carboxylic_ion_CO_length = 1.26
+        df = pd.read_csv(StringIO(self.xyz), skiprows=2, sep=r"\s+", header=None, names=["element", "x", "y", "z"])
+        anchor_ids = list(itertools.chain(*self.anchor_atoms))
+        other_atom_ids = list(set(df.index.tolist()) - set(anchor_ids))
+        other_atom_df = df.loc[other_atom_ids, :]
+        final_df_list = []
+        new_anchor_ids = []
+        for anc in self.anchor_atoms:
+            Cid = anc[0]
+            Nid = anc[1]
+            Cxyz = df.loc[Cid, ["x", "y", "z"]].values
+            Nxyz = df.loc[Nid, ["x", "y", "z"]].values
+            bisector = Cxyz - Nxyz
+            bisector = bisector / np.linalg.norm(bisector)
+            O1norm_vec = np.array([[0.5, -0.866, 0.], [0.866, 0.5, 0.], [0., 0., 1.]]) @ bisector
+            O2norm_vec = np.array([[0.5, 0.866, 0.], [-0.866, 0.5, 0.], [0., 0., 1.]]) @ bisector
+            O1xyz = -O1norm_vec * carboxylic_ion_CO_length + Cxyz
+            O2xyz = -O2norm_vec * carboxylic_ion_CO_length + Cxyz
+            new_COO_df = pd.DataFrame(np.array([Cxyz, O1xyz, O2xyz]), columns=["x", "y", "z"])
+            new_COO_df["element"] = ["C", "O", "O"]
+            new_COO_df = new_COO_df[["element", "x", "y", "z"]]
+            final_df_list.append(new_COO_df)
+        new_anchor_df = pd.concat(final_df_list, axis=0).reset_index(drop=True)
+        flat_anchor_ids = np.array(new_anchor_df.index)
+        new_anchor_ids = flat_anchor_ids.reshape(int(flat_anchor_ids.shape[0] / 3), 3).tolist()
+        final_df = pd.concat([new_anchor_df, other_atom_df.copy(deep=True)], axis=0).reset_index(drop=True)
+        new_xyz_str = str(len(final_df)) + "\n\n" + final_df.to_string(header=None, index=None)
+        return LigandDescription(anchor_type="COO", xyz=new_xyz_str, anchor_atoms=new_anchor_ids, dummy_element="At")
 
     def replace_with_dummy_atoms(self) -> ase.Atoms:
         """Replace the fragments which attach to nodes with dummy atoms
