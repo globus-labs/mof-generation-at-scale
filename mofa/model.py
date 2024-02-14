@@ -192,7 +192,9 @@ class LigandDescription:
         """
 
         if self.dummy_element != "Fr" or self.anchor_type == "COO":
-            return None
+            raise ValueError()
+
+        # Generate the new XYZ file
         carboxylic_ion_CO_length = 1.26
         df = pd.read_csv(StringIO(self.xyz), skiprows=2, sep=r"\s+", header=None, names=["element", "x", "y", "z"])
         anchor_ids = list(itertools.chain(*self.anchor_atoms))
