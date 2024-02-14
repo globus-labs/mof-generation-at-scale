@@ -3,6 +3,7 @@ import json
 import logging
 import hashlib
 import sys
+import warnings
 from argparse import ArgumentParser
 from dataclasses import asdict
 from datetime import datetime
@@ -17,8 +18,9 @@ from openbabel import openbabel as ob
 from mofa.assembly.assemble import assemble_mof
 from mofa.generator import run_generator
 from mofa.model import MOFRecord, NodeDescription, LigandTemplate
-from mofa.scoring.geometry import MinimumDistance
+from mofa.scoring.geometry import MinimumDistance, LatticeParameterChange
 from mofa.simulation.lammps import LAMMPSRunner
+from mofa.utils.conversions import write_to_string
 from mofa.utils.xyz import xyz_to_mol
 
 RDLogger.DisableLog('rdApp.*')
@@ -44,6 +46,10 @@ if __name__ == "__main__":
     group.add_argument('--num-to-assemble', default=4, type=int, help='Number of MOFs to create from generated ligands')
     group.add_argument('--max-assemble-attempts', default=100,
                        help='Maximum number of attempts to create a MOF')
+
+    group = parser.add_argument_group(title='Simulation Settings Settings', description='Options related to MOF assembly')
+    group.add_argument('--md-timesteps', default=100000, help='Number of timesteps for the UFF MD simulation', type=int)
+    group.add_argument('--md-snapshots', default=100, help='Maximum number of snapshots during MD simulation', type=int)
 
     group = parser.add_argument_group(title='Compute Settings', description='Compute environment configuration')
     group.add_argument('--torch-device', default='cpu', help='Device on which to run torch operations')
@@ -207,14 +213,28 @@ if __name__ == "__main__":
     logger.info(f'Scored all {len(new_mofs)} MOFs')
 
     # Run LAMMPS on the top MOF
-    ranked_mofs: list[tuple[float, MOFRecord]] = sorted(zip(scores, new_mofs))
-    lmp_runner = LAMMPSRunner('lmp_serial')
+    scorer = LatticeParameterChange()
+    ranked_mofs: list[tuple[float, MOFRecord]] = sorted(zip(scores, new_mofs), key=lambda x: x[0])
+    lmp_runner = LAMMPSRunner(['lmp_serial'], lmp_sims_root_path=str(run_dir / 'lmp_run'))
+    successful_mofs: list[MOFRecord] = []
     for _, mof in ranked_mofs:
-        lmp_runner.run_molecular_dynamics(ranked_mofs[-1][1], 100, 1)
-    logger.info('Ran LAMMPS for all MOFs')
+        try:
+            # Run LAMMPS
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore')
+                traj = lmp_runner.run_molecular_dynamics(mof, args.md_timesteps, max(1, args.md_timesteps / args.md_snapshots))
+            traj_vasp = [write_to_string(t, 'vasp') for t in traj]
+            mof.md_trajectory['uff'] = traj_vasp
+
+            # Compute the lattice strain
+            mof.structure_stability['uff-10000'] = scorer.score_mof(mof)
+            successful_mofs.append(mof)
+        except (ValueError, KeyError) as e:
+            logger.warning(f'LAMMPS failed to run: {e}')
+    logger.info(f'Ran LAMMPS for all MOFs. {len(successful_mofs)}/{len(ranked_mofs)} successful')
 
     # Save the completed MOFs to disk
     with (run_dir / 'completed-mofs.json').open('w') as fp:
-        for _, mof in ranked_mofs:
+        for mof in successful_mofs:
             print(json.dumps(asdict(mof)), file=fp)
     logger.info('Saved everything do disk. Done!')

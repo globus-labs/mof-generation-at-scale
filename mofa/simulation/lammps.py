@@ -17,6 +17,8 @@ from .cif2lammps.UFF4MOF_construction import UFF4MOF
 
 from mofa.model import MOFRecord
 
+logger = logging.getLogger(__name__)
+
 
 class LAMMPSRunner:
     """Interface for running pre-defined LAMMPS workflows
@@ -65,14 +67,14 @@ class LAMMPSRunner:
             data_file_name = [x for x in os.listdir(lmp_path) if x.startswith("data.") and not x.startswith("data.lmp")][0]
             in_file_rename = "in.lmp"
             data_file_rename = "data.lmp"
-            logging.info("Reading data file for element list: " + os.path.join(lmp_path, data_file_name))
+            logger.info("Reading data file for element list: " + os.path.join(lmp_path, data_file_name))
             with io.open(os.path.join(lmp_path, data_file_name), "r") as rf:
                 df = pd.read_csv(io.StringIO(rf.read().split("Masses")[1].split("Pair Coeffs")[0]), sep=r"\s+", header=None)
                 element_list = df[3].to_list()
             with io.open(os.path.join(lmp_path, in_file_rename), "w") as wf:
-                logging.info("Writing input file: " + os.path.join(lmp_path, in_file_rename))
+                logger.info("Writing input file: " + os.path.join(lmp_path, in_file_rename))
                 with io.open(os.path.join(lmp_path, in_file_name), "r") as rf:
-                    logging.info("Reading original input file: " + os.path.join(lmp_path, in_file_name))
+                    logger.info("Reading original input file: " + os.path.join(lmp_path, in_file_name))
                     wf.write(rf.read().replace(data_file_name, data_file_rename) + f"""
 
 # simulation
@@ -99,10 +101,8 @@ write_data          relaxing.*.data
 """)
             os.remove(os.path.join(lmp_path, in_file_name))
             shutil.move(os.path.join(lmp_path, data_file_name), os.path.join(lmp_path, data_file_rename))
-            logging.info("Success!!")
 
         except Exception as e:
-            logging.error("Failed!! Removing files...")
             shutil.rmtree(lmp_path)
             raise e
 
