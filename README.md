@@ -14,3 +14,21 @@ Install the environment file appropriate for your system with a command similar 
 ```bash
 conda env create --file envs/environment-cpu.yml --force
 ```
+
+## Running MOFA
+
+The `run_serial_workflow.py` script defines a workflow using MOFA. 
+
+Set up the required input files by running `0_assemble-inputs.ipynb` in `input_files/zn-paddle-pillar`.
+
+Then invoke the workflow by running `example-run.sh`
+
+The code will produce a run directory in `run` named using the start time and a hash of the run parameters.
+
+The run directory contains the following files:
+
+- `run.log`: The log messages produced during execution
+- `params.json`: The arguments provided to the run script
+- `all-ligands.csv`: A CSV file with the geometries of the generated ligands in XYZ format, 
+  if they passed all validation screens, and the SMILES string (if available).
+ 

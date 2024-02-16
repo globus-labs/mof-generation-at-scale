@@ -1,4 +1,3 @@
-
 from pytest import fixture
 from pathlib import Path
 from ase.io.cif import read_cif
@@ -7,6 +6,11 @@ import ase
 from mofa.model import MOFRecord
 
 _files_path = Path(__file__).parent / 'files'
+
+
+@fixture()
+def file_path():
+    return _files_path
 
 
 @fixture()
