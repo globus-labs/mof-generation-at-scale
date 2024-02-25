@@ -44,7 +44,7 @@ def read_P1_cif(cifpath):
     return df, (a, b, c, alpha, beta, gamma), elements
 
 
-def fragment_single_MOF(cifpath, prep_training_not_assembly=True, allow_metals=["Zn", "Cu", "Zr"]): # , visualize=False):
+def fragment_single_MOF(cifpath, prep_training_not_assembly=True, allow_metals=["Zn", "Cu", "Zr"]):  # , visualize=False):
     atom_df, lp, el = read_P1_cif(cifpath)
     a, b, c, alpha, beta, gamma = lp
     n2 = (np.cos(alpha * np.pi / 180.) - np.cos(gamma * np.pi / 180.) * np.cos(beta * np.pi / 180.)) / np.sin(gamma * np.pi / 180.)
@@ -137,7 +137,7 @@ def fragment_single_MOF(cifpath, prep_training_not_assembly=True, allow_metals=[
     nx.set_node_attributes(G, attrs)
     nx.set_node_attributes(G, 0, "anchor_atom_mask")
 
-    labels = nx.get_node_attributes(G, '_atom_site_element')
+    # labels = nx.get_node_attributes(G, '_atom_site_element')
     # if visualize:
     #     import matplotlib.pyplot as plt
     #     fig, ax = plt.subplots()
