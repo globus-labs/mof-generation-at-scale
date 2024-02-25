@@ -1,5 +1,4 @@
 import io
-import os
 import pandas as pd
 import numpy as np
 import networkx as nx
@@ -7,6 +6,8 @@ from pathlib import Path
 import pymatgen.core as mg
 
 _bond_length_path = Path(__file__).parent.parent / "OChemDB_bond_threshold.csv"
+
+
 def read_P1_cif(cifpath):
     cif_str = None
     with io.open(cifpath) as rf:
@@ -37,21 +38,23 @@ def read_P1_cif(cifpath):
     elements = list(vc.keys())
     df.loc[:, "_atom_site_label"] = df.loc[:, "_atom_site_label"].astype(str)
     for el in elements:
-        el_id = df[df["_atom_site_element"]==el].index
-        df.loc[el_id, "_atom_site_label"] = [df.loc[el_id[x_i], "_atom_site_element"] + str(x_i+1) for x_i in range(0, len(el_id))]
+        el_id = df[df["_atom_site_element"] == el].index
+        df.loc[el_id, "_atom_site_label"] = [df.loc[el_id[x_i], "_atom_site_element"] + str(x_i + 1) for x_i in range(0, len(el_id))]
     df = df[["_atom_site_element", "_atom_site_label", "_atom_site_fract_x", "_atom_site_fract_y", "_atom_site_fract_z"]]
     return df, (a, b, c, alpha, beta, gamma), elements
 
-def fragment_single_MOF(cifpath, prep_training_not_assembly=True, visualize=False, allow_metals =["Zn", "Cu", "Zr"]):
+
+def fragment_single_MOF(cifpath, prep_training_not_assembly=True, visualize=False, allow_metals=["Zn", "Cu", "Zr"]):
     atom_df, lp, el = read_P1_cif(cifpath)
     a, b, c, alpha, beta, gamma = lp
     n2 = (np.cos(alpha * np.pi / 180.) - np.cos(gamma * np.pi / 180.) * np.cos(beta * np.pi / 180.)) / np.sin(gamma * np.pi / 180.)
-    M  = np.array([[a,                                0.,                               0.                                                     ],
-                   [b * np.cos(gamma * np.pi / 180.), b * np.sin(gamma * np.pi / 180.), 0.                                                     ],
-                   [c * np.cos(beta * np.pi / 180.),  c * n2,                           c * np.sqrt(np.sin(beta * np.pi / 180.) ** 2 - n2 ** 2)]])
-    
+    M = np.array([[a, 0., 0.],
+                  [b * np.cos(gamma * np.pi / 180.), b * np.sin(gamma * np.pi / 180.), 0.],
+                  [c * np.cos(beta * np.pi / 180.), c * n2, c * np.sqrt(np.sin(beta * np.pi / 180.) ** 2 - n2 ** 2)]])
+
     # proximity bonds detection with PBC considered
-    atom_df = pd.concat([atom_df, pd.DataFrame(atom_df.loc[:, ["_atom_site_fract_x", "_atom_site_fract_y", "_atom_site_fract_z"]].values @ M, columns=["x", "y", "z"])], axis=1)
+    atom_df = pd.concat([atom_df, pd.DataFrame(atom_df.loc[:, ["_atom_site_fract_x", "_atom_site_fract_y",
+                        "_atom_site_fract_z"]].values @ M, columns=["x", "y", "z"])], axis=1)
     frac_xyz = atom_df[["_atom_site_fract_x", "_atom_site_fract_y", "_atom_site_fract_z"]].values
     Natoms = frac_xyz.shape[0]
     frac_diff = frac_xyz[:, np.newaxis, :] - frac_xyz[np.newaxis, :, :]
@@ -61,7 +64,7 @@ def fragment_single_MOF(cifpath, prep_training_not_assembly=True, visualize=Fals
     cart_diff = frac_diff @ M
     cart_dist_sqr = np.sum(cart_diff * cart_diff, axis=1)
     cart_dist_sqr_mat = cart_dist_sqr.reshape(Natoms, Natoms)
-    
+
     thres_df = pd.read_csv(_bond_length_path, index_col=0)
     element2bondLengthMap = dict(zip(thres_df["element"], thres_df["max"] + (thres_df["stddev"] * 0.1)))
     el_list = atom_df["_atom_site_element"].to_list()
@@ -79,24 +82,26 @@ def fragment_single_MOF(cifpath, prep_training_not_assembly=True, visualize=Fals
     bondLengthThresMat_sqr = bondLengthThresMat * bondLengthThresMat
     adjmat = pd.DataFrame(bondLengthThresMat_sqr > cart_dist_sqr_mat)
     edge_list = list(set([tuple(sorted(x)) for x in np.array(np.where(adjmat)).T.tolist()]))
-    
+
     bond_df = pd.DataFrame(edge_list, columns=["atom1", "atom2"])
     bond_df["el1"] = bond_df["atom1"].map(dict(zip(atom_df.index, el_list)))
     bond_df["el2"] = bond_df["atom2"].map(dict(zip(atom_df.index, el_list)))
-    
+
     # find the bonds that need to be cut
     metal_N_bond_ids = None
     if "N" in unique_el_list:
-        metal_N_bond_ids = bond_df[((bond_df["el1"]=="N")&(bond_df["el2"].isin(allow_metals)))|((bond_df["el2"]=="N")&(bond_df["el1"].isin(allow_metals)))].index
+        metal_N_bond_ids = bond_df[((bond_df["el1"] == "N") & (bond_df["el2"].isin(allow_metals))) |
+                                   ((bond_df["el2"] == "N") & (bond_df["el1"].isin(allow_metals)))].index
     metal_O_bond_ids = None
     if "O" in unique_el_list:
-        metal_O_bond_ids = bond_df[((bond_df["el1"]=="O")&(bond_df["el2"].isin(allow_metals)))|((bond_df["el2"]=="O")&(bond_df["el1"].isin(allow_metals)))].index
-    
+        metal_O_bond_ids = bond_df[((bond_df["el1"] == "O") & (bond_df["el2"].isin(allow_metals))) |
+                                   ((bond_df["el2"] == "O") & (bond_df["el1"].isin(allow_metals)))].index
+
     MN = bond_df.loc[metal_N_bond_ids, :]
     MN_atom_ids = list(set(MN["atom1"].to_list() + MN["atom2"].to_list()))
     MN_atoms = atom_df.loc[MN_atom_ids, :]
-    N_ids = MN_atoms[MN_atoms["_atom_site_element"]=="N"].index.tolist()
-    CN3_bond_ids = bond_df[((bond_df["atom1"].isin(N_ids))&(bond_df["el2"]=="C"))|((bond_df["atom2"].isin(N_ids))&(bond_df["el1"]=="C"))].index
+    N_ids = MN_atoms[MN_atoms["_atom_site_element"] == "N"].index.tolist()
+    CN3_bond_ids = bond_df[((bond_df["atom1"].isin(N_ids)) & (bond_df["el2"] == "C")) | ((bond_df["atom2"].isin(N_ids)) & (bond_df["el1"] == "C"))].index
     CN3_bond = bond_df.loc[CN3_bond_ids, :].copy(deep=True).reset_index(drop=True)
     CN3_bond["C"] = None
     CN3_bond["N"] = None
@@ -108,49 +113,51 @@ def fragment_single_MOF(cifpath, prep_training_not_assembly=True, visualize=Fals
             CN3_bond.at[cn3_idx, "C"] = CN3_bond.at[cn3_idx, "atom1"]
             CN3_bond.at[cn3_idx, "N"] = CN3_bond.at[cn3_idx, "atom2"]
     find_C_by_N = dict(zip(CN3_bond["N"].to_list(), CN3_bond["C"].to_list()))
-    
+
     MO = bond_df.loc[metal_O_bond_ids, :]
     MO_atom_ids = list(set(MO["atom1"].to_list() + MO["atom2"].to_list()))
     MO_atoms = atom_df.loc[MO_atom_ids, :]
-    O_ids = MO_atoms[MO_atoms["_atom_site_element"]=="O"].index.tolist()
-    CO_bond_ids = bond_df[(bond_df["atom1"].isin(O_ids))&(bond_df["el2"]=="C")|(bond_df["atom2"].isin(O_ids))&(bond_df["el1"]=="C")].index
+    O_ids = MO_atoms[MO_atoms["_atom_site_element"] == "O"].index.tolist()
+    CO_bond_ids = bond_df[(bond_df["atom1"].isin(O_ids)) & (bond_df["el2"] == "C") | (bond_df["atom2"].isin(O_ids)) & (bond_df["el1"] == "C")].index
     CO_bonds = bond_df.loc[CO_bond_ids, :]
     C_ids = list(set(CO_bonds["atom1"].to_list() + CO_bonds["atom2"].to_list()) - set(O_ids))
-    find_O_by_C = [[cid, list(set(CO_bonds[((CO_bonds["atom1"]==cid)&(CO_bonds["el2"]=="O"))|((CO_bonds["atom2"]==cid)&(CO_bonds["el1"]=="O"))][["atom1", "atom2"]].values.flatten().tolist()) - {cid})] for cid in C_ids]
+    find_O_by_C = [[cid, list(set(CO_bonds[((CO_bonds["atom1"] == cid) & (CO_bonds["el2"] == "O")) | ((CO_bonds["atom2"] == cid) &
+                              (CO_bonds["el1"] == "O"))][["atom1", "atom2"]].values.flatten().tolist()) - {cid})] for cid in C_ids]
     find_O_by_C = dict(zip(*list(map(list, zip(*find_O_by_C)))))
-    CC_bond_ids = bond_df[((bond_df["atom1"].isin(C_ids))&(~bond_df["atom2"].isin(O_ids)))|((bond_df["atom2"].isin(C_ids))&(~bond_df["atom1"].isin(O_ids)))].index
-    
+    CC_bond_ids = bond_df[((bond_df["atom1"].isin(C_ids)) & (~bond_df["atom2"].isin(O_ids))) |
+                          ((bond_df["atom2"].isin(C_ids)) & (~bond_df["atom1"].isin(O_ids)))].index
+
     edges2remove = bond_df.loc[CC_bond_ids.tolist() + metal_N_bond_ids.tolist(), :]
     edges2remove = edges2remove[["atom1", "atom2"]].values.tolist()
-    
+
     # use networkx to make graphs
     G = nx.from_pandas_adjacency(adjmat)
     atom_df["id"] = atom_df.index
     attrs = dict(zip(atom_df.index, atom_df.to_dict(orient="records")))
     nx.set_node_attributes(G, attrs)
     nx.set_node_attributes(G, 0, "anchor_atom_mask")
-    
+
     labels = nx.get_node_attributes(G, '_atom_site_element')
     if visualize:
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
         nx.draw(G, pos=nx.spring_layout(G), labels=labels, node_size=200)
         fig.savefig("mof-" + ciffile + ".png", dpi=300)
-    
+
     # iterate through all targeted bonds, remove bonds, add dummy atoms, add connections to the subgraphs
     anchor_counter = 0
     for e2r in edges2remove:
         anchor_counter = anchor_counter - 1
         G.remove_edge(e2r[0], e2r[1])
-        new_id_e2r0 = max(list(G.nodes))+1
-        new_id_e2r1 = max(list(G.nodes))+2
+        new_id_e2r0 = max(list(G.nodes)) + 1
+        new_id_e2r1 = max(list(G.nodes)) + 2
         attr_e2r0 = dict(G.nodes[e2r[0]])
         attr_e2r0["id"] = new_id_e2r0
         attr_e2r1 = dict(G.nodes[e2r[1]])
         attr_e2r1["id"] = new_id_e2r1
         # C#N-M treatment
         if (G.nodes[e2r[0]]["_atom_site_element"] == "N" and G.nodes[e2r[1]]["_atom_site_element"] in allow_metals) or \
-            (G.nodes[e2r[1]]["_atom_site_element"] == "N" and G.nodes[e2r[0]]["_atom_site_element"] in allow_metals):
+                (G.nodes[e2r[1]]["_atom_site_element"] == "N" and G.nodes[e2r[0]]["_atom_site_element"] in allow_metals):
             if G.nodes[e2r[0]]["_atom_site_element"] in allow_metals:
                 attr_e2r1["_atom_site_element"] = "Fr"
                 attr_e2r1["anchor_atom_mask"] = anchor_counter
@@ -177,7 +184,7 @@ def fragment_single_MOF(cifpath, prep_training_not_assembly=True, visualize=Fals
                     G.add_node(new_id_e2r1)
                     nx.set_node_attributes(G, {new_id_e2r1: attr_e2r1})
                     G.add_edge(new_id_e2r1, e2r[0])
-    
+
         # COO-M treatment
         elif G.nodes[e2r[0]]["_atom_site_element"] == "C" and G.nodes[e2r[1]]["_atom_site_element"] == "C":
             if e2r[0] in find_O_by_C.keys():
@@ -190,12 +197,12 @@ def fragment_single_MOF(cifpath, prep_training_not_assembly=True, visualize=Fals
                 _COO_C_id = new_id_e2r1
                 node_anchor = new_id_e2r0
                 ligand_anchor = new_id_e2r1
-    
+
             # find related oyxgen atoms used for training dataset
             if prep_training_not_assembly:
                 COO_O0, COO_O1 = find_O_by_C[COO_C_id]
-                new_id_COO_O0 = max(list(G.nodes))+3
-                new_id_COO_O1 = max(list(G.nodes))+4
+                new_id_COO_O0 = max(list(G.nodes)) + 3
+                new_id_COO_O1 = max(list(G.nodes)) + 4
                 attr_COO_O0 = dict(G.nodes[COO_O0])
                 attr_COO_O0["id"] = new_id_COO_O0
                 attr_COO_O1 = dict(G.nodes[COO_O1])
@@ -221,7 +228,7 @@ def fragment_single_MOF(cifpath, prep_training_not_assembly=True, visualize=Fals
                 G.nodes[node_anchor]["anchor_atom_mask"] = anchor_counter
             G.add_edge(new_id_e2r0, e2r[1])
             G.add_edge(new_id_e2r1, e2r[0])
-    
+
     # convert connected components to xyz
     xyz_strs = []
     cc = list(nx.connected_components(G))
