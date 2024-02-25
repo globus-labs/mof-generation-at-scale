@@ -3,9 +3,10 @@ import os
 import pandas as pd
 import numpy as np
 import networkx as nx
+from pathlib import Path
 import pymatgen.core as mg
 
-
+_bond_length_path = Path(__file__).parent.parent / "OChemDB_bond_threshold.csv"
 def read_P1_cif(cifpath):
     cif_str = None
     with io.open(cifpath) as rf:
@@ -61,7 +62,7 @@ def fragment_single_MOF(cifpath, prep_training_not_assembly=True, visualize=Fals
     cart_dist_sqr = np.sum(cart_diff * cart_diff, axis=1)
     cart_dist_sqr_mat = cart_dist_sqr.reshape(Natoms, Natoms)
     
-    thres_df = pd.read_csv("OChemDB_bond_threshold.csv", index_col=0)
+    thres_df = pd.read_csv(_bond_length_path, index_col=0)
     element2bondLengthMap = dict(zip(thres_df["element"], thres_df["max"] + (thres_df["stddev"] * 0.1)))
     el_list = atom_df["_atom_site_element"].to_list()
     unique_el_list = list(set(el_list))
