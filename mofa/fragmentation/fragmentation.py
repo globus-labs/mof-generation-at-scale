@@ -44,7 +44,7 @@ def read_P1_cif(cifpath):
     return df, (a, b, c, alpha, beta, gamma), elements
 
 
-def fragment_single_MOF(cifpath, prep_training_not_assembly=True, visualize=False, allow_metals=["Zn", "Cu", "Zr"]):
+def fragment_single_MOF(cifpath, prep_training_not_assembly=True, allow_metals=["Zn", "Cu", "Zr"]): # , visualize=False):
     atom_df, lp, el = read_P1_cif(cifpath)
     a, b, c, alpha, beta, gamma = lp
     n2 = (np.cos(alpha * np.pi / 180.) - np.cos(gamma * np.pi / 180.) * np.cos(beta * np.pi / 180.)) / np.sin(gamma * np.pi / 180.)
@@ -138,11 +138,11 @@ def fragment_single_MOF(cifpath, prep_training_not_assembly=True, visualize=Fals
     nx.set_node_attributes(G, 0, "anchor_atom_mask")
 
     labels = nx.get_node_attributes(G, '_atom_site_element')
-    if visualize:
-        import matplotlib.pyplot as plt
-        fig, ax = plt.subplots()
-        nx.draw(G, pos=nx.spring_layout(G), labels=labels, node_size=200)
-        fig.savefig("mof-" + ciffile + ".png", dpi=300)
+    # if visualize:
+    #     import matplotlib.pyplot as plt
+    #     fig, ax = plt.subplots()
+    #     nx.draw(G, pos=nx.spring_layout(G), labels=labels, node_size=200)
+    #     fig.savefig("mof-" + ciffile + ".png", dpi=300)
 
     # iterate through all targeted bonds, remove bonds, add dummy atoms, add connections to the subgraphs
     anchor_counter = 0
@@ -247,10 +247,10 @@ def fragment_single_MOF(cifpath, prep_training_not_assembly=True, visualize=Fals
             print("metal Node")
         xyz_str = str(len(xyz_df)) + "\n\n" + xyz_df[["_atom_site_element", "x", "y", "z"]].to_string(header=None, index=None)
         xyz_strs.append(xyz_str)
-        if visualize:
-            import matplotlib.pyplot as plt
-            fig, ax = plt.subplots()
-            labels = nx.get_node_attributes(subG, '_atom_site_element')
-            nx.draw(subG, pos=nx.spring_layout(subG), labels=labels, node_size=200, ax=ax)
-            fig.savefig("sbu-" + str(i) + ".png", dpi=300)
+        # if visualize:
+        #     import matplotlib.pyplot as plt
+        #     fig, ax = plt.subplots()
+        #     labels = nx.get_node_attributes(subG, '_atom_site_element')
+        #     nx.draw(subG, pos=nx.spring_layout(subG), labels=labels, node_size=200, ax=ax)
+        #     fig.savefig("sbu-" + str(i) + ".png", dpi=300)
     return xyz_strs
