@@ -7,7 +7,7 @@ from functools import partial, update_wrapper
 from platform import node
 from csv import DictWriter
 from argparse import ArgumentParser
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from collections import defaultdict
 from itertools import product
 from datetime import datetime
@@ -28,7 +28,7 @@ from colmena.thinker import BaseThinker, result_processor, task_submitter, Resou
 from mofa.assembly.assemble import assemble_mof
 from mofa.generator import run_generator
 from mofa.model import MOFRecord, NodeDescription, LigandTemplate, LigandDescription
-from mofa.scoring.geometry import MinimumDistance, LatticeParameterChange
+from mofa.scoring.geometry import LatticeParameterChange
 from mofa.simulation.lammps import LAMMPSRunner
 from mofa.utils.conversions import write_to_string
 from mofa.utils.xyz import xyz_to_mol
@@ -106,12 +106,16 @@ class MOFAThinker(BaseThinker):
                  queues: ColmenaQueues,
                  out_dir: Path,
                  num_workers: int,
+                 simulation_budget: int,
                  generator_config: GeneratorConfig,
                  node_template: NodeDescription):
+        if num_workers < 2:
+            raise ValueError(f'There must be at least two workers. Supplied: {num_workers}')
         super().__init__(queues, ResourceCounter(num_workers, task_types=['generation', 'simulation']))
         self.generator_config = generator_config
         self.node_template = node_template
         self.out_dir = out_dir
+        self.simulations_left = simulation_budget
 
         # Set up the queues
         self.mof_queue = deque(maxlen=200)  # Starts empty
@@ -123,12 +127,17 @@ class MOFAThinker(BaseThinker):
 
         self.ligand_queue = defaultdict(lambda: deque(maxlen=200))  # Starts empty
 
+        # Database of completed MOFs
+        self.database: dict[str, MOFRecord] = {}
+
         # Set aside one node for generation
         self.rec.reallocate(None, 'generation', 1)
+        self.rec.reallocate(None, 'simulation', 'all')
 
-        # Used for making new MOFs
+        # Settings associated with MOF assembly
         self.mofs_per_call = num_workers + 4
-        self.make_mofs = Event()
+        self.make_mofs = Event()  # Signal that we need new MOFs
+        self.mofs_available = Event()  # Signal that new MOFs are done
 
     @task_submitter(task_type='generation')
     def submit_generation(self):
@@ -156,7 +165,6 @@ class MOFAThinker(BaseThinker):
         # Retrieve the results
         if not result.success:
             self.logger.warning(f'Generation task failed: {result.failure_info.exception}\nStack: {result.failure_info.traceback}')
-            self.done.set()
             return
         new_ligands: list[LigandDescription] = result.value
         anchor_type = self.generator_config.templates[ligand_id].anchor_type
@@ -234,14 +242,70 @@ class MOFAThinker(BaseThinker):
 
             num_added += 1
             self.mof_queue.append(new_mof)
+            self.mofs_available.set()
 
         self.logger.info(f'Created {num_added} new MOFs. Current queue depth: {len(self.mof_queue)}')
-        self.done.set()
+
+    @task_submitter(task_type='simulation')
+    def submit_simulation(self):
+        """Submit an MD simulation"""
+
+        # Block until new MOFs are available
+        if len(self.mof_queue) == 0:
+            self.mofs_available.clear()
+            self.make_mofs.set()
+            self.logger.info('No MOFs are available for simulation. Waiting')
+            self.mofs_available.wait()
+
+        to_run = self.mof_queue.popleft()
+        self.queues.send_inputs(
+            to_run,
+            method='run_molecular_dynamics',
+            topic='simulation',
+            task_info={'name': to_run.name}
+        )
+        self.database[to_run.name] = to_run
+        self.simulations_left -= 1
+        self.logger.info(f'Started MD simulation for mof={to_run.name}. Simulation queue depth: {len(self.mof_queue)}. '
+                         f'Budget remaining: {self.simulations_left}')
+
+        if self.simulations_left == 0:
+            self.done.set()
+            self.logger.info('No longer submitting tasks.')
+
+    @result_processor(topic='simulation')
+    def store_simulation(self, result: Result):
+        """Gather MD results and compute stability"""
+
+        # Trigger a new simulation
+        self.rec.release('simulation')
+
+        # Retrieve the results
+        if not result.success:
+            self.logger.warning(f'MD task failed: {result.failure_info.exception}\nStack: {result.failure_info.traceback}')
+            return
+        traj = result.value
+        name = result.task_info['name']
+        record = self.database[name]
+        self.logger.info(f'Received a trajectory of {len(traj)} frames for mof={name}')
+
+        # Compute the lattice strain
+        scorer = LatticeParameterChange()
+        traj_vasp = [write_to_string(t, 'vasp') for t in traj]
+        record.md_trajectory['uff'] = traj_vasp
+        strain = scorer.score_mof(record)
+        record.structure_stability['uff-10000'] = strain
+        self.logger.info(f'Lattice change after MD simulation for mof={name}: {strain * 100:.1f}%')
+
+        # Store the result to disk
+        with (run_dir / 'mofs.json').open('a') as fp:
+            print(json.dumps(asdict(record)), file=fp)
 
 
 if __name__ == "__main__":
     # Make the argument parser
     parser = ArgumentParser()
+    parser.add_argument('--simulation-budget', type=int, help='Number of simulations to submit before exiting')
 
     group = parser.add_argument_group(title='MOF Settings', description='Options related to the MOF type being generated')
     group.add_argument('--node-path', required=True, help='Path to a node record')
@@ -255,7 +319,6 @@ if __name__ == "__main__":
     group.add_argument('--num-samples', type=int, default=16, help='Number of molecules to generate at each size')
 
     group = parser.add_argument_group(title='Assembly Settings', description='Options related to MOF assembly')
-    group.add_argument('--num-to-assemble', default=4, type=int, help='Number of MOFs to create from generated ligands')
     group.add_argument('--max-assemble-attempts', default=100,
                        help='Maximum number of attempts to create a MOF')
 
@@ -291,13 +354,22 @@ if __name__ == "__main__":
         atom_counts=args.molecule_sizes,
         templates=templates
     )
-
     gen_func = partial(run_generator, model=generator.generator_path, n_samples=args.num_samples, device=args.torch_device)
     update_wrapper(gen_func, run_generator)
 
+    # Make the LAMMPS function
+    lmp_runner = LAMMPSRunner(['lmp_serial'], lmp_sims_root_path=str(run_dir / 'lmp_run'))
+    md_fun = partial(lmp_runner.run_molecular_dynamics, timesteps=args.md_timesteps, report_frequency=max(1, args.md_timesteps / args.md_snapshots))
+    update_wrapper(md_fun, lmp_runner.run_molecular_dynamics)
+
     # Make the thinker
-    queues = PipeQueues(topics=['generation'])
-    thinker = MOFAThinker(queues, num_workers=1, generator_config=generator, node_template=node_template, out_dir=run_dir)
+    queues = PipeQueues(topics=['generation', 'simulation'])
+    thinker = MOFAThinker(queues,
+                          num_workers=2,
+                          generator_config=generator,
+                          simulation_budget=args.simulation_budget,
+                          node_template=node_template,
+                          out_dir=run_dir)
 
     # Turn on logging
     my_logger = logging.getLogger('main')
@@ -314,11 +386,11 @@ if __name__ == "__main__":
 
     # Launch the thinker and task server
     config = Config(
-        executors=[HighThroughputExecutor(max_workers=1)],
+        executors=[HighThroughputExecutor(max_workers=2)],
         run_dir=str(run_dir / 'runinfo')
     )
     doer = ParslTaskServer(
-        methods=[gen_func],
+        methods=[gen_func, md_fun],
         queues=queues,
         config=config
     )
@@ -330,5 +402,3 @@ if __name__ == "__main__":
         thinker.run()
     finally:
         queues.send_kill_signal()
-
-    exit()

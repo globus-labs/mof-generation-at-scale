@@ -26,7 +26,6 @@ from mofa.utils.xyz import xyz_to_mol
 RDLogger.DisableLog('rdApp.*')
 ob.obErrorLog.SetOutputLevel(0)
 
-
 if __name__ == "__main__":
     # Make the argument parser
     parser = ArgumentParser()
@@ -117,7 +116,7 @@ if __name__ == "__main__":
             # Try constrained optimization on the ligand
             try:
                 ligand.anchor_constrained_optimization()
-            except (ValueError, AttributeError, ):
+            except (ValueError, AttributeError,):
                 continue
 
             # Parse each new ligand, determine whether it is a single molecule
@@ -145,12 +144,12 @@ if __name__ == "__main__":
             # begin of swap cyano for COO
             coo_ligand = ligand.swap_cyano_with_COO()
             coo_record = {"anchor_type": coo_ligand.anchor_type, "xyz": coo_ligand.xyz,
-                      "anchor_atoms": coo_ligand.anchor_atoms, "valid": False}
+                          "anchor_atoms": coo_ligand.anchor_atoms, "valid": False}
 
             # Try constrained optimization on the ligand
             try:
                 coo_ligand.anchor_constrained_optimization()
-            except (ValueError, AttributeError, ):
+            except (ValueError, AttributeError,):
                 continue
 
             # Parse each new ligand, determine whether it is a single molecule
@@ -199,7 +198,7 @@ if __name__ == "__main__":
                 ligands=ligand_choices,
                 topology='pcu'
             )
-        except (ValueError, KeyError, IndexError) as e:
+        except (ValueError, KeyError, IndexError):
             continue
         new_mofs.append(new_mof)
     logger.info(f'Generated {len(new_mofs)} new MOFs after {attempts} attempts')
