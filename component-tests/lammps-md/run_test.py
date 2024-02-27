@@ -58,17 +58,28 @@ if __name__ == "__main__":
     elif args.config == "polaris":
         lammps_cmd = ('/lus/eagle/projects/ExaMol/mofa/lammps-2Aug2023/src/lmp_polaris_nvhpc_kokkos '
                       '-k on g 1 -sf kk -pk kokkos neigh half neigh/qeq full newton on ').split()
-        config = Config(executors=[
+        config = Config(retries=1, executors=[
             HighThroughputExecutor(
                 max_workers=4,
                 cpu_affinity='block-reverse',
+                available_accelerators=4,
                 provider=PBSProProvider(
                     launcher=MpiExecLauncher(bind_cmd="--cpu-bind", overrides="--depth=64 --ppn 1"),
                     account='ExaMol',
                     queue='debug',
                     select_options="ngpus=4",
                     scheduler_options="#PBS -l filesystems=home:eagle",
-                    worker_init="""""",
+                    worker_init="""
+module load kokkos
+module load nvhpc/23.3
+module list
+source activate /lus/eagle/projects/ExaMol/mofa/mof-generation-at-scale/env-polaris
+
+cd $PBS_O_WORKDIR
+pwd
+which python
+hostname
+                    """,
                     nodes_per_block=1,
                     init_blocks=1,
                     min_blocks=0,
