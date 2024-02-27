@@ -12,8 +12,9 @@ from collections import defaultdict
 from itertools import product
 from datetime import datetime
 from collections import deque
-from random import shuffle
+from random import shuffle, choice
 from pathlib import Path
+from threading import Event
 
 from rdkit import Chem
 from rdkit import RDLogger
@@ -22,7 +23,7 @@ from parsl import Config, HighThroughputExecutor
 from colmena.models import Result
 from colmena.task_server import ParslTaskServer
 from colmena.queue import ColmenaQueues, PipeQueues
-from colmena.thinker import BaseThinker, agent, result_processor, task_submitter, ResourceCounter
+from colmena.thinker import BaseThinker, result_processor, task_submitter, ResourceCounter, event_responder
 
 from mofa.assembly.assemble import assemble_mof
 from mofa.generator import run_generator
@@ -34,6 +35,49 @@ from mofa.utils.xyz import xyz_to_mol
 
 RDLogger.DisableLog('rdApp.*')
 ob.obErrorLog.SetOutputLevel(0)
+
+
+def process_ligand(ligand: LigandDescription) -> dict:
+    """Assess whether a ligand is valid and prepare it for the next step
+
+    Args:
+        ligand: Ligand to be processed
+    Returns:
+        Record describing the ligand suitable for serialization into CSV file
+    """
+    # Store the ligand information for debugging purposes
+    record = {"anchor_type": ligand.anchor_type,
+              "smiles": None,
+              "xyz": ligand.xyz,
+              "anchor_atoms": ligand.anchor_atoms,
+              "valid": False}
+
+    # Try constrained optimization on the ligand
+    try:
+        ligand.anchor_constrained_optimization()
+    except (ValueError, AttributeError,):
+        return record
+
+    # Parse each new ligand, determine whether it is a single molecule
+    try:
+        mol = xyz_to_mol(ligand.xyz)
+    except (ValueError,):
+        return record
+
+    # Store the smiles string
+    Chem.RemoveHs(mol)
+    smiles = Chem.MolToSmiles(mol)
+    record['smiles'] = smiles
+
+    if len(Chem.GetMolFrags(mol)) > 1:
+        return record
+
+    # If passes, save the SMILES string and store the molecules
+    ligand.smiles = Chem.MolToSmiles(mol)
+
+    # Update the record, add to ligand queue and prepare it for writing to disk
+    record['valid'] = True
+    return record
 
 
 @dataclass
@@ -61,10 +105,12 @@ class MOFAThinker(BaseThinker):
     def __init__(self,
                  queues: ColmenaQueues,
                  out_dir: Path,
-                 num_nodes: int,
-                 generator_config: GeneratorConfig):
-        super().__init__(queues, ResourceCounter(num_nodes, task_types=['generation', 'simulation']))
+                 num_workers: int,
+                 generator_config: GeneratorConfig,
+                 node_template: NodeDescription):
+        super().__init__(queues, ResourceCounter(num_workers, task_types=['generation', 'simulation']))
         self.generator_config = generator_config
+        self.node_template = node_template
         self.out_dir = out_dir
 
         # Set up the queues
@@ -79,6 +125,10 @@ class MOFAThinker(BaseThinker):
 
         # Set aside one node for generation
         self.rec.reallocate(None, 'generation', 1)
+
+        # Used for making new MOFs
+        self.mofs_per_call = num_workers + 4
+        self.make_mofs = Event()
 
     @task_submitter(task_type='generation')
     def submit_generation(self):
@@ -116,45 +166,30 @@ class MOFAThinker(BaseThinker):
         #  TODO (wardlt): Make this parallel
         all_records = []
         valid_count = 0
+
         for ligand in new_ligands:
-            # Store the ligand information for debugging purposes
-            record = {"anchor_type": ligand.anchor_type,
-                      "smiles": None,
-                      "xyz": ligand.xyz,
-                      "anchor_atoms": ligand.anchor_atoms,
-                      "valid": False}
+            record = process_ligand(ligand)
             all_records.append(record)
+            if record['valid']:
+                valid_count += 1
+                self.ligand_queue[anchor_type].append(ligand)  # Shoves old ligands out of the deque
 
-            # Try constrained optimization on the ligand
-            try:
-                ligand.anchor_constrained_optimization()
-            except (ValueError, AttributeError,):
-                continue
-
-            # Parse each new ligand, determine whether it is a single molecule
-            try:
-                mol = xyz_to_mol(ligand.xyz)
-            except (ValueError,):
-                continue
-
-            # Store the smiles string
-            Chem.RemoveHs(mol)
-            smiles = Chem.MolToSmiles(mol)
-            record['smiles'] = smiles
-
-            if len(Chem.GetMolFrags(mol)) > 1:
-                continue
-
-            # If passes, save the SMILES string and store the molecules
-            ligand.smiles = Chem.MolToSmiles(mol)
-
-            # Update the record, add to ligand queue and prepare it for writing to disk
-            record['valid'] = True
-            valid_count += 1
-            self.ligand_queue[anchor_type].append(ligand)
+            # TODO (wardlt): Remove this hack when DiffLinker works with COO properly
+            if anchor_type != "COO":
+                # begin of swap cyano for COO
+                coo_ligand = ligand.swap_cyano_with_COO()
+                coo_record = process_ligand(coo_ligand)
+                all_records.append(coo_record)
+                if coo_record['valid']:
+                    self.ligand_queue["COO"].append(coo_ligand)
         self.logger.info(f'{valid_count} of {len(new_ligands)} are valid. ({valid_count / len(new_ligands) * 100:.1f}%)')
 
         # Write record of generation tasks to disk
+        if valid_count > 0:
+            # Signal that we're ready for more MOFs
+            self.make_mofs.set()
+
+        # Store the generated ligands
         record_file = self.out_dir / 'all_ligands.csv'
         first_write = not record_file.is_file()
 
@@ -164,9 +199,44 @@ class MOFAThinker(BaseThinker):
                 writer.writeheader()
             writer.writerows(all_records)
 
-        if valid_count > 0:
-            self.logger.info('We have at least one valid linker. Good enough for now')
-            self.done.set()
+    @event_responder(event_name='make_mofs')
+    def assemble_new_mofs(self):
+        """Pull from the list of ligands and create MOFs. Runs when new MOFs are available"""
+
+        # Check that we have enough ligands to start assembly
+        requirements = {'COO': 2, 'cyano': 1}
+        for anchor_type, count in requirements.items():
+            have = len(self.ligand_queue[anchor_type])
+            if have < count:
+                self.logger.info(f'Too few candidate for anchor_type={anchor_type}. have={have}, need={count}')
+                return
+
+        # Make a certain number of attempts
+        num_added = 0
+        attempts_remaining = self.mofs_per_call * 4
+        while num_added < self.mofs_per_call and attempts_remaining > 0:
+            attempts_remaining -= 1
+
+            # Get a sample of ligands
+            ligand_choices = {}
+            for anchor_type, count in requirements.items():
+                ligand_choices[anchor_type] = [choice(self.ligand_queue[anchor_type])] * count
+
+            # Attempt assembly
+            try:
+                new_mof = assemble_mof(
+                    nodes=[self.node_template],
+                    ligands=ligand_choices,
+                    topology='pcu'
+                )
+            except (ValueError, KeyError, IndexError):
+                continue
+
+            num_added += 1
+            self.mof_queue.append(new_mof)
+
+        self.logger.info(f'Created {num_added} new MOFs. Current queue depth: {len(self.mof_queue)}')
+        self.done.set()
 
 
 if __name__ == "__main__":
@@ -200,7 +270,7 @@ if __name__ == "__main__":
 
     # Load the example MOF
     # TODO (wardlt): Use Pydantic for JSON I/O
-    node_record = NodeDescription(**json.loads(Path(args.node_path).read_text()))
+    node_template = NodeDescription(**json.loads(Path(args.node_path).read_text()))
 
     # Make the run directory
     run_params = args.__dict__.copy()
@@ -227,7 +297,7 @@ if __name__ == "__main__":
 
     # Make the thinker
     queues = PipeQueues(topics=['generation'])
-    thinker = MOFAThinker(queues, num_nodes=1, generator_config=generator, out_dir=run_dir)
+    thinker = MOFAThinker(queues, num_workers=1, generator_config=generator, node_template=node_template, out_dir=run_dir)
 
     # Turn on logging
     my_logger = logging.getLogger('main')
