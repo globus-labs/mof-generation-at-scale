@@ -1,9 +1,7 @@
 """An example of the workflow which runs all aspects of MOF generation in parallel"""
-import json
-import logging
-import hashlib
-import sys
+from contextlib import AbstractContextManager
 from functools import partial, update_wrapper
+from typing import TextIO
 from platform import node
 from csv import DictWriter
 from argparse import ArgumentParser
@@ -15,6 +13,11 @@ from collections import deque
 from random import shuffle, choice
 from pathlib import Path
 from threading import Event
+import logging
+import hashlib
+import gzip
+import json
+import sys
 
 from rdkit import Chem
 from rdkit import RDLogger
@@ -92,7 +95,7 @@ class GeneratorConfig:
     """Number of atoms within a linker to generate"""
 
 
-class MOFAThinker(BaseThinker):
+class MOFAThinker(BaseThinker, AbstractContextManager):
     """Thinker which schedules MOF generation and testing"""
 
     mof_queue: deque[MOFRecord]
@@ -138,6 +141,20 @@ class MOFAThinker(BaseThinker):
         self.mofs_per_call = num_workers + 4
         self.make_mofs = Event()  # Signal that we need new MOFs
         self.mofs_available = Event()  # Signal that new MOFs are done
+
+        # Output files
+        self._output_files: dict[str, Path | TextIO] = {}
+        for name in ['generation', 'simulation', 'mof']:
+            self._output_files[name] = run_dir / f'{name}.json.gz'
+
+    def __enter__(self):
+        """Open the output files"""
+        for name, path in self._output_files.items():
+            self._output_files[name] = gzip.open(path, mode='wt', compresslevel=9)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        for obj in self._output_files.values():
+            obj.close()
 
     @task_submitter(task_type='generation')
     def submit_generation(self):
@@ -206,6 +223,9 @@ class MOFAThinker(BaseThinker):
             if first_write:
                 writer.writeheader()
             writer.writerows(all_records)
+
+        # Store the task information
+        print(result.json(exclude={'inputs', 'value'}), file=self._output_files['generation'])
 
     @event_responder(event_name='make_mofs')
     def assemble_new_mofs(self):
@@ -298,8 +318,8 @@ class MOFAThinker(BaseThinker):
         self.logger.info(f'Lattice change after MD simulation for mof={name}: {strain * 100:.1f}%')
 
         # Store the result to disk
-        with (run_dir / 'mofs.json').open('a') as fp:
-            print(json.dumps(asdict(record)), file=fp)
+        print(json.dumps(asdict(record)), file=self._output_files['mof'])
+        print(result.json(exclude={'inputs', 'value'}), file=self._output_files['simulation'])
 
 
 if __name__ == "__main__":
@@ -399,6 +419,7 @@ if __name__ == "__main__":
         doer.start()
         my_logger.info(f'Running parsl. pid={doer.pid}')
 
-        thinker.run()
+        with thinker:  # Opens the output files
+            thinker.run()
     finally:
         queues.send_kill_signal()
