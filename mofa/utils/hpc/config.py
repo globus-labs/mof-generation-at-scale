@@ -78,7 +78,7 @@ class PolarisConfig(HPCConfig):
     """Configuration used on Polaris"""
 
     torch_device = 'cuda'
-    lammps_cmd = ('/lus/eagle/projects/ExaMol/mofa/lammps-2Aug2023/src/lmp_polaris_nvhpc_kokkos '
+    lammps_cmd = ('/lus/eagle/projects/ExaMol/mofa/lammps-2Aug2023/src/lmp_polaris_nvhpc_kokkos_serial '
                   '-k on g 1 -sf kk -pk kokkos neigh half neigh/qeq full newton on ').split()
     hosts: list[str] = field(default_factory=list)
 
