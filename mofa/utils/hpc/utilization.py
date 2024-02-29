@@ -1,0 +1,65 @@
+"""Utilization tracking"""
+import json
+import gzip
+import platform
+from datetime import datetime
+from argparse import ArgumentParser
+from pathlib import Path
+from time import sleep
+from typing import NoReturn
+
+import psutil
+from gpustat import GPUStatCollection
+
+
+def get_utilization() -> dict:
+    """Get the system utilization"""
+
+    # Get the CPU and memory utilization
+    output = {'time': datetime.now().isoformat(),
+              'cpu_use': psutil.cpu_percent(percpu=True),
+              'memory_use': psutil.virtual_memory()._asdict(),
+              'network': {}}
+
+    # Network utilization
+    for nic, stats in psutil.net_io_counters(pernic=True).items():
+        output['network'][nic] = stats._asdict()
+
+    # Disk-utilization
+    output['disk'] = {}
+    for disk, stats in psutil.disk_io_counters(perdisk=True).items():
+        if not disk.startswith('loop'):
+            output['disk'][disk] = stats._asdict()
+
+    # Temperatures
+    output['temperatures'] = {}
+    for k, temp_lst in psutil.sensors_temperatures().items():
+        temp_lst = [v._asdict() for v in temp_lst]
+        output['temperatures'][k] = temp_lst
+
+    # GPU Utilization
+    gpu_util = GPUStatCollection.new_query()
+    output['gpu_use'] = gpu_util.jsonify()['gpus']
+
+    return output
+
+
+def utilization_cli() -> NoReturn:
+    """Log the utilization to disk"""
+
+    parser = ArgumentParser()
+    parser.add_argument('--frequency', default=30, type=float, help='How often to log utilization')
+    parser.add_argument('log_path', help='Name of the log file')
+    args = parser.parse_args()
+
+    # Make my log name
+    log_name = Path(args.log_path) / (platform.node() + ".log.gz")
+    with gzip.open(log_name, 'wt') as fp:
+        get_utilization()  # First one is trash (see PSUtil docs: https://psutil.readthedocs.io/en/latest/#psutil.cpu_times_percent)
+        while True:
+            try:
+                utilization = get_utilization()
+            except psutil.NoSuchProcess:  # Happens if a process dies while assessing GPU performance
+                continue
+            print(json.dumps(utilization), file=fp, flush=False)
+            sleep(args.frequency)
