@@ -1,5 +1,6 @@
 """Configuring a particular HPC resource"""
 from dataclasses import dataclass, field
+from subprocess import Popen
 from pathlib import Path
 import os
 
@@ -28,6 +29,17 @@ class HPCConfig:
         """Total number of workers"""
         raise NotImplementedError
 
+    def launch_monitor_process(self, log_dir: Path, freq: int = 20) -> Popen:
+        """Launch a monitor process on all resources
+
+        Args:
+            log_dir: Folder in which to save logs
+            freq: Interval between monitoring
+        Returns:
+            Process handle
+        """
+        raise NotImplementedError
+
     def make_parsl_config(self, run_dir: Path) -> Config:
         """Make a Parsl configuration
 
@@ -48,6 +60,11 @@ class LocalConfig(HPCConfig):
     @property
     def num_workers(self):
         return 2
+
+    def launch_monitor_process(self, log_dir: Path, freq: int = 20) -> Popen:
+        return Popen(
+            args=f"{_monitor_path} --frequency {freq} {log_dir}".split()
+        )
 
     def make_parsl_config(self, run_dir: Path) -> Config:
         return Config(
@@ -74,6 +91,12 @@ class PolarisConfig(HPCConfig):
     @property
     def num_workers(self):
         return len(self.hosts) * 4
+
+    def launch_monitor_process(self, log_dir: Path, freq: int = 20) -> Popen:
+        return Popen(
+            args=f'mpiexec -n {len(self.hosts)} --ppn 1 --depth=64 '
+                 f'--cpu-bind depth monitor_utilization --frequency {freq} {log_dir.absolute()}'.split()
+        )
 
     def make_parsl_config(self, run_dir: Path) -> Config:
         num_nodes = len(self.hosts)
