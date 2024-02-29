@@ -22,7 +22,6 @@ import sys
 from rdkit import Chem
 from rdkit import RDLogger
 from openbabel import openbabel as ob
-from parsl import Config, HighThroughputExecutor
 from colmena.models import Result
 from colmena.task_server import ParslTaskServer
 from colmena.queue import ColmenaQueues, PipeQueues
@@ -35,6 +34,7 @@ from mofa.scoring.geometry import LatticeParameterChange
 from mofa.simulation.lammps import LAMMPSRunner
 from mofa.utils.conversions import write_to_string
 from mofa.utils.xyz import xyz_to_mol
+from mofa.utils.hpc.config import configs as hpc_configs
 
 RDLogger.DisableLog('rdApp.*')
 ob.obErrorLog.SetOutputLevel(0)
@@ -347,7 +347,7 @@ if __name__ == "__main__":
     group.add_argument('--md-snapshots', default=100, help='Maximum number of snapshots during MD simulation', type=int)
 
     group = parser.add_argument_group(title='Compute Settings', description='Compute environment configuration')
-    group.add_argument('--torch-device', default='cpu', help='Device on which to run torch operations')
+    group.add_argument('--compute-config', default='local', help='Configuration for the HPC system')
 
     args = parser.parse_args()
 
@@ -368,17 +368,22 @@ if __name__ == "__main__":
         template = LigandTemplate.from_yaml(path)
         templates.append(template)
 
+    # Load the HPC configuration
+    hpc_config = hpc_configs[args.compute_config]()
+    with (run_dir / 'compute-config.json').open('w') as fp:
+        json.dump(asdict(hpc_config), fp)
+
     # Make the generator settings and the function
     generator = GeneratorConfig(
         generator_path=args.generator_path,
         atom_counts=args.molecule_sizes,
         templates=templates
     )
-    gen_func = partial(run_generator, model=generator.generator_path, n_samples=args.num_samples, device=args.torch_device)
+    gen_func = partial(run_generator, model=generator.generator_path, n_samples=args.num_samples, device=hpc_config.torch_device)
     update_wrapper(gen_func, run_generator)
 
     # Make the LAMMPS function
-    lmp_runner = LAMMPSRunner(['lmp_serial'], lmp_sims_root_path=str(run_dir / 'lmp_run'))
+    lmp_runner = LAMMPSRunner(hpc_config.lammps_cmd, lmp_sims_root_path=str(run_dir / 'lmp_run'))
     md_fun = partial(lmp_runner.run_molecular_dynamics, timesteps=args.md_timesteps, report_frequency=max(1, args.md_timesteps / args.md_snapshots))
     update_wrapper(md_fun, lmp_runner.run_molecular_dynamics)
 
@@ -404,11 +409,10 @@ if __name__ == "__main__":
     # Save the run parameters to disk
     (run_dir / 'params.json').write_text(json.dumps(run_params))
 
+    # Make the Parsl configuration
+    config = hpc_config.make_parsl_config(run_dir)
+
     # Launch the thinker and task server
-    config = Config(
-        executors=[HighThroughputExecutor(max_workers=2)],
-        run_dir=str(run_dir / 'runinfo')
-    )
     doer = ParslTaskServer(
         methods=[gen_func, md_fun],
         queues=queues,

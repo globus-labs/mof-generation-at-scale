@@ -5,5 +5,5 @@ python run_parallel_workflow.py \
       --generator-path input-files/zn-paddle-pillar/geom_difflinker.ckpt \
       --ligand-templates input-files/zn-paddle-pillar/template_*.yml \
       --num-samples 32 \
-      --simulation-budget 8 \
-      --torch-device cuda
+      --simulation-budget 4 \
+      --compute-config local
