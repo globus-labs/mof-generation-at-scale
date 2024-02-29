@@ -23,6 +23,11 @@ class HPCConfig:
     sim_executors: str | list[str] = 'all'
     ai_executors: str | list[str] = 'all'
 
+    @property
+    def num_workers(self) -> int:
+        """Total number of workers"""
+        raise NotImplementedError
+
     def make_parsl_config(self, run_dir: Path) -> Config:
         """Make a Parsl configuration
 
@@ -40,6 +45,10 @@ class LocalConfig(HPCConfig):
 
     torch_device = 'cuda'
 
+    @property
+    def num_workers(self):
+        return 2
+
     def make_parsl_config(self, run_dir: Path) -> Config:
         return Config(
             executors=[HighThroughputExecutor(max_workers=2)],
@@ -54,13 +63,20 @@ class PolarisConfig(HPCConfig):
     torch_device = 'cuda'
     lammps_cmd = ('/lus/eagle/projects/ExaMol/mofa/lammps-2Aug2023/src/lmp_polaris_nvhpc_kokkos '
                   '-k on g 1 -sf kk -pk kokkos neigh half neigh/qeq full newton on ').split()
+    hosts: list[str] = field(default_factory=list)
 
-    def make_parsl_config(self, run_dir: Path) -> Config:
+    def __post_init__(self):
         # Determine the number of nodes from the PBS_NODEFILE
         node_file = os.environ['PBS_NODEFILE']
         with open(node_file) as fp:
-            nodes = [x.strip() for x in fp]
-        num_nodes = len(nodes)
+            self.hosts = [x.strip() for x in fp]
+
+    @property
+    def num_workers(self):
+        return len(self.hosts) * 4
+
+    def make_parsl_config(self, run_dir: Path) -> Config:
+        num_nodes = len(self.hosts)
 
         # Launch 4 workers per node, one per GPU
         return Config(executors=[

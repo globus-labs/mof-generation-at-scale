@@ -390,7 +390,7 @@ if __name__ == "__main__":
     # Make the thinker
     queues = PipeQueues(topics=['generation', 'simulation'])
     thinker = MOFAThinker(queues,
-                          num_workers=2,
+                          num_workers=hpc_config.num_workers,
                           generator_config=generator,
                           simulation_budget=args.simulation_budget,
                           node_template=node_template,
@@ -404,7 +404,7 @@ if __name__ == "__main__":
             handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
             logger.addHandler(handler)
         logger.setLevel(logging.INFO)
-    my_logger.info(f'Running job in {run_dir}')
+    my_logger.info(f'Running job in {run_dir} on {hpc_config.num_workers}')
 
     # Save the run parameters to disk
     (run_dir / 'params.json').write_text(json.dumps(run_params))
