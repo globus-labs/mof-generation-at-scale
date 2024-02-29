@@ -9,6 +9,7 @@ from time import sleep
 from typing import NoReturn
 
 import psutil
+import pynvml
 from gpustat import GPUStatCollection
 
 
@@ -38,8 +39,11 @@ def get_utilization() -> dict:
         output['temperatures'][k] = temp_lst
 
     # GPU Utilization
-    gpu_util = GPUStatCollection.new_query()
-    output['gpu_use'] = gpu_util.jsonify()['gpus']
+    try:
+        gpu_util = GPUStatCollection.new_query()
+        output['gpu_use'] = gpu_util.jsonify()['gpus']
+    except pynvml.NVMLError:
+        pass
 
     return output
 
