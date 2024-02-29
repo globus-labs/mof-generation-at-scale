@@ -18,7 +18,7 @@ _model_path = "../../tests/files/difflinker/geom_difflinker_given_anchors.ckpt"
 _templates = list(Path("../../input-files/zn-paddle-pillar/").glob("template*yml"))
 
 
-def test_function(model_path: Path, n_atoms: int, template: Path, n_samples: int) -> float:
+def test_function(model_path: Path, n_atoms: int, template: Path, n_samples: int, device: str) -> float:
     """Run a LAMMPS simulation, report runtime and resultant traj
 
     Args:
@@ -26,6 +26,7 @@ def test_function(model_path: Path, n_atoms: int, template: Path, n_samples: int
         n_atoms: Size of the ligand to generate
         template: Starting template
         n_samples: Number of samples per batch
+        device: Device on which to run generation
     Returns:
         - Runtime (s)
     """
@@ -41,6 +42,7 @@ def test_function(model_path: Path, n_atoms: int, template: Path, n_samples: int
         templates=[template],
         n_atoms=n_atoms,
         n_samples=n_samples,
+        device=device
     )
     run_time = perf_counter() - start_time
 
@@ -54,6 +56,7 @@ if __name__ == "__main__":
     parser.add_argument('--template-paths', nargs='+', help='Templates to use for test seeds', default=_templates)
     parser.add_argument('--num-samples', nargs='+', type=int, help='Number of samples per batch', default=[64, 32])
     parser.add_argument('--num-atoms', nargs='+', type=int, help='Number of atoms per molecule', default=[9, 12, 15])
+    parser.add_argument('--device', help='Device on which to run DiffLinker', default='cuda')
     parser.add_argument('--config', help='Which compute configuration to use', default='local')
     args = parser.parse_args()
 
@@ -105,7 +108,7 @@ hostname
     futures = []
     for template, n_atoms, n_samples in product(args.template_paths, args.num_atoms, args.num_samples):
         kwargs = {'template': str(template), 'n_atoms': n_atoms, 'n_samples': n_samples}
-        future = test_app(args.model_path, n_atoms, template, n_samples)
+        future = test_app(args.model_path, n_atoms, template, n_samples, device=args.device)
         future.info = kwargs
         futures.append(future)
 
@@ -118,6 +121,7 @@ hostname
             print(json.dumps({
                 'host': node(),
                 'model_path': str(args.model_path),
+                'device': args.device,
                 'runtime': runtime,
                 **future.info
             }), file=fp)
