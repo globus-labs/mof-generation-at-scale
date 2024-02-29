@@ -410,7 +410,7 @@ if __name__ == "__main__":
             handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
             logger.addHandler(handler)
         logger.setLevel(logging.INFO)
-    my_logger.info(f'Running job in {run_dir} on {hpc_config.num_workers}')
+    my_logger.info(f'Running job in {run_dir} on {hpc_config.num_workers} workers')
 
     # Save the run parameters to disk
     (run_dir / 'params.json').write_text(json.dumps(run_params))
@@ -429,7 +429,7 @@ if __name__ == "__main__":
     log_dir = run_dir / 'logs'
     log_dir.mkdir(parents=True)
     util_proc = hpc_config.launch_monitor_process(log_dir.absolute())
-    my_logger.info(f'Launched monitoring process on {util_proc.pid}')
+    my_logger.info(f'Launched monitoring process. pid={util_proc.pid}')
 
     try:
         doer.start()
