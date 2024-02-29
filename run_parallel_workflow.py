@@ -429,6 +429,7 @@ if __name__ == "__main__":
     log_dir = run_dir / 'logs'
     log_dir.mkdir(parents=True)
     util_proc = hpc_config.launch_monitor_process(log_dir.absolute())
+    my_logger.info(f'Launched monitoring process on {util_proc.pid}')
 
     try:
         doer.start()
@@ -438,4 +439,4 @@ if __name__ == "__main__":
             thinker.run()
     finally:
         queues.send_kill_signal()
-        util_proc.kill()
+        util_proc.terminate()

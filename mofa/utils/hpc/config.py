@@ -63,7 +63,7 @@ class LocalConfig(HPCConfig):
 
     def launch_monitor_process(self, log_dir: Path, freq: int = 20) -> Popen:
         return Popen(
-            args=f"{_monitor_path} --frequency {freq} {log_dir}".split()
+            args=f"monitor_utilization --frequency {freq} {log_dir}".split()
         )
 
     def make_parsl_config(self, run_dir: Path) -> Config:
