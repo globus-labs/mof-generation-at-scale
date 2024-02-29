@@ -260,7 +260,13 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             except (ValueError, KeyError, IndexError):
                 continue
 
+            # Check if a duplicate
+            if new_mof.name in self.database:
+                continue
+
+            # Add it to the database and work queue
             num_added += 1
+            self.database[new_mof.name] = new_mof
             self.mof_queue.append(new_mof)
             self.mofs_available.set()
 
@@ -284,9 +290,9 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             topic='simulation',
             task_info={'name': to_run.name}
         )
-        self.database[to_run.name] = to_run
         self.simulations_left -= 1
-        self.logger.info(f'Started MD simulation for mof={to_run.name}. Simulation queue depth: {len(self.mof_queue)}. '
+        self.logger.info(f'Started MD simulation for mof={to_run.name}. '
+                         f'Simulation queue depth: {len(self.mof_queue)}. '
                          f'Budget remaining: {self.simulations_left}')
 
         if self.simulations_left == 0:
