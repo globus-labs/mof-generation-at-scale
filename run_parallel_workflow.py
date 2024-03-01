@@ -1,10 +1,7 @@
 """An example of the workflow which runs all aspects of MOF generation in parallel"""
-import json
-import logging
-import hashlib
-import sys
+from contextlib import AbstractContextManager
 from functools import partial, update_wrapper
-from platform import node
+from typing import TextIO
 from csv import DictWriter
 from argparse import ArgumentParser
 from dataclasses import dataclass, asdict
@@ -15,11 +12,15 @@ from collections import deque
 from random import shuffle, choice
 from pathlib import Path
 from threading import Event
+import logging
+import hashlib
+import gzip
+import json
+import sys
 
 from rdkit import Chem
 from rdkit import RDLogger
 from openbabel import openbabel as ob
-from parsl import Config, HighThroughputExecutor
 from colmena.models import Result
 from colmena.task_server import ParslTaskServer
 from colmena.queue import ColmenaQueues, PipeQueues
@@ -32,6 +33,7 @@ from mofa.scoring.geometry import LatticeParameterChange
 from mofa.simulation.lammps import LAMMPSRunner
 from mofa.utils.conversions import write_to_string
 from mofa.utils.xyz import xyz_to_mol
+from mofa.hpc.config import configs as hpc_configs
 
 RDLogger.DisableLog('rdApp.*')
 ob.obErrorLog.SetOutputLevel(0)
@@ -92,7 +94,7 @@ class GeneratorConfig:
     """Number of atoms within a linker to generate"""
 
 
-class MOFAThinker(BaseThinker):
+class MOFAThinker(BaseThinker, AbstractContextManager):
     """Thinker which schedules MOF generation and testing"""
 
     mof_queue: deque[MOFRecord]
@@ -139,6 +141,20 @@ class MOFAThinker(BaseThinker):
         self.make_mofs = Event()  # Signal that we need new MOFs
         self.mofs_available = Event()  # Signal that new MOFs are done
 
+        # Output files
+        self._output_files: dict[str, Path | TextIO] = {}
+        for name in ['generation-results', 'simulation-results', 'mof']:
+            self._output_files[name] = run_dir / f'{name}.json.gz'
+
+    def __enter__(self):
+        """Open the output files"""
+        for name, path in self._output_files.items():
+            self._output_files[name] = gzip.open(path, mode='wt', compresslevel=9)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        for obj in self._output_files.values():
+            obj.close()
+
     @task_submitter(task_type='generation')
     def submit_generation(self):
         """Submit MOF generation tasks when resources are available"""
@@ -165,6 +181,7 @@ class MOFAThinker(BaseThinker):
         # Retrieve the results
         if not result.success:
             self.logger.warning(f'Generation task failed: {result.failure_info.exception}\nStack: {result.failure_info.traceback}')
+            print(result.json(exclude={'inputs', 'value'}), file=self._output_files['generation-results'])
             return
         new_ligands: list[LigandDescription] = result.value
         anchor_type = self.generator_config.templates[ligand_id].anchor_type
@@ -207,6 +224,9 @@ class MOFAThinker(BaseThinker):
                 writer.writeheader()
             writer.writerows(all_records)
 
+        # Store the task information
+        print(result.json(exclude={'inputs', 'value'}), file=self._output_files['generation-results'])
+
     @event_responder(event_name='make_mofs')
     def assemble_new_mofs(self):
         """Pull from the list of ligands and create MOFs. Runs when new MOFs are available"""
@@ -240,7 +260,13 @@ class MOFAThinker(BaseThinker):
             except (ValueError, KeyError, IndexError):
                 continue
 
+            # Check if a duplicate
+            if new_mof.name in self.database:
+                continue
+
+            # Add it to the database and work queue
             num_added += 1
+            self.database[new_mof.name] = new_mof
             self.mof_queue.append(new_mof)
             self.mofs_available.set()
 
@@ -264,9 +290,9 @@ class MOFAThinker(BaseThinker):
             topic='simulation',
             task_info={'name': to_run.name}
         )
-        self.database[to_run.name] = to_run
         self.simulations_left -= 1
-        self.logger.info(f'Started MD simulation for mof={to_run.name}. Simulation queue depth: {len(self.mof_queue)}. '
+        self.logger.info(f'Started MD simulation for mof={to_run.name}. '
+                         f'Simulation queue depth: {len(self.mof_queue)}. '
                          f'Budget remaining: {self.simulations_left}')
 
         if self.simulations_left == 0:
@@ -283,6 +309,7 @@ class MOFAThinker(BaseThinker):
         # Retrieve the results
         if not result.success:
             self.logger.warning(f'MD task failed: {result.failure_info.exception}\nStack: {result.failure_info.traceback}')
+            print(result.json(exclude={'inputs', 'value'}), file=self._output_files['simulation-results'])
             return
         traj = result.value
         name = result.task_info['name']
@@ -298,8 +325,8 @@ class MOFAThinker(BaseThinker):
         self.logger.info(f'Lattice change after MD simulation for mof={name}: {strain * 100:.1f}%')
 
         # Store the result to disk
-        with (run_dir / 'mofs.json').open('a') as fp:
-            print(json.dumps(asdict(record)), file=fp)
+        print(json.dumps(asdict(record)), file=self._output_files['mof'])
+        print(result.json(exclude={'inputs', 'value'}), file=self._output_files['simulation-results'])
 
 
 if __name__ == "__main__":
@@ -327,7 +354,7 @@ if __name__ == "__main__":
     group.add_argument('--md-snapshots', default=100, help='Maximum number of snapshots during MD simulation', type=int)
 
     group = parser.add_argument_group(title='Compute Settings', description='Compute environment configuration')
-    group.add_argument('--torch-device', default='cpu', help='Device on which to run torch operations')
+    group.add_argument('--compute-config', default='local', help='Configuration for the HPC system')
 
     args = parser.parse_args()
 
@@ -339,7 +366,7 @@ if __name__ == "__main__":
     run_params = args.__dict__.copy()
     start_time = datetime.utcnow()
     params_hash = hashlib.sha256(json.dumps(run_params).encode()).hexdigest()[:6]
-    run_dir = Path('run') / f'parallel-{node()}-{start_time.strftime("%d%b%y%H%M%S")}-{params_hash}'
+    run_dir = Path('run') / f'parallel-{args.compute_config}-{start_time.strftime("%d%b%y%H%M%S")}-{params_hash}'
     run_dir.mkdir(parents=True)
 
     # Load the ligand descriptions
@@ -348,24 +375,29 @@ if __name__ == "__main__":
         template = LigandTemplate.from_yaml(path)
         templates.append(template)
 
+    # Load the HPC configuration
+    hpc_config = hpc_configs[args.compute_config]()
+    with (run_dir / 'compute-config.json').open('w') as fp:
+        json.dump(asdict(hpc_config), fp)
+
     # Make the generator settings and the function
     generator = GeneratorConfig(
         generator_path=args.generator_path,
         atom_counts=args.molecule_sizes,
         templates=templates
     )
-    gen_func = partial(run_generator, model=generator.generator_path, n_samples=args.num_samples, device=args.torch_device)
+    gen_func = partial(run_generator, model=generator.generator_path, n_samples=args.num_samples, device=hpc_config.torch_device)
     update_wrapper(gen_func, run_generator)
 
     # Make the LAMMPS function
-    lmp_runner = LAMMPSRunner(['lmp_serial'], lmp_sims_root_path=str(run_dir / 'lmp_run'))
+    lmp_runner = LAMMPSRunner(hpc_config.lammps_cmd, lmp_sims_root_path=str(run_dir / 'lmp_run'))
     md_fun = partial(lmp_runner.run_molecular_dynamics, timesteps=args.md_timesteps, report_frequency=max(1, args.md_timesteps / args.md_snapshots))
     update_wrapper(md_fun, lmp_runner.run_molecular_dynamics)
 
     # Make the thinker
     queues = PipeQueues(topics=['generation', 'simulation'])
     thinker = MOFAThinker(queues,
-                          num_workers=2,
+                          num_workers=hpc_config.num_workers,
                           generator_config=generator,
                           simulation_budget=args.simulation_budget,
                           node_template=node_template,
@@ -379,26 +411,33 @@ if __name__ == "__main__":
             handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
             logger.addHandler(handler)
         logger.setLevel(logging.INFO)
-    my_logger.info(f'Running job in {run_dir}')
+    my_logger.info(f'Running job in {run_dir} on {hpc_config.num_workers} workers')
 
     # Save the run parameters to disk
     (run_dir / 'params.json').write_text(json.dumps(run_params))
 
+    # Make the Parsl configuration
+    config = hpc_config.make_parsl_config(run_dir)
+
     # Launch the thinker and task server
-    config = Config(
-        executors=[HighThroughputExecutor(max_workers=2)],
-        run_dir=str(run_dir / 'runinfo')
-    )
     doer = ParslTaskServer(
         methods=[gen_func, md_fun],
         queues=queues,
         config=config
     )
 
+    # Launch the utilization logging
+    log_dir = run_dir / 'logs'
+    log_dir.mkdir(parents=True)
+    util_proc = hpc_config.launch_monitor_process(log_dir.absolute())
+    my_logger.info(f'Launched monitoring process. pid={util_proc.pid}')
+
     try:
         doer.start()
         my_logger.info(f'Running parsl. pid={doer.pid}')
 
-        thinker.run()
+        with thinker:  # Opens the output files
+            thinker.run()
     finally:
         queues.send_kill_signal()
+        util_proc.terminate()

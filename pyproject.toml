@@ -33,7 +33,10 @@ dependencies = [
     # ML-related dependencies
     "pytorch-lightning",
     "wandb",
-    "imageio"
+    "imageio",
+
+    # Performance tracking
+    "gpustat"
 ]
 
 [tool.setuptools.packages.find]
@@ -50,3 +53,6 @@ test = [
     'pytest-timeout',
     'pytest-cov',
 ]
+
+[project.scripts]
+monitor_utilization = "mofa.hpc.utilization:utilization_cli"
