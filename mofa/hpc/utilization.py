@@ -17,7 +17,7 @@ def get_utilization() -> dict:
     """Get the system utilization"""
 
     # Get the CPU and memory utilization
-    output = {'time': datetime.now().isoformat(),
+    output = {'time': datetime.utcnow().isoformat(),
               'cpu_use': psutil.cpu_percent(percpu=True),
               'memory_use': psutil.virtual_memory()._asdict(),
               'network': {}}

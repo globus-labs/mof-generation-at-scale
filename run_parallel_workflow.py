@@ -144,7 +144,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
 
         # Output files
         self._output_files: dict[str, Path | TextIO] = {}
-        for name in ['generation', 'simulation', 'mof']:
+        for name in ['generation-results', 'simulation-results', 'mof']:
             self._output_files[name] = run_dir / f'{name}.json.gz'
 
     def __enter__(self):
@@ -182,6 +182,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         # Retrieve the results
         if not result.success:
             self.logger.warning(f'Generation task failed: {result.failure_info.exception}\nStack: {result.failure_info.traceback}')
+            print(result.json(exclude={'inputs', 'value'}), file=self._output_files['generation-results'])
             return
         new_ligands: list[LigandDescription] = result.value
         anchor_type = self.generator_config.templates[ligand_id].anchor_type
@@ -225,7 +226,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             writer.writerows(all_records)
 
         # Store the task information
-        print(result.json(exclude={'inputs', 'value'}), file=self._output_files['generation'])
+        print(result.json(exclude={'inputs', 'value'}), file=self._output_files['generation-results'])
 
     @event_responder(event_name='make_mofs')
     def assemble_new_mofs(self):
@@ -309,6 +310,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         # Retrieve the results
         if not result.success:
             self.logger.warning(f'MD task failed: {result.failure_info.exception}\nStack: {result.failure_info.traceback}')
+            print(result.json(exclude={'inputs', 'value'}), file=self._output_files['simulation-results'])
             return
         traj = result.value
         name = result.task_info['name']
@@ -325,7 +327,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
 
         # Store the result to disk
         print(json.dumps(asdict(record)), file=self._output_files['mof'])
-        print(result.json(exclude={'inputs', 'value'}), file=self._output_files['simulation'])
+        print(result.json(exclude={'inputs', 'value'}), file=self._output_files['simulation-results'])
 
 
 if __name__ == "__main__":
