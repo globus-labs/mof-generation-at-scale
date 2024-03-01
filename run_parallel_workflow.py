@@ -34,7 +34,7 @@ from mofa.scoring.geometry import LatticeParameterChange
 from mofa.simulation.lammps import LAMMPSRunner
 from mofa.utils.conversions import write_to_string
 from mofa.utils.xyz import xyz_to_mol
-from mofa.utils.hpc.config import configs as hpc_configs
+from mofa.hpc.config import configs as hpc_configs
 
 RDLogger.DisableLog('rdApp.*')
 ob.obErrorLog.SetOutputLevel(0)

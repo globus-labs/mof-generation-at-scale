@@ -1,5 +1,5 @@
 import json
-from mofa.utils.hpc.utilization import get_utilization
+from mofa.hpc.utilization import get_utilization
 
 
 def test_utilization():

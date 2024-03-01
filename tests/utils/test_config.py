@@ -2,7 +2,7 @@
 import os
 from pathlib import Path
 
-from mofa.utils.hpc.config import configs
+from mofa.hpc.config import configs
 
 
 def test_local(tmpdir):

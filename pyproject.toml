@@ -55,4 +55,4 @@ test = [
 ]
 
 [project.scripts]
-monitor_utilization = "mofa.utils.hpc.utilization:utilization_cli"
+monitor_utilization = "mofa.hpc.utilization:utilization_cli"
