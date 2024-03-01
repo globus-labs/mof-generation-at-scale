@@ -1,6 +1,5 @@
 """Utilization tracking"""
 import json
-import gzip
 import platform
 from datetime import datetime
 from argparse import ArgumentParser
@@ -57,13 +56,13 @@ def utilization_cli() -> NoReturn:
     args = parser.parse_args()
 
     # Make my log name
-    log_name = Path(args.log_path) / (platform.node() + ".log.gz")
-    with gzip.open(log_name, 'wt') as fp:
+    log_name = Path(args.log_path) / (platform.node() + ".log")
+    with open(log_name, 'wt') as fp:
         get_utilization()  # First one is trash (see PSUtil docs: https://psutil.readthedocs.io/en/latest/#psutil.cpu_times_percent)
         while True:
             try:
                 utilization = get_utilization()
             except psutil.NoSuchProcess:  # Happens if a process dies while assessing GPU performance
                 continue
-            print(json.dumps(utilization), file=fp, flush=False)
+            print(json.dumps(utilization), file=fp, flush=True)
             sleep(args.frequency)

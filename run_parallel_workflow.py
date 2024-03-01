@@ -2,7 +2,6 @@
 from contextlib import AbstractContextManager
 from functools import partial, update_wrapper
 from typing import TextIO
-from platform import node
 from csv import DictWriter
 from argparse import ArgumentParser
 from dataclasses import dataclass, asdict
@@ -367,7 +366,7 @@ if __name__ == "__main__":
     run_params = args.__dict__.copy()
     start_time = datetime.utcnow()
     params_hash = hashlib.sha256(json.dumps(run_params).encode()).hexdigest()[:6]
-    run_dir = Path('run') / f'parallel-{node()}-{start_time.strftime("%d%b%y%H%M%S")}-{params_hash}'
+    run_dir = Path('run') / f'parallel-{args.compute_config}-{start_time.strftime("%d%b%y%H%M%S")}-{params_hash}'
     run_dir.mkdir(parents=True)
 
     # Load the ligand descriptions
