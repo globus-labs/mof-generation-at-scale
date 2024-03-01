@@ -56,8 +56,8 @@ if __name__ == "__main__":
         lammps_cmd = ['/home/lward/Software/lammps-2Aug2023/build/lmp', '-sf', 'omp']
         config = Config(executors=[HighThroughputExecutor(max_workers=1, cpu_affinity='block')])
     elif args.config == "polaris":
-        lammps_cmd = ('/lus/eagle/projects/ExaMol/mofa/lammps-2Aug2023/src/lmp_polaris_nvhpc_kokkos_serial '
-                      '-k on g 1 -sf kk -pk kokkos neigh half neigh/qeq full newton on ').split()
+        lammps_cmd = ('/lus/eagle/projects/ExaMol/mofa/lammps-2Aug2023/build-kokkos-nompi/lmp '
+                      '-k on g 1 -sf kk').split()
         config = Config(retries=1, executors=[
             HighThroughputExecutor(
                 max_workers=4,
