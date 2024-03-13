@@ -32,6 +32,9 @@ dependencies:
   - pytorch::pytorch-cuda=11.7
   - nvidia::cudatoolkit=11.7
 
+  # Services used by the workflow
+  - redis-server
+
   - pip
   - pip:
     - git+https://gitlab.com/ase/ase.git

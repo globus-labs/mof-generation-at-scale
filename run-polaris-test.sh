@@ -12,6 +12,10 @@ cd ${PBS_O_WORKDIR}
 # Activate the environment
 conda activate /lus/eagle/projects/ExaMol/mofa/mof-generation-at-scale/env-polaris
 
+# Start Redis
+redis-server --bind 0.0.0.0 --appendonly no --logfile redis.log &
+redis_pid=$!
+
 # Run
 python run_parallel_workflow.py \
       --node-path input-files/zn-paddle-pillar/node.json \
@@ -21,3 +25,5 @@ python run_parallel_workflow.py \
       --simulation-budget 256 \
       --compute-config polaris
 
+# Shutdown services
+kill $redis_pid
