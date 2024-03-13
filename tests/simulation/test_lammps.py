@@ -10,7 +10,7 @@ from mofa.simulation.lammps import LAMMPSRunner
 def test_lammps_runner(cif_name, cif_dir, tmpdir):
     # Make a LAMMPS simulator that reads and writes to a
     lmprunner = LAMMPSRunner(
-        lammps_command=["lmp_serial"],
+        lammps_command=["lmp"],
         lmp_sims_root_path=tmpdir / "lmp_sims",
     )
 
