@@ -9,6 +9,7 @@ from collections import defaultdict
 from itertools import product
 from datetime import datetime
 from collections import deque
+from platform import node
 from random import shuffle, choice
 from pathlib import Path
 from threading import Event
@@ -21,9 +22,12 @@ import sys
 from rdkit import Chem
 from rdkit import RDLogger
 from openbabel import openbabel as ob
+from more_itertools import batched, make_decorator
 from colmena.models import Result
+from colmena.models.methods import PythonGeneratorMethod
 from colmena.task_server import ParslTaskServer
-from colmena.queue import ColmenaQueues, PipeQueues
+from colmena.queue import ColmenaQueues
+from colmena.queue.redis import RedisQueues
 from colmena.thinker import BaseThinker, result_processor, task_submitter, ResourceCounter, event_responder
 
 from mofa.assembly.assemble import assemble_mof
@@ -173,10 +177,19 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
     def store_generation(self, result: Result):
         """Receive generated ligands, append to the generation queue """
 
-        # Start a new task
+        # Lookup task information
         ligand_id, size = result.task_info['task']
-        self.generate_queue.append((ligand_id, size))  # Push this generation task back on the queue
-        self.rec.release('generation')
+        anchor_type = self.generator_config.templates[ligand_id].anchor_type
+
+        # If "complete," then this is signifying the generator has finished and should not contain any ligands
+        if result.complete:
+            # Start a new task
+            self.generate_queue.append((ligand_id, size))  # Push this generation task back on the queue
+            self.rec.release('generation')
+            self.logger.info(f'Generator task for anchor_type={anchor_type} size={size} finished')
+
+            print(result.json(exclude={'inputs', 'value'}), file=self._output_files['generation-results'], flush=False)
+            return
 
         # Retrieve the results
         if not result.success:
@@ -184,7 +197,6 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             print(result.json(exclude={'inputs', 'value'}), file=self._output_files['generation-results'])
             return
         new_ligands: list[LigandDescription] = result.value
-        anchor_type = self.generator_config.templates[ligand_id].anchor_type
         self.logger.info(f'Received {len(new_ligands)} new ligands of anchor_type={anchor_type} size={size}')
 
         # Check if they are valid
@@ -225,7 +237,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             writer.writerows(all_records)
 
         # Store the task information
-        print(result.json(exclude={'inputs', 'value'}), file=self._output_files['generation-results'])
+        print(result.json(exclude={'inputs', 'value'}), file=self._output_files['generation-results'], flush=False)
 
     @event_responder(event_name='make_mofs')
     def assemble_new_mofs(self):
@@ -344,6 +356,7 @@ if __name__ == "__main__":
                        help='Path to the PyTorch files describing model architecture and weights')
     group.add_argument('--molecule-sizes', nargs='+', type=int, default=(10, 11, 12), help='Sizes of molecules we should generate')
     group.add_argument('--num-samples', type=int, default=16, help='Number of molecules to generate at each size')
+    group.add_argument('--gen-batch-size', type=int, default=4, help='Number of ligands to stream per batch')
 
     group = parser.add_argument_group(title='Assembly Settings', description='Options related to MOF assembly')
     group.add_argument('--max-assemble-attempts', default=100,
@@ -355,6 +368,7 @@ if __name__ == "__main__":
 
     group = parser.add_argument_group(title='Compute Settings', description='Compute environment configuration')
     group.add_argument('--compute-config', default='local', help='Configuration for the HPC system')
+    group.add_argument('--redis-host', default=node(), help='Host for the Redis server')
 
     args = parser.parse_args()
 
@@ -368,6 +382,9 @@ if __name__ == "__main__":
     params_hash = hashlib.sha256(json.dumps(run_params).encode()).hexdigest()[:6]
     run_dir = Path('run') / f'parallel-{args.compute_config}-{start_time.strftime("%d%b%y%H%M%S")}-{params_hash}'
     run_dir.mkdir(parents=True)
+
+    # Configure to a use Redis queue, which allows streaming results form other nodes
+    queues = RedisQueues(hostname=args.redis_host, topics=['generation', 'simulation'])
 
     # Load the ligand descriptions
     templates = []
@@ -387,7 +404,12 @@ if __name__ == "__main__":
         templates=templates
     )
     gen_func = partial(run_generator, model=generator.generator_path, n_samples=args.num_samples, device=hpc_config.torch_device)
-    update_wrapper(gen_func, run_generator)
+    gen_func = make_decorator(batched)(args.gen_batch_size)(gen_func)  # Wraps gen_func in a decorator in one line
+    gen_method = PythonGeneratorMethod(
+        function=gen_func,
+        name='run_generator',
+        streaming_queue=queues
+    )
 
     # Make the LAMMPS function
     lmp_runner = LAMMPSRunner(hpc_config.lammps_cmd, lmp_sims_root_path=str(run_dir / 'lmp_run'))
@@ -395,7 +417,6 @@ if __name__ == "__main__":
     update_wrapper(md_fun, lmp_runner.run_molecular_dynamics)
 
     # Make the thinker
-    queues = PipeQueues(topics=['generation', 'simulation'])
     thinker = MOFAThinker(queues,
                           num_workers=hpc_config.num_workers,
                           generator_config=generator,
