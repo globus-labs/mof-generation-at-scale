@@ -404,11 +404,12 @@ if __name__ == "__main__":
         templates=templates
     )
     gen_func = partial(run_generator, model=generator.generator_path, n_samples=args.num_samples, device=hpc_config.torch_device)
-    update_wrapper(gen_func, run_generator)
     gen_func = make_decorator(batched)(args.gen_batch_size)(gen_func)  # Wraps gen_func in a decorator in one line
+    update_wrapper(gen_func, run_generator)
     gen_method = PythonGeneratorMethod(
         function=gen_func,
         name='run_generator',
+        store_return_value=True,
         streaming_queue=queues
     )
 
