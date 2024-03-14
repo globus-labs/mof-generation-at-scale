@@ -1,4 +1,5 @@
 """Test LAMMPS by running a large number of MD simulations with different runtimes"""
+from concurrent.futures import as_completed
 from platform import node
 import argparse
 import json
@@ -58,7 +59,7 @@ if __name__ == "__main__":
     elif args.config == "polaris":
         lammps_cmd = ('/lus/eagle/projects/ExaMol/mofa/lammps-2Aug2023/build-kokkos-nompi/lmp '
                       '-k on g 1 -sf kk').split()
-        config = Config(retries=1, executors=[
+        config = Config(retries=4, executors=[
             HighThroughputExecutor(
                 max_workers=4,
                 cpu_affinity='block-reverse',
@@ -107,7 +108,10 @@ hostname
 
     # Store results
     scorer = LatticeParameterChange()
-    for future in tqdm(futures):
+    for future in tqdm(as_completed(futures), total=len(futures)):
+        if future.exception() is not None:
+            print(f'{future.mof.name} failed: {future.exeception()}')
+            continue
         runtime, traj = future.result()
 
         # Get the strain

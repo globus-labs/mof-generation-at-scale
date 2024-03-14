@@ -1,12 +1,14 @@
+from typing import Iterator
 import os
-import numpy as np
+
 
 import torch
+import numpy as np
 from rdkit import Chem
 
 from mofa.model import LigandTemplate, LigandDescription
 from mofa.utils.src import const
-from mofa.utils.src.datasets import collate_with_fragment_edges, get_dataloader, parse_molecule, get_one_hot
+from mofa.utils.src.datasets import collate_with_fragment_edges, get_dataloader, get_one_hot
 from mofa.utils.src.lightning import DDPM
 from mofa.utils.src.linker_size_lightning import SizeClassifier
 from mofa.utils.src.visualizer import save_xyz_file, visualize_chain
@@ -45,7 +47,7 @@ def generate_animation(ddpm, chain_batch, node_mask, n_mol):
 
 def main_run(templates: list[LigandTemplate],
              model, output_dir, n_samples, n_steps, linker_size,
-             device: str = 'cpu') -> list[LigandDescription]:
+             device: str = 'cpu') -> Iterator[LigandDescription]:
     """Run the linker generation"""
     if linker_size.isdigit():
         linker_size = int(linker_size)
@@ -110,7 +112,6 @@ def main_run(templates: list[LigandTemplate],
         dataloader = get_dataloader(dataset, batch_size=batch_size, collate_fn=collate_with_fragment_edges)
 
         # Sampling
-        output = []
         for batch_i, data in enumerate(dataloader):
             chain, node_mask = ddpm.sample_chain(data, sample_fn=sample_fn, keep_frames=1)
             x = chain[0][:, :, :ddpm.n_dims]
@@ -131,7 +132,4 @@ def main_run(templates: list[LigandTemplate],
                 atom_types = [idx2atom[i] for i in batch_idx_selections[i, :]]
 
                 # Make the output
-                output.append(
-                    template.create_description(atom_types, batch_coordinates[i, :, :])
-                )
-        return output
+                yield template.create_description(atom_types, batch_coordinates[i, :, :])
