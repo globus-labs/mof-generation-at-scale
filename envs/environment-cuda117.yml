@@ -33,7 +33,7 @@ dependencies:
   - nvidia::cudatoolkit=11.7
 
   # Services used by the workflow
-  - redis-server
+  - redis==5.*
 
   - pip
   - pip:
