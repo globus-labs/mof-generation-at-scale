@@ -78,8 +78,8 @@ class PolarisConfig(HPCConfig):
     """Configuration used on Polaris"""
 
     torch_device = 'cuda'
-    lammps_cmd = ('/lus/eagle/projects/ExaMol/mofa/lammps-2Aug2023/build-kokkos-nompi/lmp '
-                  '-k on g 1 -sf kk').split()
+    lammps_cmd = ('/lus/eagle/projects/ExaMol/mofa/lammps-2Aug2023/build-gpu-nompi-mixed/lmp '
+                  '-sf gpu -pk gpu 1').split()
     hosts: list[str] = field(default_factory=list)
 
     def __post_init__(self):
