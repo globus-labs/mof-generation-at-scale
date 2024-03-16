@@ -15,7 +15,6 @@ dependencies:
   - matplotlib
   - pytest
 
-
   # Tools used as part of the ML packages
   - imageio
   - pytorch-lightning<2
@@ -32,6 +31,9 @@ dependencies:
 
   # Use Conda PyTorch to avoid OpenMP disagreement with other libraries
   - pytorch==1.13.*=*cpu*
+
+  # For storing data out-of-core during runs:
+  - mongodb
 
   - pip
   - pip:
