@@ -289,6 +289,9 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         """Submit an MD simulation"""
 
         # Block until new MOFs are available
+        if len(self.mof_queue) <= self.rec.allocated_slots('simulation'):
+            self.logger.info(f'MOF queue is low. Triggering more to be made.')
+            self.make_mofs.set()
         if len(self.mof_queue) == 0:
             self.mofs_available.clear()
             self.make_mofs.set()
