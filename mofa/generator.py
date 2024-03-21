@@ -1,5 +1,6 @@
 """Functions pertaining to training and running the generative model"""
 from tempfile import TemporaryDirectory
+from typing import Iterator
 from pathlib import Path
 
 from mofa.model import LigandDescription, LigandTemplate
@@ -62,7 +63,7 @@ def run_generator(
         n_samples: int = 1,
         n_steps: int = None,
         device: str = 'cpu'
-) -> list[LigandDescription]:
+) -> Iterator[LigandDescription]:
     """Produce a set of new linkers given a model
 
     Args:
@@ -79,7 +80,7 @@ def run_generator(
 
     with TemporaryDirectory(prefix='mofagen-') as tmpdir:
         # Produce a sample directory full of XYZ files
-        return main_run(
+        yield from main_run(
             templates=templates,
             output_dir=tmpdir,
             model=model,
