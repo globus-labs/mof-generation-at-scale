@@ -9,6 +9,7 @@ from collections import defaultdict
 from itertools import product
 from datetime import datetime
 from collections import deque
+from queue import Queue, Empty
 from platform import node
 from random import shuffle, choice
 from pathlib import Path
@@ -28,7 +29,7 @@ from colmena.models.methods import PythonGeneratorMethod
 from colmena.task_server import ParslTaskServer
 from colmena.queue import ColmenaQueues
 from colmena.queue.redis import RedisQueues
-from colmena.thinker import BaseThinker, result_processor, task_submitter, ResourceCounter, event_responder
+from colmena.thinker import BaseThinker, result_processor, task_submitter, ResourceCounter, event_responder, agent
 
 from mofa.assembly.assemble import assemble_mof
 from mofa.generator import run_generator
@@ -132,6 +133,8 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         self.generate_queue.extend(tasks)
 
         self.ligand_queue = defaultdict(lambda: deque(maxlen=200))  # Starts empty
+
+        self.post_md_queue: Queue[Result] = Queue()  # Holds MD results ready to be stored
 
         # Database of completed MOFs
         self.database: dict[str, MOFRecord] = {}
@@ -289,6 +292,9 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         """Submit an MD simulation"""
 
         # Block until new MOFs are available
+        if len(self.mof_queue) <= self.rec.allocated_slots('simulation'):
+            self.logger.info('MOF queue is low. Triggering more to be made.')
+            self.make_mofs.set()
         if len(self.mof_queue) == 0:
             self.mofs_available.clear()
             self.make_mofs.set()
@@ -313,7 +319,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
 
     @result_processor(topic='simulation')
     def store_simulation(self, result: Result):
-        """Gather MD results and compute stability"""
+        """Gather MD results, push result to post-processing queue"""
 
         # Trigger a new simulation
         self.rec.release('simulation')
@@ -321,24 +327,37 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         # Retrieve the results
         if not result.success:
             self.logger.warning(f'MD task failed: {result.failure_info.exception}\nStack: {result.failure_info.traceback}')
-            print(result.json(exclude={'inputs', 'value'}), file=self._output_files['simulation-results'])
-            return
-        traj = result.value
-        name = result.task_info['name']
-        record = self.database[name]
-        self.logger.info(f'Received a trajectory of {len(traj)} frames for mof={name}')
-
-        # Compute the lattice strain
-        scorer = LatticeParameterChange()
-        traj_vasp = [write_to_string(t, 'vasp') for t in traj]
-        record.md_trajectory['uff'] = traj_vasp
-        strain = scorer.score_mof(record)
-        record.structure_stability['uff-10000'] = strain
-        self.logger.info(f'Lattice change after MD simulation for mof={name}: {strain * 100:.1f}%')
-
-        # Store the result to disk
-        print(json.dumps(asdict(record)), file=self._output_files['mof'])
+        else:
+            self.post_md_queue.put(result)
         print(result.json(exclude={'inputs', 'value'}), file=self._output_files['simulation-results'])
+
+    @agent()
+    def process_md_results(self):
+        """Process then store the result of MD"""
+
+        while not (self.done.is_set() and self.queues.wait_until_done(timeout=0.01)):
+            # Wait for a result
+            try:
+                result = self.post_md_queue.get(block=True, timeout=1)
+            except Empty:
+                continue
+
+            # Store the trajectory
+            traj = result.value
+            name = result.task_info['name']
+            record = self.database[name]
+            self.logger.info(f'Received a trajectory of {len(traj)} frames for mof={name}. Backlog: {self.post_md_queue.qsize()}')
+
+            # Compute the lattice strain
+            scorer = LatticeParameterChange()
+            traj_vasp = [write_to_string(t, 'vasp') for t in traj]
+            record.md_trajectory['uff'] = traj_vasp
+            strain = scorer.score_mof(record)
+            record.structure_stability['uff-10000'] = strain
+            self.logger.info(f'Lattice change after MD simulation for mof={name}: {strain * 100:.1f}%')
+
+            # Store the result to disk
+            print(json.dumps(asdict(record)), file=self._output_files['mof'])
 
 
 if __name__ == "__main__":
