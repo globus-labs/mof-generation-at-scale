@@ -32,9 +32,6 @@ dependencies:
   # Use Conda PyTorch to avoid OpenMP disagreement with other libraries
   - pytorch==1.13.*=*cpu*
 
-  # For storing data out-of-core during runs:
-  - mongodb
-
   - pip
   - pip:
     - git+https://gitlab.com/ase/ase.git
