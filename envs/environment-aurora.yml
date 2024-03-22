@@ -1,7 +1,30 @@
-# Use pytorch extensions from Intel
-#  https://intel.github.io/intel-extension-for-pytorch/xpu/1.13.120+xpu/tutorials/installation.html#pytorch-intel-extension-for-pytorch-version-mapping
+# Aurora/Sunspot Setup Instructions
+#
+# 1. Load Conda via the frameworks module (must be done whenever activating
+#    the env).
+#    
+#    $ module use /soft/modulefiles/
+#    $ module load frameworks/2023.12.15.001 
+# 
+# 2. Deactivate the default Conda environment and create a new one. Solving
+#    the environment can take a while so you may want to use Mamba.
+#
+#    $ conda deactivate
+#    $ conda env create --file envs/environment-aurora.yml --force
+#
+# 3. Activate the Conda environment
+#
+#    $ conda activate mofa
+#
+# 4. Test XPUs available in torch (must be done from compute node)
+#
+#    $ python -c "import torch; import intel_extension_for_pytorch as ipex; print(torch.__version__); print(ipex.__version__); [print(f'[{i}]: {torch.xpu.get_device_properties(i)}') for i in range(torch.xpu.device_count())];" 
+#
+# Uses PyTorch Extensions from Intel:
+# https://intel.github.io/intel-extension-for-pytorch/index.html#installation?platform=gpu&version=v2.1.10%2Bxpu
 name: mofa
 channels:
+  - intel
   - defaults
   - conda-forge
 dependencies:
@@ -28,11 +51,12 @@ dependencies:
   # Services used by the workflow
   - redis==5.*
 
+  # PyTorch + IPEX from Intel's Conda channel
+  - pytorch==2.1.0
+  - intel-extension-for-pytorch==2.1.10
+
   - pip
   - pip:
-    - --extra-index-url https://pytorch-extension.intel.com/release-whl/stable/xpu/us/
-    - torch==2.1.0a0
-    - intel_extension_for_pytorch==2.1.10+xpu
     - pytorch-lightning<2
     - git+https://gitlab.com/ase/ase.git
     - git+https://github.com/exalearn/colmena.git  # Fixes for streaming not yet on PyPI
