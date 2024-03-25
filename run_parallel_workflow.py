@@ -1,6 +1,7 @@
 """An example of the workflow which runs all aspects of MOF generation in parallel"""
 from contextlib import AbstractContextManager
 from functools import partial, update_wrapper
+from subprocess import Popen
 from typing import TextIO
 from csv import DictWriter
 from argparse import ArgumentParser
@@ -23,6 +24,8 @@ import sys
 from rdkit import Chem
 from rdkit import RDLogger
 from openbabel import openbabel as ob
+from pymongo import MongoClient
+from pymongo.collection import Collection
 from more_itertools import batched, make_decorator
 from colmena.models import Result
 from colmena.models.methods import PythonGeneratorMethod
@@ -38,6 +41,7 @@ from mofa.scoring.geometry import LatticeParameterChange
 from mofa.simulation.lammps import LAMMPSRunner
 from mofa.utils.conversions import write_to_string
 from mofa.utils.xyz import xyz_to_mol
+from mofa import db as mofadb
 from mofa.hpc.config import configs as hpc_configs
 
 RDLogger.DisableLog('rdApp.*')
@@ -148,9 +152,13 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         self.make_mofs = Event()  # Signal that we need new MOFs
         self.mofs_available = Event()  # Signal that new MOFs are done
 
+        # Connect to MongoDB
+        self.mongo_client = MongoClient()
+        self.collection: Collection = mofadb.initialize_database(self.mongo_client)
+
         # Output files
         self._output_files: dict[str, Path | TextIO] = {}
-        for name in ['generation-results', 'simulation-results', 'mof']:
+        for name in ['generation-results', 'simulation-results']:
             self._output_files[name] = run_dir / f'{name}.json.gz'
 
     def __enter__(self):
@@ -356,8 +364,8 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             record.structure_stability['uff-10000'] = strain
             self.logger.info(f'Lattice change after MD simulation for mof={name}: {strain * 100:.1f}%')
 
-            # Store the result to disk
-            print(json.dumps(asdict(record)), file=self._output_files['mof'])
+            # Store the result in MongoDB
+            mofadb.create_records(self.collection, [record])
 
 
 if __name__ == "__main__":
@@ -437,6 +445,14 @@ if __name__ == "__main__":
     md_fun = partial(lmp_runner.run_molecular_dynamics, timesteps=args.md_timesteps, report_frequency=max(1, args.md_timesteps / args.md_snapshots))
     update_wrapper(md_fun, lmp_runner.run_molecular_dynamics)
 
+    # Launch MongoDB as a subprocess
+    mongo_dir = run_dir / 'db'
+    mongo_dir.mkdir(parents=True)
+    mongo_proc = Popen(
+        f'mongod --dbpath {mongo_dir.absolute()} --logpath {(run_dir / "mongo.log").absolute()}'.split(),
+        stderr=(run_dir / 'mongo.err').open('w')
+    )
+
     # Make the thinker
     thinker = MOFAThinker(queues,
                           num_workers=hpc_config.num_workers,
@@ -482,4 +498,8 @@ if __name__ == "__main__":
             thinker.run()
     finally:
         queues.send_kill_signal()
+
+        # Kill the services launched during workflow
         util_proc.terminate()
+        mongo_proc.terminate()
+        mongo_proc.poll()
