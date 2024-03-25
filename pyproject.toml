@@ -37,7 +37,10 @@ dependencies = [
     "imageio",
 
     # Performance tracking
-    "gpustat"
+    "gpustat",
+
+    # Data management
+    "pymongo>=4"
 ]
 
 [tool.setuptools.packages.find]
@@ -53,6 +56,7 @@ test = [
     'pytest-forked',
     'pytest-timeout',
     'pytest-cov',
+    'mongomock'
 ]
 
 [project.scripts]

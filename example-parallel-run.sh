@@ -6,4 +6,5 @@ python run_parallel_workflow.py \
       --ligand-templates input-files/zn-paddle-pillar/template_*.yml \
       --num-samples 32 \
       --simulation-budget 4 \
+      --redis-host 127.0.0.1 \
       --compute-config local

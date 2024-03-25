@@ -15,7 +15,6 @@ dependencies:
   - matplotlib
   - pytest
 
-
   # Tools used as part of the ML packages
   - imageio
   - pytorch-lightning<2
