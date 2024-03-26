@@ -34,7 +34,7 @@ class LatticeParameterChange(Scorer):
 
         # Get the initial and final structures
         init_strc = read_vasp(StringIO(traj[0]))
-        final_strc: ase.Atoms = read_vasp(StringIO(traj[1]))
+        final_strc: ase.Atoms = read_vasp(StringIO(traj[-1]))
 
         # Compute the maximum principal strain
         #  Following: https://www.cryst.ehu.es/cgi-bin/cryst/programs/nph-strain
