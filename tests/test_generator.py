@@ -72,7 +72,7 @@ def test_sampling_num_atoms(n_atoms, example_template, n_samples, file_dir, file
 
 
 @mark.parametrize('filename', ['geom_difflinker.ckpt', 'geom_difflinker_given_anchors.ckpt'])
-def test_sampling_num_atoms(example_template, file_dir, filename, tmp_path):
+def test_sampling_variable_atoms(example_template, file_dir, filename, tmp_path):
     samples = list(run_generator(
         model=file_dir / filename,
         templates=[example_template],

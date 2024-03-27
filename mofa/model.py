@@ -55,8 +55,8 @@ class LigandTemplate:
 
     length_change_range: tuple[float, float] | None = None
     """How much to vary distance between anchor groups when preparing to generate inputs to DiffLinker
-    
-    The two numbers define the low and high value of a uniform distribution. 
+
+    The two numbers define the low and high value of a uniform distribution.
     """
 
     @cached_property
