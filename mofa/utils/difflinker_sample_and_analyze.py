@@ -80,34 +80,36 @@ def main_run(templates: list[LigandTemplate],
 
     # Reading input fragments
     for n_mol, template in enumerate(templates):
-        # Prepare the inputs for this structure
-        symbols, positions, anchors = template.prepare_inputs()
-        if ddpm.center_of_mass == 'anchors' and anchors is None:
-            raise ValueError(
-                'Please pass anchor atoms indices '
-                'or use another DiffLinker model that does not require information about anchors'
-            )
-        
-        one_hot = np.array([get_one_hot(s, atom2idx) for s in symbols])
-        charges = np.array([charges_dict[s] for s in symbols])
-        fragment_mask = np.ones_like(charges)
-        linker_mask = np.zeros_like(charges)
-        anchor_flags = np.zeros_like(charges)
-        if anchors is not None:
-            anchor_flags[anchors] = 1
+        dataset = []
+        for _ in range(n_samples):  # Loop over the same template multiple times because `prepare_inputs` randomizes molecule length
+            # Prepare the inputs for this structure
+            symbols, positions, anchors = template.prepare_inputs()
+            if ddpm.center_of_mass == 'anchors' and anchors is None:
+                raise ValueError(
+                    'Please pass anchor atoms indices '
+                    'or use another DiffLinker model that does not require information about anchors'
+                )
 
-        # Perform the sampling
-        dataset = [{
-            'uuid': '0',
-            'name': '0',
-            'positions': torch.tensor(positions, dtype=const.TORCH_FLOAT, device=device),
-            'one_hot': torch.tensor(one_hot, dtype=const.TORCH_FLOAT, device=device),
-            'charges': torch.tensor(charges, dtype=const.TORCH_FLOAT, device=device),
-            'anchors': torch.tensor(anchor_flags, dtype=const.TORCH_FLOAT, device=device),
-            'fragment_mask': torch.tensor(fragment_mask, dtype=const.TORCH_FLOAT, device=device),
-            'linker_mask': torch.tensor(linker_mask, dtype=const.TORCH_FLOAT, device=device),
-            'num_atoms': len(positions),
-        }] * n_samples
+            one_hot = np.array([get_one_hot(s, atom2idx) for s in symbols])
+            charges = np.array([charges_dict[s] for s in symbols])
+            fragment_mask = np.ones_like(charges)
+            linker_mask = np.zeros_like(charges)
+            anchor_flags = np.zeros_like(charges)
+            if anchors is not None:
+                anchor_flags[anchors] = 1
+
+            # Perform the sampling
+            dataset.append({
+                'uuid': '0',
+                'name': '0',
+                'positions': torch.tensor(positions, dtype=const.TORCH_FLOAT, device=device),
+                'one_hot': torch.tensor(one_hot, dtype=const.TORCH_FLOAT, device=device),
+                'charges': torch.tensor(charges, dtype=const.TORCH_FLOAT, device=device),
+                'anchors': torch.tensor(anchor_flags, dtype=const.TORCH_FLOAT, device=device),
+                'fragment_mask': torch.tensor(fragment_mask, dtype=const.TORCH_FLOAT, device=device),
+                'linker_mask': torch.tensor(linker_mask, dtype=const.TORCH_FLOAT, device=device),
+                'num_atoms': len(positions),
+            })
         batch_size = min(n_samples, 64)  # TRY to make sure n_samples < 64
         dataloader = get_dataloader(dataset, batch_size=batch_size, collate_fn=collate_with_fragment_edges)
 

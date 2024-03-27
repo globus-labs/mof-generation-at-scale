@@ -67,6 +67,9 @@ class LigandTemplate:
     def prepare_inputs(self) -> tuple[list[str], np.ndarray, np.ndarray | None]:
         """Produce the inputs needed for DiffLinker
 
+        If :attr:`length_change_range` is set, then the distance between
+        the anchor groups will change by a random amount within those distances.
+
         Returns:
             - List of chemical symbols
             - Array of atomic positions

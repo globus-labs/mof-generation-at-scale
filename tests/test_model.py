@@ -108,4 +108,4 @@ def test_template_length_variance(file_path):
     disps = samples[:, None, :, :] - samples[None, :, :, :]
     dists = np.linalg.norm(disps, axis=-1)
     assert dists.shape == (64, 64, 6)
-    assert 0 < dists.max() < 4
+    assert 1 < dists.max() < 4
