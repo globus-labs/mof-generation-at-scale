@@ -7,12 +7,11 @@ from csv import DictWriter
 from argparse import ArgumentParser
 from dataclasses import dataclass, asdict
 from collections import defaultdict
-from itertools import product
 from datetime import datetime
 from collections import deque
 from queue import Queue, Empty
 from platform import node
-from random import shuffle, choice
+from random import choice
 from pathlib import Path
 from threading import Event
 import logging
