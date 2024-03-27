@@ -9,7 +9,7 @@ authors = [
 ]
 description = 'Generating useful MOFs on HPC'
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.9"
 license = { file = "LICENSE" }
 keywords = ["HPC", "AI", "Workflows", "Quantum Chemistry", "Chemical Engineering"]
 classifiers = [
