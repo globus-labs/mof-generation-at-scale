@@ -1,25 +1,4 @@
-# Aurora/Sunspot Setup Instructions
-#
-# 1. Load Conda via the frameworks module (must be done whenever activating
-#    the env).
-#    
-#    $ module use /soft/modulefiles/
-#    $ module load frameworks/2023.12.15.001 
-# 
-# 2. Deactivate the default Conda environment and create a new one. Solving
-#    the environment can take a while so you may want to use Mamba.
-#
-#    $ conda deactivate
-#    $ conda env create --file envs/environment-aurora.yml --force
-#
-# 3. Activate the Conda environment
-#
-#    $ conda activate mofa
-#
-# 4. Test XPUs available in torch (must be done from compute node)
-#
-#    $ python -c "import torch; import intel_extension_for_pytorch as ipex; print(torch.__version__); print(ipex.__version__); [print(f'[{i}]: {torch.xpu.get_device_properties(i)}') for i in range(torch.xpu.device_count())];" 
-#
+# Install using ./envs/build-aurora.sh
 # Uses PyTorch Extensions from Intel:
 # https://intel.github.io/intel-extension-for-pytorch/index.html#installation?platform=gpu&version=v2.1.10%2Bxpu
 name: mofa
@@ -54,6 +33,7 @@ dependencies:
   # PyTorch + IPEX from Intel's Conda channel
   - pytorch==2.1.0
   - intel-extension-for-pytorch==2.1.10
+  - intel::torchvision
 
   - pip
   - pip:
