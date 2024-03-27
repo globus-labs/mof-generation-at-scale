@@ -53,7 +53,7 @@ def test_training(file_dir, tmpdir):
 
 
 @mark.parametrize('filename', ['geom_difflinker.ckpt', 'geom_difflinker_given_anchors.ckpt'])
-@mark.parametrize('n_atoms', [8])
+@mark.parametrize('n_atoms', [8, file_dir + "/" + "geom_size_gnn.ckpt"])
 @mark.parametrize('n_samples', [1, 3])
 def test_sampling_num_atoms(n_atoms, example_template, n_samples, file_dir, filename, tmp_path):
     # anchors = "1,5" if "anchors" in filename else None ####Give 1st and 5th atom of FRAGMENT-only molecule
