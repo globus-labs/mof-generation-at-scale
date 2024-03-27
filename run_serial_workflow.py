@@ -39,6 +39,8 @@ if __name__ == "__main__":
     group.add_argument('--generator-path', required=True,
                        help='Path to the PyTorch files describing model architecture and weights')
     group.add_argument('--molecule-sizes', nargs='+', type=int, default=(10, 11, 12), help='Sizes of molecules we should generate')
+    group.add_argument('--molecule-size-gnn', help='Number of molecules to generate at each size. '
+                                                   'Will be used in place of `--molecule-sizes` if set')
     group.add_argument('--num-samples', type=int, default=16, help='Number of molecules to generate at each size')
 
     group = parser.add_argument_group(title='Assembly Settings', description='Options related to MOF assembly')
@@ -88,16 +90,26 @@ if __name__ == "__main__":
     # Load a pretrained generator from disk and use it to create ligands
     generated_ligands = {}
     for template in templates.values():
-        my_ligands = []
-        for n_atoms in args.molecule_sizes:
-            logger.info(f'Generating molecules with {n_atoms} atoms for {template.anchor_type} on {args.torch_device}')
-            my_ligands.extend(run_generator(
+        if args.molecule_size_gnn:
+            logger.info(f'Generating molecules for {template.anchor_type} using size inference on {args.torch_device}')
+            my_ligands = list(run_generator(
                 templates=[template],
                 model=args.generator_path,
-                n_atoms=n_atoms,
+                n_atoms=args.molecule_size_gnn,
                 n_samples=args.num_samples,
                 device=args.torch_device
             ))
+        else:
+            my_ligands = []
+            for n_atoms in args.molecule_sizes:
+                logger.info(f'Generating molecules with {n_atoms} atoms for {template.anchor_type} on {args.torch_device}')
+                my_ligands.extend(run_generator(
+                    templates=[template],
+                    model=args.generator_path,
+                    n_atoms=n_atoms,
+                    n_samples=args.num_samples,
+                    device=args.torch_device
+                ))
         generated_ligands[template.anchor_type] = my_ligands
         logger.info(f'Generated a total of {len(my_ligands)} ligands for {template.anchor_type}')
 

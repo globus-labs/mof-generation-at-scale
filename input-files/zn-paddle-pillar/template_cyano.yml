@@ -11,3 +11,4 @@ xyzs:
     C         -1.73205       -2.00000        0.00000
     N         -2.59808       -2.50000        0.00000
 dummy_element: Fr
+length_change_range: [-2, 2]

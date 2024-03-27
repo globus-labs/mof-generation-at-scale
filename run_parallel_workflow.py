@@ -99,8 +99,8 @@ class GeneratorConfig:
     """Path to the DiffLinker model"""
     templates: list[LigandTemplate]
     """The templates being generated"""
-    atom_counts: list[int]
-    """Number of atoms within a linker to generate"""
+    size_path: Path
+    """Path the network used for size estimation"""
 
 
 class MOFAThinker(BaseThinker, AbstractContextManager):
@@ -110,7 +110,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
     """Priority queue of MOFs to be evaluated"""
     ligand_queue: dict[str, deque[LigandDescription]]
     """Queue of the latest ligands to be generated for each type"""
-    generate_queue: deque[tuple[int, int]]
+    generate_queue: deque[int]
     """Queue used to ensure we generate equal numbers of each type of ligand"""
 
     def __init__(self,
@@ -131,10 +131,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         # Set up the queues
         self.mof_queue = deque(maxlen=200)  # Starts empty
 
-        self.generate_queue = deque()  # Starts with one of each task (ligand, size)
-        tasks = list(product(range(len(generator_config.templates)), generator_config.atom_counts))
-        shuffle(tasks)
-        self.generate_queue.extend(tasks)
+        self.generate_queue = deque(range(len(self.generator_config.templates)))
 
         self.ligand_queue = defaultdict(lambda: deque(maxlen=200))  # Starts empty
 
@@ -174,30 +171,30 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
     def submit_generation(self):
         """Submit MOF generation tasks when resources are available"""
 
-        ligand_id, size = self.generate_queue.popleft()
+        ligand_id = self.generate_queue.popleft()
         ligand = self.generator_config.templates[ligand_id]
         self.queues.send_inputs(
-            input_kwargs={'templates': [ligand], 'n_atoms': size},
+            input_kwargs={'templates': [ligand]},
             topic='generation',
             method='run_generator',
-            task_info={'task': (ligand_id, size)}
+            task_info={'task': ligand_id}
         )
-        self.logger.info(f'Requested more samples of type={ligand.anchor_type} size={size}')
+        self.generate_queue.append(ligand_id)  # So that we cycle through them
+        self.logger.info(f'Requested more samples of type={ligand.anchor_type}')
 
     @result_processor(topic='generation')
     def store_generation(self, result: Result):
         """Receive generated ligands, append to the generation queue """
 
         # Lookup task information
-        ligand_id, size = result.task_info['task']
+        ligand_id = result.task_info['task']
         anchor_type = self.generator_config.templates[ligand_id].anchor_type
 
         # If "complete," then this is signifying the generator has finished and should not contain any ligands
         if result.complete:
             # Start a new task
-            self.generate_queue.append((ligand_id, size))  # Push this generation task back on the queue
             self.rec.release('generation')
-            self.logger.info(f'Generator task for anchor_type={anchor_type} size={size} finished')
+            self.logger.info(f'Generator task for anchor_type={anchor_type} finished')
 
             print(result.json(exclude={'inputs', 'value'}), file=self._output_files['generation-results'], flush=False)
             return
@@ -208,7 +205,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             print(result.json(exclude={'inputs', 'value'}), file=self._output_files['generation-results'])
             return
         new_ligands: list[LigandDescription] = result.value
-        self.logger.info(f'Received {len(new_ligands)} new ligands of anchor_type={anchor_type} size={size}')
+        self.logger.info(f'Received {len(new_ligands)} new ligands of anchor_type={anchor_type}')
 
         # Check if they are valid
         #  TODO (wardlt): Make this parallel
@@ -230,7 +227,10 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
                 all_records.append(coo_record)
                 if coo_record['valid']:
                     self.ligand_queue["COO"].append(coo_ligand)
+                    self.logger.info('Made a new COO ligand')
         self.logger.info(f'{valid_count} of {len(new_ligands)} are valid. ({valid_count / len(new_ligands) * 100:.1f}%)')
+        result.task_info['valid_count'] = valid_count
+        result.task_info['generated_count'] = len(new_ligands)
 
         # Write record of generation tasks to disk
         if valid_count > 0:
@@ -381,7 +381,7 @@ if __name__ == "__main__":
                        help='Path to YAML files containing a description of the ligands to be created')
     group.add_argument('--generator-path', required=True,
                        help='Path to the PyTorch files describing model architecture and weights')
-    group.add_argument('--molecule-sizes', nargs='+', type=int, default=(10, 11, 12), help='Sizes of molecules we should generate')
+    group.add_argument('--molecule-size-path', help='Path to the GNN used to infer molecule size')
     group.add_argument('--num-samples', type=int, default=16, help='Number of molecules to generate at each size')
     group.add_argument('--gen-batch-size', type=int, default=4, help='Number of ligands to stream per batch')
 
@@ -427,10 +427,10 @@ if __name__ == "__main__":
     # Make the generator settings and the function
     generator = GeneratorConfig(
         generator_path=args.generator_path,
-        atom_counts=args.molecule_sizes,
+        size_path=args.molecule_size_path,
         templates=templates
     )
-    gen_func = partial(run_generator, model=generator.generator_path, n_samples=args.num_samples, device=hpc_config.torch_device)
+    gen_func = partial(run_generator, model=generator.generator_path, n_samples=args.num_samples, n_atoms=generator.size_path, device=hpc_config.torch_device)
     gen_func = make_decorator(batched)(args.gen_batch_size)(gen_func)  # Wraps gen_func in a decorator in one line
     update_wrapper(gen_func, run_generator)
     gen_method = PythonGeneratorMethod(

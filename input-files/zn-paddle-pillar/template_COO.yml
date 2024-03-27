@@ -13,3 +13,4 @@ xyzs:
     O         -5.19759       -1.92354        0.00000
     O         -4.33156       -3.42354        0.00000
 dummy_element: At
+length_change_range: [-2, 2]
