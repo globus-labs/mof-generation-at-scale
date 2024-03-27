@@ -97,12 +97,15 @@ def test_ligand_description_swap(file_path, anchor_type):
     assert new_desc.anchor_type == "COO" and new_desc.dummy_element == "At"
 
 
-# @mark.parametrize('anchor_type', ['COO', 'cyano'])
-# def test_constrained_optimization(file_path, anchor_type):
-#     desc = LigandDescription.from_yaml(file_path / 'difflinker' / 'templates' / f'description_{anchor_type}.yml')
-#     anchor_ids = itertools.chain(*(desc.anchor_atoms))
-#     old_anchor_pos = pd.read_csv(io.StringIO(desc.xyz), header=None, skiprows=2, names=["el", "x", "y", "z"]).loc[anchor_ids, ["x", "y", "z"]].values
-#     desc.anchor_constrained_optimization()
-#     new_anchor_pos = pd.read_csv(io.StringIO(desc.xyz), header=None, skiprows=2, names=["el", "x", "y", "z"]).loc[anchor_ids, ["x", "y", "z"]].values
-#     tol = 0.01
-#     assert np.all(old_anchor_pos - new_anchor_pos < tol)
+def test_template_length_variance(file_path):
+    template = LigandTemplate.from_yaml(file_path / 'difflinker' / 'templates' / 'template_COO.yml')
+    template.length_change_range = (-2, 2.)
+
+    # Get the positions for a bunch of starting samples
+    samples = np.array([template.prepare_inputs()[1] for _ in range(64)])  # sample x atom x coord
+
+    # Make sure no copies of the same atom in any two samples is more than 4 angstroms apart
+    disps = samples[:, None, :, :] - samples[None, :, :, :]
+    dists = np.linalg.norm(disps, axis=-1)
+    assert dists.shape == (64, 64, 6)
+    assert 0 < dists.max() < 4

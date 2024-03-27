@@ -53,6 +53,12 @@ class LigandTemplate:
     dummy_element: str
     """Dummy element used to replace end group when assembling MOF"""
 
+    length_change_range: tuple[float, float] | None = None
+    """How much to vary distance between anchor groups when preparing to generate inputs to DiffLinker
+    
+    The two numbers define the low and high value of a uniform distribution. 
+    """
+
     @cached_property
     def anchors(self) -> list[ase.Atoms]:
         """The anchor groups as ASE objects"""
@@ -69,12 +75,24 @@ class LigandTemplate:
         symbols = []
         positions = []
         start_ids = []
-        for xyz in self.xyzs:
-            # Mark the ID of the start atom
-            start_ids.append(len(symbols))  # The next atom to be is the connecting atom
 
-            # Add the atoms and positions to the outputs
-            atoms = read_from_string(xyz, fmt='xyz')
+        # Adjust the distance between atoms, if desired
+        anchors = self.anchors.copy()
+        if self.length_change_range is not None:
+            # Create a displacement vector showing how far to move the second anchor group
+            to_change = np.random.uniform(*self.length_change_range)
+            disp_vec = anchors[1].positions[0, :] - anchors[0].positions[0, :]
+            disp_vec *= to_change / np.linalg.norm(disp_vec)
+
+            # Move the second anchor by that amount
+            anchors = anchors.copy()  # Ensuring we don't alter the class's copy
+            new_anchor = anchors[1].copy()
+            new_anchor.translate(disp_vec)
+            anchors[1] = new_anchor
+
+        # Generate the outputs
+        for atoms in anchors:
+            start_ids.append(len(symbols))  # len(symbols) is the index of the first atom in this anchor
             symbols.extend(atoms.get_chemical_symbols())
             positions.append(atoms.positions)
 
