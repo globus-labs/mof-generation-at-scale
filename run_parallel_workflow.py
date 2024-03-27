@@ -1,6 +1,7 @@
 """An example of the workflow which runs all aspects of MOF generation in parallel"""
 from contextlib import AbstractContextManager
 from functools import partial, update_wrapper
+from subprocess import Popen
 from typing import TextIO
 from csv import DictWriter
 from argparse import ArgumentParser
@@ -9,6 +10,7 @@ from collections import defaultdict
 from itertools import product
 from datetime import datetime
 from collections import deque
+from queue import Queue, Empty
 from platform import node
 from random import shuffle, choice
 from pathlib import Path
@@ -22,13 +24,15 @@ import sys
 from rdkit import Chem
 from rdkit import RDLogger
 from openbabel import openbabel as ob
+from pymongo import MongoClient
+from pymongo.collection import Collection
 from more_itertools import batched, make_decorator
 from colmena.models import Result
 from colmena.models.methods import PythonGeneratorMethod
 from colmena.task_server import ParslTaskServer
 from colmena.queue import ColmenaQueues
 from colmena.queue.redis import RedisQueues
-from colmena.thinker import BaseThinker, result_processor, task_submitter, ResourceCounter, event_responder
+from colmena.thinker import BaseThinker, result_processor, task_submitter, ResourceCounter, event_responder, agent
 
 from mofa.assembly.assemble import assemble_mof
 from mofa.generator import run_generator
@@ -37,6 +41,7 @@ from mofa.scoring.geometry import LatticeParameterChange
 from mofa.simulation.lammps import LAMMPSRunner
 from mofa.utils.conversions import write_to_string
 from mofa.utils.xyz import xyz_to_mol
+from mofa import db as mofadb
 from mofa.hpc.config import configs as hpc_configs
 
 RDLogger.DisableLog('rdApp.*')
@@ -133,6 +138,8 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
 
         self.ligand_queue = defaultdict(lambda: deque(maxlen=200))  # Starts empty
 
+        self.post_md_queue: Queue[Result] = Queue()  # Holds MD results ready to be stored
+
         # Database of completed MOFs
         self.database: dict[str, MOFRecord] = {}
 
@@ -145,9 +152,13 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         self.make_mofs = Event()  # Signal that we need new MOFs
         self.mofs_available = Event()  # Signal that new MOFs are done
 
+        # Connect to MongoDB
+        self.mongo_client = MongoClient()
+        self.collection: Collection = mofadb.initialize_database(self.mongo_client)
+
         # Output files
         self._output_files: dict[str, Path | TextIO] = {}
-        for name in ['generation-results', 'simulation-results', 'mof']:
+        for name in ['generation-results', 'simulation-results']:
             self._output_files[name] = run_dir / f'{name}.json.gz'
 
     def __enter__(self):
@@ -289,6 +300,9 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         """Submit an MD simulation"""
 
         # Block until new MOFs are available
+        if len(self.mof_queue) <= self.rec.allocated_slots('simulation'):
+            self.logger.info('MOF queue is low. Triggering more to be made.')
+            self.make_mofs.set()
         if len(self.mof_queue) == 0:
             self.mofs_available.clear()
             self.make_mofs.set()
@@ -313,7 +327,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
 
     @result_processor(topic='simulation')
     def store_simulation(self, result: Result):
-        """Gather MD results and compute stability"""
+        """Gather MD results, push result to post-processing queue"""
 
         # Trigger a new simulation
         self.rec.release('simulation')
@@ -321,24 +335,37 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         # Retrieve the results
         if not result.success:
             self.logger.warning(f'MD task failed: {result.failure_info.exception}\nStack: {result.failure_info.traceback}')
-            print(result.json(exclude={'inputs', 'value'}), file=self._output_files['simulation-results'])
-            return
-        traj = result.value
-        name = result.task_info['name']
-        record = self.database[name]
-        self.logger.info(f'Received a trajectory of {len(traj)} frames for mof={name}')
-
-        # Compute the lattice strain
-        scorer = LatticeParameterChange()
-        traj_vasp = [write_to_string(t, 'vasp') for t in traj]
-        record.md_trajectory['uff'] = traj_vasp
-        strain = scorer.score_mof(record)
-        record.structure_stability['uff-10000'] = strain
-        self.logger.info(f'Lattice change after MD simulation for mof={name}: {strain * 100:.1f}%')
-
-        # Store the result to disk
-        print(json.dumps(asdict(record)), file=self._output_files['mof'])
+        else:
+            self.post_md_queue.put(result)
         print(result.json(exclude={'inputs', 'value'}), file=self._output_files['simulation-results'])
+
+    @agent()
+    def process_md_results(self):
+        """Process then store the result of MD"""
+
+        while not (self.done.is_set() and self.queues.wait_until_done(timeout=0.01)):
+            # Wait for a result
+            try:
+                result = self.post_md_queue.get(block=True, timeout=1)
+            except Empty:
+                continue
+
+            # Store the trajectory
+            traj = result.value
+            name = result.task_info['name']
+            record = self.database[name]
+            self.logger.info(f'Received a trajectory of {len(traj)} frames for mof={name}. Backlog: {self.post_md_queue.qsize()}')
+
+            # Compute the lattice strain
+            scorer = LatticeParameterChange()
+            traj_vasp = [write_to_string(t, 'vasp') for t in traj]
+            record.md_trajectory['uff'] = traj_vasp
+            strain = scorer.score_mof(record)
+            record.structure_stability['uff-10000'] = strain
+            self.logger.info(f'Lattice change after MD simulation for mof={name}: {strain * 100:.1f}%')
+
+            # Store the result in MongoDB
+            mofadb.create_records(self.collection, [record])
 
 
 if __name__ == "__main__":
@@ -418,6 +445,14 @@ if __name__ == "__main__":
     md_fun = partial(lmp_runner.run_molecular_dynamics, timesteps=args.md_timesteps, report_frequency=max(1, args.md_timesteps / args.md_snapshots))
     update_wrapper(md_fun, lmp_runner.run_molecular_dynamics)
 
+    # Launch MongoDB as a subprocess
+    mongo_dir = run_dir / 'db'
+    mongo_dir.mkdir(parents=True)
+    mongo_proc = Popen(
+        f'mongod --dbpath {mongo_dir.absolute()} --logpath {(run_dir / "mongo.log").absolute()}'.split(),
+        stderr=(run_dir / 'mongo.err').open('w')
+    )
+
     # Make the thinker
     thinker = MOFAThinker(queues,
                           num_workers=hpc_config.num_workers,
@@ -463,4 +498,8 @@ if __name__ == "__main__":
             thinker.run()
     finally:
         queues.send_kill_signal()
+
+        # Kill the services launched during workflow
         util_proc.terminate()
+        mongo_proc.terminate()
+        mongo_proc.poll()

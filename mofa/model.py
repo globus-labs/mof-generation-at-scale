@@ -1,6 +1,7 @@
 """Data models for a MOF class"""
 from dataclasses import dataclass, field, asdict
 from functools import cached_property
+from datetime import datetime
 from hashlib import sha512
 from pathlib import Path
 from io import StringIO
@@ -279,7 +280,7 @@ class MOFRecord:
     """Information available about a certain MOF"""
     # Data describing what the MOF is
     name: str = None
-    """Name to be used for output files associated with this MOFs"""
+    """Name to be used for output files associated with this MOFs. Assumed to be unique"""
     identifiers: dict[str, str] = field(default_factory=dict)
     """Names of this MOFs is registries (e.g., hMOF)"""
     topology: str | None = None
@@ -303,12 +304,16 @@ class MOFRecord:
     values are the structure in POSCAR format"""
 
     # Properties
-    gas_storage: dict[tuple[str, float], float] = field(default_factory=dict, repr=False)
-    """Storage capacity of the MOF for different gases and pressures"""
+    gas_storage: dict[str, tuple[float, float]] = field(default_factory=dict, repr=False)
+    """Storage capacity of the MOF for different gases and pressures. Key is the name of the gas, value is the pressure and capacity (units TBD)"""
     structure_stability: dict[str, float] = field(default_factory=dict, repr=False)
     """How likely the structure is to be stable according to different assays
 
     A score of 1 equates to most likely to be stable, 0 as least likely."""
+
+    # Tracking proveance of structure
+    times: dict[str, datetime] = field(default_factory=lambda: {'created': datetime.now()})
+    """Listing times at which key events occurred"""
 
     def __post_init__(self):
         if self.name is None:

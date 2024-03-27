@@ -34,6 +34,8 @@ dependencies:
 
   # Services used by the workflow
   - redis==5.*
+  - mongodb
+  - mongo-tools
 
   - pip
   - pip:
