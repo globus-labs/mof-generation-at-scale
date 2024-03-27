@@ -56,8 +56,6 @@ def test_training(file_dir, tmpdir):
 @mark.parametrize('n_atoms', [8])
 @mark.parametrize('n_samples', [1, 3])
 def test_sampling_num_atoms(n_atoms, example_template, n_samples, file_dir, filename, tmp_path):
-    # anchors = "1,5" if "anchors" in filename else None ####Give 1st and 5th atom of FRAGMENT-only molecule
-    # (i.e., we can keep track of atom indices in fragment SDF/XYZ etc files)
     samples = list(run_generator(
         model=file_dir / filename,
         templates=[example_template],
@@ -71,3 +69,16 @@ def test_sampling_num_atoms(n_atoms, example_template, n_samples, file_dir, file
     anchor_count = sum(len(a) for a in example_template.anchors)
     for sample in samples:
         assert len(sample.atoms) > anchor_count + n_atoms  # There will be more atoms once H's are added
+
+
+@mark.parametrize('filename', ['geom_difflinker.ckpt', 'geom_difflinker_given_anchors.ckpt'])
+def test_sampling_num_atoms(example_template, file_dir, filename, tmp_path):
+    samples = list(run_generator(
+        model=file_dir / filename,
+        templates=[example_template],
+        n_atoms=file_dir / 'geom_size_gnn.ckpt',
+        n_samples=4,
+        n_steps=64,
+    ))
+
+    assert len(samples) == 4
