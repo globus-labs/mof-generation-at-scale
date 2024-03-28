@@ -47,9 +47,10 @@ class LigandTemplate:
     anchor_type: str
     """Type of anchoring group"""
     xyzs: tuple[str]
-    """XYZ coordinates of the anchor groups.
+    """XYZ coordinates of the prompt fragments.
 
-    Each XYZ must be arranged such that the first atom is the one which connects to the rest of the molecule."""
+    Each XYZ must be arranged such that the first atom is the one which connects to the rest of the molecule,
+    and the last set of atoms are those which are replaced with the dummy element."""
     dummy_element: str
     """Dummy element used to replace end group when assembling MOF"""
 
