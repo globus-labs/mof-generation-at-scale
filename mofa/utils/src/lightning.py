@@ -144,7 +144,7 @@ class DDPM(pl.LightningModule):
         h = data['one_hot']
         node_mask = data['atom_mask']
         edge_mask = data['edge_mask']
-        anchors = data['prompts']
+        anchors = data['anchors']
         fragment_mask = data['fragment_mask']
         linker_mask = data['linker_mask']
 
@@ -171,7 +171,7 @@ class DDPM(pl.LightningModule):
             center_of_mass_mask = data['fragment_only_mask']
         elif self.center_of_mass == 'fragments':
             center_of_mass_mask = fragment_mask
-        elif self.center_of_mass == 'prompts':
+        elif self.center_of_mass == 'anchors':
             center_of_mass_mask = anchors
         else:
             raise NotImplementedError(self.center_of_mass)
@@ -411,7 +411,7 @@ class DDPM(pl.LightningModule):
         node_mask = template_data['atom_mask']
         edge_mask = template_data['edge_mask']
         h = template_data['one_hot']
-        anchors = template_data['prompts']
+        anchors = template_data['anchors']
         fragment_mask = template_data['fragment_mask']
         linker_mask = template_data['linker_mask']
 
@@ -438,7 +438,7 @@ class DDPM(pl.LightningModule):
             center_of_mass_mask = template_data['fragment_only_mask']
         elif self.center_of_mass == 'fragments':
             center_of_mass_mask = fragment_mask
-        elif self.center_of_mass == 'prompts':
+        elif self.center_of_mass == 'anchors':
             center_of_mass_mask = anchors
         else:
             raise NotImplementedError(self.center_of_mass)

@@ -82,10 +82,10 @@ def main_run(templates: list[LigandTemplate],
     for n_mol, template in enumerate(templates):
         # Prepare the inputs for this structure
         symbols, positions, anchors = template.prepare_inputs()
-        if ddpm.center_of_mass == 'prompts' and anchors is None:
+        if ddpm.center_of_mass == 'anchors' and anchors is None:
             raise ValueError(
                 'Please pass anchor atoms indices '
-                'or use another DiffLinker model that does not require information about prompts'
+                'or use another DiffLinker model that does not require information about anchors'
             )
         
         one_hot = np.array([get_one_hot(s, atom2idx) for s in symbols])
@@ -103,7 +103,7 @@ def main_run(templates: list[LigandTemplate],
             'positions': torch.tensor(positions, dtype=const.TORCH_FLOAT, device=device),
             'one_hot': torch.tensor(one_hot, dtype=const.TORCH_FLOAT, device=device),
             'charges': torch.tensor(charges, dtype=const.TORCH_FLOAT, device=device),
-            'prompts': torch.tensor(anchor_flags, dtype=const.TORCH_FLOAT, device=device),
+            'anchors': torch.tensor(anchor_flags, dtype=const.TORCH_FLOAT, device=device),
             'fragment_mask': torch.tensor(fragment_mask, dtype=const.TORCH_FLOAT, device=device),
             'linker_mask': torch.tensor(linker_mask, dtype=const.TORCH_FLOAT, device=device),
             'num_atoms': len(positions),
@@ -118,7 +118,7 @@ def main_run(templates: list[LigandTemplate],
             h = chain[0][:, :, ddpm.n_dims:]
 
             # Put the molecule back to the initial orientation
-            com_mask = data['fragment_mask'] if ddpm.center_of_mass == 'fragments' else data['prompts']
+            com_mask = data['fragment_mask'] if ddpm.center_of_mass == 'fragments' else data['anchors']
             pos_masked = data['positions'] * com_mask
             N = com_mask.sum(1, keepdims=True)
             mean = torch.sum(pos_masked, dim=1, keepdim=True) / N

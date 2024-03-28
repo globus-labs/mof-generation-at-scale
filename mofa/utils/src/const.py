@@ -40,10 +40,10 @@ DATA_LIST_ATTRS = {
     'uuid', 'name', 'fragments_smi', 'linker_smi', 'num_atoms'
 }
 DATA_ATTRS_TO_PAD = {
-    'positions', 'one_hot', 'charges', 'prompts', 'fragment_mask', 'linker_mask', 'pocket_mask', 'fragment_only_mask'
+    'positions', 'one_hot', 'charges', 'anchors', 'fragment_mask', 'linker_mask', 'pocket_mask', 'fragment_only_mask'
 }
 DATA_ATTRS_TO_ADD_LAST_DIM = {
-    'charges', 'prompts', 'fragment_mask', 'linker_mask', 'pocket_mask', 'fragment_only_mask'
+    'charges', 'anchors', 'fragment_mask', 'linker_mask', 'pocket_mask', 'fragment_only_mask'
 }
 
 # Distribution of linker size in train data
