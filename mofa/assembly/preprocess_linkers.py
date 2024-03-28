@@ -358,7 +358,7 @@ def convert2CyanoLinker(emol, dummyElement="Fr"):
 
 
 def clean_linker(RDKitMOL: Mol) -> dict[str, str]:
-    """attach anchors to a molecule such that it becomes a ligand
+    """attach prompts to a molecule such that it becomes a ligand
 
     Args:
         RDKitMOL: a rdkit.Chem.rdchem.Mol instance of the input molecule

@@ -111,7 +111,7 @@ if __name__ == "__main__":
         for ligand in new_ligands:
             # Store the ligand information for debugging purposes
             record = {"anchor_type": ligand.anchor_type, "xyz": ligand.xyz,
-                      "anchor_atoms": ligand.anchor_atoms, "valid": False}
+                      "prompt_atoms": ligand.prompt_atoms, "valid": False}
 
             # Try constrained optimization on the ligand
             try:
@@ -144,7 +144,7 @@ if __name__ == "__main__":
             # begin of swap cyano for COO
             coo_ligand = ligand.swap_cyano_with_COO()
             coo_record = {"anchor_type": coo_ligand.anchor_type, "xyz": coo_ligand.xyz,
-                          "anchor_atoms": coo_ligand.anchor_atoms, "valid": False}
+                          "prompt_atoms": coo_ligand.prompt_atoms, "valid": False}
 
             # Try constrained optimization on the ligand
             try:

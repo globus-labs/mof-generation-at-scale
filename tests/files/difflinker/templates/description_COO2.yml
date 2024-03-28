@@ -39,7 +39,7 @@ xyz: |
   C         -0.42991        0.57384       -0.42072
   N          0.91703        0.69293       -0.51176
 anchor_type: COO
-anchor_atoms:
+prompt_atoms:
   - [6, 7, 8]
   - [21, 22, 23]
 dummy_element: At

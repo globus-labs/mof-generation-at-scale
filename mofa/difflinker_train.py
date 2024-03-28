@@ -88,9 +88,9 @@ def get_args(args: list[str]) -> argparse.Namespace:
     p.add_argument('--aggregation_method', type=str, default='sum', help='"sum" or "mean"')
     p.add_argument('--normalization', type=str, default='batch_norm', help='batch_norm')
     p.add_argument('--wandb_entity', type=str, default='geometric', help='Entity (project) name')
-    p.add_argument('--center_of_mass', type=str, default='fragments', help='Where to center the data: fragments | anchors')
+    p.add_argument('--center_of_mass', type=str, default='fragments', help='Where to center the data: fragments | prompts')
     p.add_argument('--inpainting', action='store_true', default=False, help='Inpainting mode (full generation)')
-    p.add_argument('--remove_anchors_context', action='store_true', default=False, help='Remove anchors context')
+    p.add_argument('--remove_anchors_context', action='store_true', default=False, help='Remove prompts context')
     disable_rdkit_logging()
 
     return p.parse_args(args)
