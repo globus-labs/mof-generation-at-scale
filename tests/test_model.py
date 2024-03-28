@@ -48,7 +48,7 @@ def test_ligand_model(file_path):
         coordinates=np.arange(8 * 3).reshape(-1, 3)
     )
     assert ligand.anchor_type == template.anchor_type
-    assert ligand.anchor_atoms == [[0, 1, 2], [3, 4, 5]]
+    assert ligand.prompt_atoms == [[0, 1, 2], [3, 4, 5]]
     assert ligand.dummy_element == template.dummy_element
 
 
@@ -72,7 +72,7 @@ def test_ligand_description_H_inference(file_path, anchor_type):
     # rdmol = Chem.rdmolfiles.MolFromMolBlock(desc.sdf)
     rdmol = Chem.rdmolfiles.MolFromXYZBlock(desc.xyz)
     H_is_detected_on_an_anchor = False
-    for x in list(itertools.chain(*desc.anchor_atoms)):
+    for x in list(itertools.chain(*desc.prompt_atoms)):
         rdatom = rdmol.GetAtomWithIdx(x)
         nbrs = [x.GetSymbol() for x in list(rdatom.GetNeighbors())]
         if "H" in nbrs:
@@ -85,7 +85,7 @@ def test_ligand_description_H_inference(file_path, anchor_type):
 def test_ligand_description(file_path, anchor_type):
     desc = LigandDescription.from_yaml(file_path / 'difflinker' / 'templates' / f'description_{anchor_type}.yml')
 
-    # Test the ability to replace anchors with dummy atoms
+    # Test the ability to replace prompts with dummy atoms
     with_dummies = desc.replace_with_dummy_atoms()
     assert with_dummies.symbols.count(desc.dummy_element) == 2
     size_change = 0

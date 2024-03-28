@@ -43,7 +43,8 @@ class NodeDescription:
 class LigandTemplate:
     """Beginning of a new ligand to be generated.
 
-    Contains only the proper end groups oriented in the sizes needed by our MOF."""
+    Contains a prompt that includes both the anchor groups (i.e., those which connect to the node)
+    and additional context atoms."""
 
     anchor_type: str
     """Type of anchoring group"""
@@ -56,8 +57,8 @@ class LigandTemplate:
     """Dummy element used to replace end group when assembling MOF"""
 
     @cached_property
-    def anchors(self) -> list[ase.Atoms]:
-        """The anchor groups as ASE objects"""
+    def prompts(self) -> list[ase.Atoms]:
+        """The prompt fragments as ASE objects"""
         return [read_from_string(xyz, 'xyz') for xyz in self.xyzs]
 
     def prepare_inputs(self) -> tuple[list[str], np.ndarray, np.ndarray | None]:
@@ -96,26 +97,26 @@ class LigandTemplate:
 
         # The linker groups should be up from, make sure the types have not changed and change if they have
         pos = 0
-        anchor_atoms = []
-        for anchor in self.anchors:
+        prompt_atoms = []
+        for prompt in self.prompts:
             # Determine the fragment positions
-            found_types = atom_types[pos:pos + len(anchor)]
-            anchor_atoms.append(list(range(pos, pos + len(anchor))))
-            expected_types = anchor.get_chemical_symbols()
+            found_types = atom_types[pos:pos + len(prompt)]
+            prompt_atoms.append(list(range(pos, pos + len(prompt))))
+            expected_types = prompt.get_chemical_symbols()
 
             # Make sure the types match, and increment position
             assert found_types == expected_types, f'Anchor changed. Found: {found_types} - Expected: {expected_types}'
-            pos += len(anchor)
+            pos += len(prompt)
 
         # Add Hydrogens to the molecule
         atoms = ase.Atoms(symbols=atom_types, positions=coordinates)
         unsat_xyz = write_to_string(atoms, 'xyz')
-        sat_xyz = unsaturated_xyz_to_xyz(unsat_xyz, exclude_atoms=list(itertools.chain(*anchor_atoms)))
+        sat_xyz = unsaturated_xyz_to_xyz(unsat_xyz, exclude_atoms=list(itertools.chain(*prompt_atoms)))
 
         return LigandDescription(
             xyz=sat_xyz,
             anchor_type=self.anchor_type,
-            anchor_atoms=anchor_atoms,
+            prompt_atoms=prompt_atoms,
             dummy_element=self.dummy_element
         )
 
@@ -144,10 +145,10 @@ class LigandDescription:
     sdf: str | None = field(default=None, repr=False)
     """SDF file string with atom positions and bond (with order) information (optional)"""
 
-    # Information about how this ligand anchors to the inorganic portions
+    # Information about how this ligand prompts to the inorganic portions
     anchor_type: str | None = field(default=None)
     """Name of the functional group used for anchoring"""
-    anchor_atoms: list[list[int]] | None = field(default=None, repr=True)
+    prompt_atoms: list[list[int]] | None = field(default=None, repr=True)
     """Groups of atoms which attach to the nodes
 
     There are typically two groups of fragment atoms, and these are
@@ -171,11 +172,11 @@ class LigandDescription:
         """
 
         mol = Chem.MolFromXYZBlock(self.xyz)
-        all_anchor_atoms = list(itertools.chain(*self.anchor_atoms))
-        if self.anchor_type != "COO" and self.dummy_element != "At" and len(self.anchor_atoms[0]) != 3:
+        all_anchor_atoms = list(itertools.chain(*self.prompt_atoms))
+        if self.anchor_type != "COO" and self.dummy_element != "At" and len(self.prompt_atoms[0]) != 3:
             charge = int(0)
         else:
-            charge = int(-len(self.anchor_atoms))
+            charge = int(-len(self.prompt_atoms))
         rdDetermineBonds.DetermineBonds(mol, charge=charge)
         rdDetermineBonds.DetermineConnectivity(mol)
         rdDetermineBonds.DetermineBondOrders(mol)
@@ -200,12 +201,12 @@ class LigandDescription:
         # Generate the new XYZ file
         carboxylic_ion_CO_length = 1.26
         df = pd.read_csv(StringIO(self.xyz), skiprows=2, sep=r"\s+", header=None, names=["element", "x", "y", "z"])
-        anchor_ids = list(itertools.chain(*self.anchor_atoms))
+        anchor_ids = list(itertools.chain(*self.prompt_atoms))
         other_atom_ids = list(set(df.index.tolist()) - set(anchor_ids))
         other_atom_df = df.loc[other_atom_ids, :]
         final_df_list = []
         new_anchor_ids = []
-        for anc in self.anchor_atoms:
+        for anc in self.prompt_atoms:
             anc = anc[-2:]  # Only the last two atoms are the C#N
             Cid = anc[0]
             Nid = anc[1]
@@ -226,7 +227,7 @@ class LigandDescription:
         new_anchor_ids = flat_anchor_ids.reshape(int(flat_anchor_ids.shape[0] / 3), 3).tolist()
         final_df = pd.concat([new_anchor_df, other_atom_df.copy(deep=True)], axis=0).reset_index(drop=True)
         new_xyz_str = str(len(final_df)) + "\n\n" + final_df.to_string(header=None, index=None)
-        return LigandDescription(anchor_type="COO", xyz=new_xyz_str, anchor_atoms=new_anchor_ids, dummy_element="At")
+        return LigandDescription(anchor_type="COO", xyz=new_xyz_str, prompt_atoms=new_anchor_ids, dummy_element="At")
 
     def replace_with_dummy_atoms(self) -> ase.Atoms:
         """Replace the fragments which attach to nodes with dummy atoms
@@ -243,7 +244,7 @@ class LigandDescription:
         if self.anchor_type == "COO":
             # Place the dummy on the site of the carbon
             to_remove = []
-            for curr_anchor in self.anchor_atoms:
+            for curr_anchor in self.prompt_atoms:
                 # Change the carbon atom's type
                 symbols = output.get_chemical_symbols()
                 at_id = curr_anchor[0]
@@ -252,13 +253,13 @@ class LigandDescription:
                 output.set_chemical_symbols(symbols)
 
                 # Delete the other two atoms (both Oxygen)
-                assert all(symbols[t] == 'O' for t in curr_anchor[1:]), 'The other anchors are not oxygen'
+                assert all(symbols[t] == 'O' for t in curr_anchor[1:]), 'The other prompts are not oxygen'
                 to_remove.extend(curr_anchor[1:])
 
             del output[to_remove]
         elif self.anchor_type == "cyano":
             # Place the dummy atom 2A away from the C, along the direction of C#N bond
-            for curr_anchor in self.anchor_atoms:
+            for curr_anchor in self.prompt_atoms:
                 # Check types
                 symbols = output.get_chemical_symbols()
                 assert symbols[curr_anchor[0]] == 'C'

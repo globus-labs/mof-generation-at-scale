@@ -75,7 +75,7 @@ class ZincDataset(Dataset):
             anchors = np.zeros_like(charges)
 
             if is_multifrag:
-                for anchor_idx in map(int, row['anchors'].split('-')):
+                for anchor_idx in map(int, row['prompts'].split('-')):
                     anchors[anchor_idx] = 1
             else:
                 anchors[row['anchor_1']] = 1
@@ -89,7 +89,7 @@ class ZincDataset(Dataset):
                 'positions': torch.tensor(positions, dtype=const.TORCH_FLOAT, device=device),
                 'one_hot': torch.tensor(one_hot, dtype=const.TORCH_FLOAT, device=device),
                 'charges': torch.tensor(charges, dtype=const.TORCH_FLOAT, device=device),
-                'anchors': torch.tensor(anchors, dtype=const.TORCH_FLOAT, device=device),
+                'prompts': torch.tensor(anchors, dtype=const.TORCH_FLOAT, device=device),
                 'fragment_mask': torch.tensor(fragment_mask, dtype=const.TORCH_FLOAT, device=device),
                 'linker_mask': torch.tensor(linker_mask, dtype=const.TORCH_FLOAT, device=device),
                 'num_atoms': len(positions),
@@ -162,7 +162,7 @@ class MOADDataset(Dataset):
             anchors = np.zeros_like(charges)
 
             if is_multifrag:
-                for anchor_idx in map(int, row['anchors'].split('-')):
+                for anchor_idx in map(int, row['prompts'].split('-')):
                     anchors[anchor_idx] = 1
             else:
                 anchors[row['anchor_1']] = 1
@@ -195,7 +195,7 @@ class MOADDataset(Dataset):
                 'positions': torch.tensor(positions, dtype=const.TORCH_FLOAT, device=device),
                 'one_hot': torch.tensor(one_hot, dtype=const.TORCH_FLOAT, device=device),
                 'charges': torch.tensor(charges, dtype=const.TORCH_FLOAT, device=device),
-                'anchors': torch.tensor(anchors, dtype=const.TORCH_FLOAT, device=device),
+                'prompts': torch.tensor(anchors, dtype=const.TORCH_FLOAT, device=device),
                 'fragment_only_mask': torch.tensor(fragment_only_mask, dtype=const.TORCH_FLOAT, device=device),
                 'pocket_mask': torch.tensor(pocket_mask, dtype=const.TORCH_FLOAT, device=device),
                 'fragment_mask': torch.tensor(fragment_mask, dtype=const.TORCH_FLOAT, device=device),
@@ -275,7 +275,7 @@ class OptimisedMOADDataset(MOADDataset):
             anchors = np.zeros_like(charges)
 
             if is_multifrag:
-                for anchor_idx in map(int, row['anchors'].split('-')):
+                for anchor_idx in map(int, row['prompts'].split('-')):
                     anchors[anchor_idx] = 1
             else:
                 anchors[row['anchor_1']] = 1
@@ -305,7 +305,7 @@ class OptimisedMOADDataset(MOADDataset):
             fragmentation_level_data.append({
                 'uuid': uuid,
                 'name': name,
-                'anchors': torch.tensor(anchors, dtype=const.TORCH_FLOAT, device=device),
+                'prompts': torch.tensor(anchors, dtype=const.TORCH_FLOAT, device=device),
                 'fragment_only_mask': torch.tensor(fragment_only_mask, dtype=const.TORCH_FLOAT, device=device),
                 'pocket_mask': torch.tensor(pocket_mask, dtype=const.TORCH_FLOAT, device=device),
                 'fragment_mask': torch.tensor(fragment_mask, dtype=const.TORCH_FLOAT, device=device),
