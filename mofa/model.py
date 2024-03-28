@@ -205,6 +205,7 @@ class LigandDescription:
         final_df_list = []
         new_anchor_ids = []
         for anc in self.anchor_atoms:
+            anc = anc[-2:]  # Only the last two atoms are the C#N
             Cid = anc[0]
             Nid = anc[1]
             Cxyz = df.loc[Cid, ["x", "y", "z"]].values
@@ -230,38 +231,53 @@ class LigandDescription:
         """Replace the fragments which attach to nodes with dummy atoms
 
         Returns:
-            ASE atoms version of the molecule without
+            ASE atoms version of the molecule where the anchor atoms have been
+            replaced with a single atom of the designated dummy type
         """
 
         # Get the locations of the
-        df = pd.read_csv(StringIO(self.xyz), skiprows=2, sep=r"\s+", header=None, names=["element", "x", "y", "z"])
-        anchor_ids = list(itertools.chain(*self.anchor_atoms))
-        anchor_df = df.loc[anchor_ids, :]
+        output = read_from_string(self.xyz, 'xyz')
 
         # Each anchor type has different logic for where to place the dummy atom
         if self.anchor_type == "COO":
-            at_id = anchor_df[anchor_df["element"] == "C"].index
-            remove_ids = anchor_df[anchor_df["element"] == "O"].index
-            df.loc[at_id, "element"] = self.dummy_element
-            df = df.loc[list(set(df.index) - set(remove_ids)), :]
-        elif self.anchor_type == "cyano":
-            df_list = [df]
+            # Place the dummy on the site of the carbon
+            to_remove = []
             for curr_anchor in self.anchor_atoms:
-                anchor_df = df.loc[curr_anchor, :]
-                N = anchor_df[anchor_df["element"] == "N"]
-                C = anchor_df[anchor_df["element"] == "C"]
-                Nxyz = N[["x", "y", "z"]].values
-                Cxyz = C[["x", "y", "z"]].values
-                NC_vec = Nxyz - Cxyz
-                df_list.append(pd.DataFrame(
-                    [[self.dummy_element] + (2. * NC_vec / np.linalg.norm(NC_vec) + Cxyz).tolist()[0]],
-                    columns=["element", "x", "y", "z"])
-                )
-            df = pd.concat(df_list, axis=0).reset_index(drop=True)
+                # Change the carbon atom's type
+                symbols = output.get_chemical_symbols()
+                at_id = curr_anchor[0]
+                assert symbols[at_id] == 'C', 'The first anchor atom is not carbon'
+                symbols[at_id] = self.dummy_element
+                output.set_chemical_symbols(symbols)
+
+                # Delete the other two atoms (both Oxygen)
+                assert all(symbols[t] == 'O' for t in curr_anchor[1:]), 'The other anchors are not oxygen'
+                to_remove.extend(curr_anchor[1:])
+
+            del output[to_remove]
+        elif self.anchor_type == "cyano":
+            # Place the dummy atom between the C and N
+            to_remove = []
+            for curr_anchor in self.anchor_atoms:
+                # Change the carbon atom's type
+                symbols = output.get_chemical_symbols()
+                at_id = curr_anchor[0]
+                assert symbols[at_id] == 'C', 'The first anchor atom is not carbon'
+                symbols[at_id] = self.dummy_element
+                output.set_chemical_symbols(symbols)
+
+                # Put the move the carbon atom towards the N
+                output.positions[at_id, :] = output.positions[curr_anchor, :].mean(axis=0)
+
+                # Delete the other two atoms (both Oxygen)
+                assert symbols[curr_anchor[1]] == 'N'
+                to_remove.append(curr_anchor[1])
+
+            del output[to_remove]
         else:
             raise NotImplementedError(f'Logic not yet defined for anchor_type={self.anchor_type}')
 
-        return ase.Atoms(df["element"], df.loc[:, ["x", "y", "z"]].values)
+        return output
 
     @classmethod
     def from_yaml(cls, path: Path) -> 'LigandDescription':

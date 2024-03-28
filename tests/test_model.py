@@ -88,6 +88,12 @@ def test_ligand_description(file_path, anchor_type):
     # Test the ability to replace anchors with dummy atoms
     with_dummies = desc.replace_with_dummy_atoms()
     assert with_dummies.symbols.count(desc.dummy_element) == 2
+    size_change = 0
+    if anchor_type == 'COO':
+        size_change = 4
+    elif anchor_type == 'cyano':
+        size_change = 2
+    assert len(with_dummies) == len(desc.atoms) - size_change
 
 
 @mark.parametrize('anchor_type', ['cyano'])
