@@ -10,6 +10,7 @@ import json
 
 import yaml
 import numpy as np
+from ase import Atom
 from ase.io import read
 from ase.io.vasp import read_vasp
 import ase
@@ -235,7 +236,7 @@ class LigandDescription:
             replaced with a single atom of the designated dummy type
         """
 
-        # Get the locations of the
+        # Get the locations of the atoms
         output = read_from_string(self.xyz, 'xyz')
 
         # Each anchor type has different logic for where to place the dummy atom
@@ -256,24 +257,17 @@ class LigandDescription:
 
             del output[to_remove]
         elif self.anchor_type == "cyano":
-            # Place the dummy atom between the C and N
-            to_remove = []
+            # Place the dummy atom 2A away from the C, along the direction of C#N bond
             for curr_anchor in self.anchor_atoms:
-                # Change the carbon atom's type
+                # Check types
                 symbols = output.get_chemical_symbols()
-                at_id = curr_anchor[0]
-                assert symbols[at_id] == 'C', 'The first anchor atom is not carbon'
-                symbols[at_id] = self.dummy_element
-                output.set_chemical_symbols(symbols)
+                assert symbols[curr_anchor[0]] == 'C'
 
-                # Put the move the carbon atom towards the N
-                output.positions[at_id, :] = output.positions[curr_anchor, :].mean(axis=0)
-
-                # Delete the other two atoms (both Oxygen)
-                assert symbols[curr_anchor[1]] == 'N'
-                to_remove.append(curr_anchor[1])
-
-            del output[to_remove]
+                # Locate the new position
+                c_pos = output.positions[curr_anchor[0], :]
+                bond_dir = output.positions[curr_anchor[1], :] - c_pos
+                dummy_pos = c_pos + bond_dir / np.linalg.norm(bond_dir) * 2
+                output.append(Atom(symbol=self.dummy_element, position=dummy_pos))
         else:
             raise NotImplementedError(f'Logic not yet defined for anchor_type={self.anchor_type}')
 

@@ -90,10 +90,10 @@ def test_ligand_description(file_path, anchor_type):
     assert with_dummies.symbols.count(desc.dummy_element) == 2
     size_change = 0
     if anchor_type == 'COO':
-        size_change = 4
+        size_change = -4  # Remove 4 oxygen
     elif anchor_type == 'cyano':
-        size_change = 2
-    assert len(with_dummies) == len(desc.atoms) - size_change
+        size_change = 2  # Add two dummy atoms
+    assert len(with_dummies) == len(desc.atoms) + size_change
 
 
 @mark.parametrize('anchor_type', ['cyano'])
@@ -101,14 +101,3 @@ def test_ligand_description_swap(file_path, anchor_type):
     desc = LigandDescription.from_yaml(file_path / 'difflinker' / 'templates' / f'description_{anchor_type}.yml')
     new_desc = desc.swap_cyano_with_COO()
     assert new_desc.anchor_type == "COO" and new_desc.dummy_element == "At"
-
-
-# @mark.parametrize('anchor_type', ['COO', 'cyano'])
-# def test_constrained_optimization(file_path, anchor_type):
-#     desc = LigandDescription.from_yaml(file_path / 'difflinker' / 'templates' / f'description_{anchor_type}.yml')
-#     anchor_ids = itertools.chain(*(desc.anchor_atoms))
-#     old_anchor_pos = pd.read_csv(io.StringIO(desc.xyz), header=None, skiprows=2, names=["el", "x", "y", "z"]).loc[anchor_ids, ["x", "y", "z"]].values
-#     desc.anchor_constrained_optimization()
-#     new_anchor_pos = pd.read_csv(io.StringIO(desc.xyz), header=None, skiprows=2, names=["el", "x", "y", "z"]).loc[anchor_ids, ["x", "y", "z"]].values
-#     tol = 0.01
-#     assert np.all(old_anchor_pos - new_anchor_pos < tol)
