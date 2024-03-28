@@ -64,6 +64,8 @@ class LigandTemplate:
     def prepare_inputs(self) -> tuple[list[str], np.ndarray, np.ndarray | None]:
         """Produce the inputs needed for DiffLinker
 
+        Uses the prompts in :attr:`xyzs` without hte hydrogens
+
         Returns:
             - List of chemical symbols
             - Array of atomic positions
@@ -78,6 +80,8 @@ class LigandTemplate:
 
             # Add the atoms and positions to the outputs
             atoms = read_from_string(xyz, fmt='xyz')
+            is_not_h = [s != 'H' for s in atoms.get_chemical_symbols()]
+            atoms = atoms[is_not_h]
             symbols.extend(atoms.get_chemical_symbols())
             positions.append(atoms.positions)
 
@@ -86,7 +90,8 @@ class LigandTemplate:
     def create_description(self, atom_types: list[str], coordinates: np.ndarray) -> 'LigandDescription':
         """Produce a ligand description given atomic coordinates which include the infilled atoms
 
-        Assumes the provided coordinates are of the backbone atom and not the
+        Assumes the provided coordinates are of the backbone atom and do not include Hydrogens.
+        Adds in the hydrogens from the original prompt and infers them for the new symbols
 
         Args:
             atom_types: Types of all atoms as chemical symbols
@@ -95,21 +100,28 @@ class LigandTemplate:
             Ligand description using the new coordinates
         """
 
-        # The linker groups should be up from, make sure the types have not changed and change if they have
-        pos = 0
-        prompt_atoms = []
-        for prompt in self.prompts:
-            # Determine the fragment positions
-            found_types = atom_types[pos:pos + len(prompt)]
-            prompt_atoms.append(list(range(pos, pos + len(prompt))))
-            expected_types = prompt.get_chemical_symbols()
+        # Determine the coordinates belonging to the new atoms
+        orig_symbols, orig_positions, _ = self.prepare_inputs()
+        num_new_atoms = coordinates.shape[0] - orig_positions.shape[0]
+        new_coordinates = coordinates[-num_new_atoms:, :]
+        new_symbols = atom_types[-num_new_atoms:]
 
-            # Make sure the types match, and increment position
-            assert found_types == expected_types, f'Anchor changed. Found: {found_types} - Expected: {expected_types}'
+        # Make sure the supplied coordinates and symbols have not moved
+        found_symbols = atom_types[:-num_new_atoms]
+        assert orig_symbols == atom_types[:-num_new_atoms], f'Prompt changed. Found: {found_symbols} - Expected: {orig_symbols}'
+        assert np.isclose(orig_positions, coordinates[:-num_new_atoms, :], atol=1e-2).all(), 'Coordinates have moved'
+
+        # Build the new molecule by appending the new atoms to the end of the linkers
+        atoms = self.prompts[0].copy()
+        prompt_atoms = [list(range(len(atoms)))]
+        pos = len(atoms)
+        for prompt in self.prompts[1:]:
+            atoms += prompt
+            prompt_atoms.append(list(range(pos, pos + len(prompt))))
             pos += len(prompt)
+        atoms += ase.Atoms(symbols=new_symbols, positions=new_coordinates)
 
         # Add Hydrogens to the molecule
-        atoms = ase.Atoms(symbols=atom_types, positions=coordinates)
         unsat_xyz = write_to_string(atoms, 'xyz')
         sat_xyz = unsaturated_xyz_to_xyz(unsat_xyz, exclude_atoms=list(itertools.chain(*prompt_atoms)))
 
@@ -245,6 +257,7 @@ class LigandDescription:
             # Place the dummy on the site of the carbon
             to_remove = []
             for curr_anchor in self.prompt_atoms:
+                curr_anchor = curr_anchor[-3:]
                 # Change the carbon atom's type
                 symbols = output.get_chemical_symbols()
                 at_id = curr_anchor[0]
@@ -260,6 +273,7 @@ class LigandDescription:
         elif self.anchor_type == "cyano":
             # Place the dummy atom 2A away from the C, along the direction of C#N bond
             for curr_anchor in self.prompt_atoms:
+                curr_anchor = curr_anchor[-2:]
                 # Check types
                 symbols = output.get_chemical_symbols()
                 assert symbols[curr_anchor[0]] == 'C'
@@ -323,7 +337,7 @@ class MOFRecord:
 
     A score of 1 equates to most likely to be stable, 0 as least likely."""
 
-    # Tracking proveance of structure
+    # Tracking provenance of structure
     times: dict[str, datetime] = field(default_factory=lambda: {'created': datetime.now()})
     """Listing times at which key events occurred"""
 

@@ -38,18 +38,47 @@ def test_ligand_model(file_path):
 
     # Test initializing the positions
     symbols, positions, connect_ids = template.prepare_inputs()
-    assert symbols == ['C', 'O', 'O'] * 2
+    prompt_symbols = ['C', 'O', 'O']
+    assert symbols == prompt_symbols * 2
     assert positions.shape == (6, 3)
     assert np.equal(connect_ids, [0, 3]).all()
 
     # Test making a new ligand
+    new_coords = np.concatenate([positions, np.arange(2 * 3).reshape(-1, 3) + 50])  # Put new atoms way far away
     ligand = template.create_description(
-        atom_types=['C', 'O', 'O', 'C', 'O', 'O', 'C', 'C'],
-        coordinates=np.arange(8 * 3).reshape(-1, 3)
+        atom_types=prompt_symbols * 2 + ['C', 'C'],
+        coordinates=new_coords,
     )
     assert ligand.anchor_type == template.anchor_type
     assert ligand.prompt_atoms == [[0, 1, 2], [3, 4, 5]]
     assert ligand.dummy_element == template.dummy_element
+
+
+def test_make_ligand_description_from_prompt_with_hydrogens(file_path):
+    template = LigandTemplate.from_yaml(file_path / 'difflinker' / 'templates' / 'template_cyano_size=5.yml')
+
+    # Test initializing the positions
+    symbols, positions, connect_ids = template.prepare_inputs()
+    prompt_symbols = ['C'] * 7 + ['C', 'N']
+    assert symbols == prompt_symbols * 2
+    assert positions.shape == (18, 3)
+    assert np.equal(connect_ids, [0, 9]).all()
+
+    # Test making a new ligand
+    new_coords = np.concatenate([positions, np.arange(2 * 3).reshape(-1, 3) + 50])  # Put new atoms way far away
+    ligand = template.create_description(
+        atom_types=prompt_symbols * 2 + ['C', 'C'],
+        coordinates=new_coords
+    )
+    added_hs = len(ligand.atoms) - 2 * len(template.prompts[0]) - 2
+    assert 8 >= added_hs > 0  # Should not add more than 8 hydrogens (four per new carbon)
+
+    # Make sure the original positions are unmoved
+    for i, prompt in enumerate(template.prompts):
+        assert np.isclose(prompt.positions, ligand.atoms.positions[ligand.prompt_atoms[i], :]).all(), f'Failed for {i}'
+
+    dummy = ligand.replace_with_dummy_atoms()
+    assert dummy.symbols.count(ligand.dummy_element) == 2
 
 
 @mark.parametrize('anchor_type', ['COO'])
