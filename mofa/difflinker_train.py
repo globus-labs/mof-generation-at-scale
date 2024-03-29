@@ -91,6 +91,7 @@ def get_args(args: list[str]) -> argparse.Namespace:
     p.add_argument('--center_of_mass', type=str, default='fragments', help='Where to center the data: fragments | anchors')
     p.add_argument('--inpainting', action='store_true', default=False, help='Inpainting mode (full generation)')
     p.add_argument('--remove_anchors_context', action='store_true', default=False, help='Remove anchors context')
+    p.add_argument('--dataset_override',type=str, default="", help="Dataset override flag - set to MOFA for retraining")
     disable_rdkit_logging()
 
     return p.parse_args(args)
@@ -129,7 +130,7 @@ def main(
     with (run_directory / 'stdout.txt').open('w') as fo, (run_directory / 'stderr.txt').open('w') as fe:
         with redirect_stderr(fe), redirect_stdout(fo):
             # Determine the number of atom types
-            is_geom = ('geom' in args.train_data_prefix) or ('MOAD' in args.train_data_prefix)
+            is_geom = ('geom' in args.train_data_prefix) or ('MOAD' in args.train_data_prefix) or (args.dataset_override == "MOFA")
             number_of_atoms = GEOM_NUMBER_OF_ATOM_TYPES if is_geom else NUMBER_OF_ATOM_TYPES
             in_node_nf = number_of_atoms + args.include_charges
             anchors_context = not args.remove_anchors_context
@@ -173,6 +174,7 @@ def main(
                 center_of_mass=args.center_of_mass,
                 inpainting=args.inpainting,
                 anchors_context=anchors_context,
+                dataset_override=args.dataset_override
             )
             checkpoint_callback = [callbacks.ModelCheckpoint(
                 dirpath=checkpoints_dir,

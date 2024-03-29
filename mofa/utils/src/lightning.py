@@ -9,7 +9,7 @@ from .const import LINKER_SIZE_DIST
 from .egnn import Dynamics, DynamicsWithPockets
 from .edm import EDM, InpaintingEDM
 from .datasets import (
-    ZincDataset, MOADDataset, create_templates_for_linker_generation, get_dataloader, collate
+    ZincDataset, MOADDataset, MOFA_Dataset create_templates_for_linker_generation, get_dataloader, collate
 )
 from .linker_size import DistributionNodes
 from .molecule_builder import build_molecules
@@ -42,7 +42,7 @@ class DDPM(pl.LightningModule):
         normalize_factors, include_charges, model,
         data_path, train_data_prefix, val_data_prefix, batch_size, lr, torch_device, test_epochs, n_stability_samples,
         normalization=None, log_iterations=None, samples_dir=None, data_augmentation=False,
-        center_of_mass='fragments', inpainting=False, anchors_context=True,
+        center_of_mass='fragments', inpainting=False, anchors_context=True, dataset_override="MOFA"
     ):
         super(DDPM, self).__init__()
 
@@ -67,8 +67,9 @@ class DDPM(pl.LightningModule):
         self.num_classes = in_node_nf - include_charges
         self.include_charges = include_charges
         self.anchors_context = anchors_context
+        self.dataset_override = "MOFA"
 
-        self.is_geom = ('geom' in self.train_data_prefix) or ('MOAD' in self.train_data_prefix)
+        self.is_geom = ('geom' in self.train_data_prefix) or ('MOAD' in self.train_data_prefix) or (self.dataset_override == "MOFA")
 
         if type(activation) is str:
             activation = get_activation(activation)
@@ -108,8 +109,10 @@ class DDPM(pl.LightningModule):
 
     def setup(self, stage: Optional[str] = None):
         dataset_type = MOADDataset if '.' in self.train_data_prefix else ZincDataset
+        if self.dataset_override == "MOFA":
+            dataset_type = MOFA_Dataset
         if stage == 'fit':
-            self.is_geom = ('geom' in self.train_data_prefix) or ('MOAD' in self.train_data_prefix)
+            self.is_geom = ('geom' in self.train_data_prefix) or ('MOAD' in self.train_data_prefix) or (self.dataset_type == MOFA_Dataset)
             self.train_dataset = dataset_type(
                 data_path=self.data_path,
                 prefix=self.train_data_prefix,
@@ -121,7 +124,7 @@ class DDPM(pl.LightningModule):
                 device=self.torch_device
             )
         elif stage == 'val':
-            self.is_geom = ('geom' in self.val_data_prefix) or ('MOAD' in self.val_data_prefix)
+            self.is_geom = ('geom' in self.val_data_prefix) or ('MOAD' in self.val_data_prefix) or (self.dataset_type == MOFA_Dataset)
             self.val_dataset = dataset_type(
                 data_path=self.data_path,
                 prefix=self.val_data_prefix,
