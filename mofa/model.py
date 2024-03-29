@@ -1,6 +1,7 @@
 """Data models for a MOF class"""
 from dataclasses import dataclass, field, asdict
 from functools import cached_property
+from datetime import datetime
 from hashlib import sha512
 from pathlib import Path
 from io import StringIO
@@ -9,6 +10,7 @@ import json
 
 import yaml
 import numpy as np
+from ase import Atom
 from ase.io import read
 from ase.io.vasp import read_vasp
 import ase
@@ -41,24 +43,28 @@ class NodeDescription:
 class LigandTemplate:
     """Beginning of a new ligand to be generated.
 
-    Contains only the proper end groups oriented in the sizes needed by our MOF."""
+    Contains a prompt that includes both the anchor groups (i.e., those which connect to the node)
+    and additional context atoms."""
 
     anchor_type: str
     """Type of anchoring group"""
     xyzs: tuple[str]
-    """XYZ coordinates of the anchor groups.
+    """XYZ coordinates of the prompt fragments.
 
-    Each XYZ must be arranged such that the first atom is the one which connects to the rest of the molecule."""
+    Each XYZ must be arranged such that the first atom is the one which connects to the rest of the molecule,
+    and the last set of atoms are those which are replaced with the dummy element."""
     dummy_element: str
     """Dummy element used to replace end group when assembling MOF"""
 
     @cached_property
-    def anchors(self) -> list[ase.Atoms]:
-        """The anchor groups as ASE objects"""
+    def prompts(self) -> list[ase.Atoms]:
+        """The prompt fragments as ASE objects"""
         return [read_from_string(xyz, 'xyz') for xyz in self.xyzs]
 
     def prepare_inputs(self) -> tuple[list[str], np.ndarray, np.ndarray | None]:
         """Produce the inputs needed for DiffLinker
+
+        Uses the prompts in :attr:`xyzs` without hte hydrogens
 
         Returns:
             - List of chemical symbols
@@ -74,6 +80,8 @@ class LigandTemplate:
 
             # Add the atoms and positions to the outputs
             atoms = read_from_string(xyz, fmt='xyz')
+            is_not_h = [s != 'H' for s in atoms.get_chemical_symbols()]
+            atoms = atoms[is_not_h]
             symbols.extend(atoms.get_chemical_symbols())
             positions.append(atoms.positions)
 
@@ -82,7 +90,8 @@ class LigandTemplate:
     def create_description(self, atom_types: list[str], coordinates: np.ndarray) -> 'LigandDescription':
         """Produce a ligand description given atomic coordinates which include the infilled atoms
 
-        Assumes the provided coordinates are of the backbone atom and not the
+        Assumes the provided coordinates are of the backbone atom and do not include Hydrogens.
+        Adds in the hydrogens from the original prompt and infers them for the new symbols
 
         Args:
             atom_types: Types of all atoms as chemical symbols
@@ -91,28 +100,35 @@ class LigandTemplate:
             Ligand description using the new coordinates
         """
 
-        # The linker groups should be up from, make sure the types have not changed and change if they have
-        pos = 0
-        anchor_atoms = []
-        for anchor in self.anchors:
-            # Determine the fragment positions
-            found_types = atom_types[pos:pos + len(anchor)]
-            anchor_atoms.append(list(range(pos, pos + len(anchor))))
-            expected_types = anchor.get_chemical_symbols()
+        # Determine the coordinates belonging to the new atoms
+        orig_symbols, orig_positions, _ = self.prepare_inputs()
+        num_new_atoms = coordinates.shape[0] - orig_positions.shape[0]
+        new_coordinates = coordinates[-num_new_atoms:, :]
+        new_symbols = atom_types[-num_new_atoms:]
 
-            # Make sure the types match, and increment position
-            assert found_types == expected_types, f'Anchor changed. Found: {found_types} - Expected: {expected_types}'
-            pos += len(anchor)
+        # Make sure the supplied coordinates and symbols have not moved
+        found_symbols = atom_types[:-num_new_atoms]
+        assert orig_symbols == atom_types[:-num_new_atoms], f'Prompt changed. Found: {found_symbols} - Expected: {orig_symbols}'
+        assert np.isclose(orig_positions, coordinates[:-num_new_atoms, :], atol=1e-2).all(), 'Coordinates have moved'
+
+        # Build the new molecule by appending the new atoms to the end of the linkers
+        atoms = self.prompts[0].copy()
+        prompt_atoms = [list(range(len(atoms)))]
+        pos = len(atoms)
+        for prompt in self.prompts[1:]:
+            atoms += prompt
+            prompt_atoms.append(list(range(pos, pos + len(prompt))))
+            pos += len(prompt)
+        atoms += ase.Atoms(symbols=new_symbols, positions=new_coordinates)
 
         # Add Hydrogens to the molecule
-        atoms = ase.Atoms(symbols=atom_types, positions=coordinates)
         unsat_xyz = write_to_string(atoms, 'xyz')
-        sat_xyz = unsaturated_xyz_to_xyz(unsat_xyz, exclude_atoms=list(itertools.chain(*anchor_atoms)))
+        sat_xyz = unsaturated_xyz_to_xyz(unsat_xyz, exclude_atoms=list(itertools.chain(*prompt_atoms)))
 
         return LigandDescription(
             xyz=sat_xyz,
             anchor_type=self.anchor_type,
-            anchor_atoms=anchor_atoms,
+            prompt_atoms=prompt_atoms,
             dummy_element=self.dummy_element
         )
 
@@ -141,10 +157,10 @@ class LigandDescription:
     sdf: str | None = field(default=None, repr=False)
     """SDF file string with atom positions and bond (with order) information (optional)"""
 
-    # Information about how this ligand anchors to the inorganic portions
+    # Information about how this ligand prompts to the inorganic portions
     anchor_type: str | None = field(default=None)
     """Name of the functional group used for anchoring"""
-    anchor_atoms: list[list[int]] | None = field(default=None, repr=True)
+    prompt_atoms: list[list[int]] | None = field(default=None, repr=True)
     """Groups of atoms which attach to the nodes
 
     There are typically two groups of fragment atoms, and these are
@@ -168,11 +184,11 @@ class LigandDescription:
         """
 
         mol = Chem.MolFromXYZBlock(self.xyz)
-        all_anchor_atoms = list(itertools.chain(*self.anchor_atoms))
-        if self.anchor_type != "COO" and self.dummy_element != "At" and len(self.anchor_atoms[0]) != 3:
+        all_anchor_atoms = list(itertools.chain(*self.prompt_atoms))
+        if self.anchor_type != "COO" and self.dummy_element != "At" and len(self.prompt_atoms[0]) != 3:
             charge = int(0)
         else:
-            charge = int(-len(self.anchor_atoms))
+            charge = int(-len(self.prompt_atoms))
         rdDetermineBonds.DetermineBonds(mol, charge=charge)
         rdDetermineBonds.DetermineConnectivity(mol)
         rdDetermineBonds.DetermineBondOrders(mol)
@@ -197,12 +213,13 @@ class LigandDescription:
         # Generate the new XYZ file
         carboxylic_ion_CO_length = 1.26
         df = pd.read_csv(StringIO(self.xyz), skiprows=2, sep=r"\s+", header=None, names=["element", "x", "y", "z"])
-        anchor_ids = list(itertools.chain(*self.anchor_atoms))
+        anchor_ids = list(itertools.chain(*self.prompt_atoms))
         other_atom_ids = list(set(df.index.tolist()) - set(anchor_ids))
         other_atom_df = df.loc[other_atom_ids, :]
         final_df_list = []
         new_anchor_ids = []
-        for anc in self.anchor_atoms:
+        for anc in self.prompt_atoms:
+            anc = anc[-2:]  # Only the last two atoms are the C#N
             Cid = anc[0]
             Nid = anc[1]
             Cxyz = df.loc[Cid, ["x", "y", "z"]].values
@@ -222,44 +239,54 @@ class LigandDescription:
         new_anchor_ids = flat_anchor_ids.reshape(int(flat_anchor_ids.shape[0] / 3), 3).tolist()
         final_df = pd.concat([new_anchor_df, other_atom_df.copy(deep=True)], axis=0).reset_index(drop=True)
         new_xyz_str = str(len(final_df)) + "\n\n" + final_df.to_string(header=None, index=None)
-        return LigandDescription(anchor_type="COO", xyz=new_xyz_str, anchor_atoms=new_anchor_ids, dummy_element="At")
+        return LigandDescription(anchor_type="COO", xyz=new_xyz_str, prompt_atoms=new_anchor_ids, dummy_element="At")
 
     def replace_with_dummy_atoms(self) -> ase.Atoms:
         """Replace the fragments which attach to nodes with dummy atoms
 
         Returns:
-            ASE atoms version of the molecule without
+            ASE atoms version of the molecule where the anchor atoms have been
+            replaced with a single atom of the designated dummy type
         """
 
-        # Get the locations of the
-        df = pd.read_csv(StringIO(self.xyz), skiprows=2, sep=r"\s+", header=None, names=["element", "x", "y", "z"])
-        anchor_ids = list(itertools.chain(*self.anchor_atoms))
-        anchor_df = df.loc[anchor_ids, :]
+        # Get the locations of the atoms
+        output = read_from_string(self.xyz, 'xyz')
 
         # Each anchor type has different logic for where to place the dummy atom
         if self.anchor_type == "COO":
-            at_id = anchor_df[anchor_df["element"] == "C"].index
-            remove_ids = anchor_df[anchor_df["element"] == "O"].index
-            df.loc[at_id, "element"] = self.dummy_element
-            df = df.loc[list(set(df.index) - set(remove_ids)), :]
+            # Place the dummy on the site of the carbon
+            to_remove = []
+            for curr_anchor in self.prompt_atoms:
+                curr_anchor = curr_anchor[-3:]
+                # Change the carbon atom's type
+                symbols = output.get_chemical_symbols()
+                at_id = curr_anchor[0]
+                assert symbols[at_id] == 'C', 'The first anchor atom is not carbon'
+                symbols[at_id] = self.dummy_element
+                output.set_chemical_symbols(symbols)
+
+                # Delete the other two atoms (both Oxygen)
+                assert all(symbols[t] == 'O' for t in curr_anchor[1:]), 'The other prompts are not oxygen'
+                to_remove.extend(curr_anchor[1:])
+
+            del output[to_remove]
         elif self.anchor_type == "cyano":
-            df_list = [df]
-            for curr_anchor in self.anchor_atoms:
-                anchor_df = df.loc[curr_anchor, :]
-                N = anchor_df[anchor_df["element"] == "N"]
-                C = anchor_df[anchor_df["element"] == "C"]
-                Nxyz = N[["x", "y", "z"]].values
-                Cxyz = C[["x", "y", "z"]].values
-                NC_vec = Nxyz - Cxyz
-                df_list.append(pd.DataFrame(
-                    [[self.dummy_element] + (2. * NC_vec / np.linalg.norm(NC_vec) + Cxyz).tolist()[0]],
-                    columns=["element", "x", "y", "z"])
-                )
-            df = pd.concat(df_list, axis=0).reset_index(drop=True)
+            # Place the dummy atom 2A away from the C, along the direction of C#N bond
+            for curr_anchor in self.prompt_atoms:
+                curr_anchor = curr_anchor[-2:]
+                # Check types
+                symbols = output.get_chemical_symbols()
+                assert symbols[curr_anchor[0]] == 'C'
+
+                # Locate the new position
+                c_pos = output.positions[curr_anchor[0], :]
+                bond_dir = output.positions[curr_anchor[1], :] - c_pos
+                dummy_pos = c_pos + bond_dir / np.linalg.norm(bond_dir) * 2
+                output.append(Atom(symbol=self.dummy_element, position=dummy_pos))
         else:
             raise NotImplementedError(f'Logic not yet defined for anchor_type={self.anchor_type}')
 
-        return ase.Atoms(df["element"], df.loc[:, ["x", "y", "z"]].values)
+        return output
 
     @classmethod
     def from_yaml(cls, path: Path) -> 'LigandDescription':
@@ -279,7 +306,7 @@ class MOFRecord:
     """Information available about a certain MOF"""
     # Data describing what the MOF is
     name: str = None
-    """Name to be used for output files associated with this MOFs"""
+    """Name to be used for output files associated with this MOFs. Assumed to be unique"""
     identifiers: dict[str, str] = field(default_factory=dict)
     """Names of this MOFs is registries (e.g., hMOF)"""
     topology: str | None = None
@@ -303,12 +330,16 @@ class MOFRecord:
     values are the structure in POSCAR format"""
 
     # Properties
-    gas_storage: dict[tuple[str, float], float] = field(default_factory=dict, repr=False)
-    """Storage capacity of the MOF for different gases and pressures"""
+    gas_storage: dict[str, tuple[float, float]] = field(default_factory=dict, repr=False)
+    """Storage capacity of the MOF for different gases and pressures. Key is the name of the gas, value is the pressure and capacity (units TBD)"""
     structure_stability: dict[str, float] = field(default_factory=dict, repr=False)
     """How likely the structure is to be stable according to different assays
 
     A score of 1 equates to most likely to be stable, 0 as least likely."""
+
+    # Tracking provenance of structure
+    times: dict[str, datetime] = field(default_factory=lambda: {'created': datetime.now()})
+    """Listing times at which key events occurred"""
 
     def __post_init__(self):
         if self.name is None:

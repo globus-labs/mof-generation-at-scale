@@ -38,7 +38,7 @@ xyz: |
   H 10.16587 6.4496 -7.88081
   H 8.34213 5.67399 -6.49633
 anchor_type: COO
-anchor_atoms:
+prompt_atoms:
   - [0, 1, 2]
   - [21, 22, 23]
 dummy_element: At
