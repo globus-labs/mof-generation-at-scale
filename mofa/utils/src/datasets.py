@@ -1,5 +1,6 @@
 import gzip
 import json
+import logging
 import os
 import pickle
 from typing import Union
@@ -47,8 +48,10 @@ class MOFA_Dataset(Dataset):
 
     Example Usage: ds = MOFA_Dataset("datasets", "mof.json.gz", "cpu")
     """
+    # Create a custom logger
 
     def __init__(self, data_path, prefix, device):
+        self.log = logging.getLogger(__name__)
         if len(prefix.split(".")) != 1:
             self.log(
                 f"WARNING the prefix you provided contains a period or an extension"
