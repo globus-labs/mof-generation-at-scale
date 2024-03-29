@@ -9,7 +9,7 @@ import io
 import itertools
 
 from mofa.model import MOFRecord, LigandTemplate, LigandDescription
-from mofa.utils.conversions import read_from_string
+from mofa.utils.conversions import read_from_string, write_to_string
 
 
 def test_create(example_cif):
@@ -86,6 +86,14 @@ def test_ligand_description_H_inference(file_path, anchor_type):
     # Load the template and the new coordinates
     template = LigandTemplate.from_yaml(file_path / 'difflinker' / 'templates' / 'template_COO.yml')
     example_xyz = read(file_path / 'difflinker' / 'templates' / 'difflinker-coo-example.xyz')
+
+    # Place the coordinates of the example XYZ into the template to fake it being used as the template
+    end_pos = np.array_split(example_xyz.positions, np.cumsum([len(a) for a in template.prompts]))
+    new_xyzs = []
+    for a, e in zip(template.prompts, end_pos[:2]):
+        a.positions = e
+        new_xyzs.append(write_to_string(a, 'xyz'))
+    template.xyzs = new_xyzs
 
     # Instantiate the template
     desc = template.create_description(example_xyz.get_chemical_symbols(), example_xyz.positions)
