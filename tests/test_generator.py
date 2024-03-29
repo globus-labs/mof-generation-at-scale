@@ -1,7 +1,6 @@
 from pathlib import Path
 
 from pytest import fixture, mark
-import torch
 
 from mofa.model import LigandTemplate
 from mofa.utils.src.lightning import DDPM
@@ -16,7 +15,7 @@ def file_dir(file_path):
 
 @fixture
 def device():
-    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    return "cpu"
 
 
 @fixture()

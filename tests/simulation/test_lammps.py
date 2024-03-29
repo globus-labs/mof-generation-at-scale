@@ -12,6 +12,7 @@ def test_lammps_runner(cif_name, cif_dir, tmpdir):
     lmprunner = LAMMPSRunner(
         lammps_command=["lmp"],
         lmp_sims_root_path=tmpdir / "lmp_sims",
+        lammps_environ={'OMP_NUM_THREADS': '1'}
     )
 
     # Make sure the preparation works

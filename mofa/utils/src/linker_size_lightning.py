@@ -36,7 +36,7 @@ class SizeClassifier(pl.LightningModule):
         self.linker_id2size = linker_id2size
         self.batch_size = batch_size
         self.lr = lr
-        self.torch_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.torch_device = 'cpu'
         self.loss_weights = None if loss_weights is None else torch.tensor(loss_weights, device=self.torch_device)
         self.gnn = SizeGNN(
             in_node_nf=in_node_nf,

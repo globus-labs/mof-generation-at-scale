@@ -5,6 +5,10 @@ import os
 import torch
 import numpy as np
 from rdkit import Chem
+try:
+    import intel_extension_for_pytorch as ipex
+except ImportError:
+    ipex = None
 
 from mofa.model import LigandTemplate, LigandDescription
 from mofa.utils.src import const
@@ -69,6 +73,10 @@ def main_run(templates: list[LigandTemplate],
             return sizes
 
     ddpm = DDPM.load_from_checkpoint(model, torch_device=device).eval().to(device)
+
+    # If xpu, optimize
+    if device == "xpu":
+        ddpm = ipex.optimize(ddpm)
 
     if n_steps is not None:
         ddpm.edm.T = n_steps  # otherwise, ddpm.edm.T = 1000 default
