@@ -95,12 +95,20 @@ hostname
                 )
             )
         ])
-    elif args.config == "sunspot":
-        accel_ids = [
-           f"{gid}.{tid}"
-           for gid in range(6)
-           for tid in range(2)
-        ]
+    elif args.config.startswith("sunspot"):
+        if args.config == "sunspot":
+            accel_ids = [
+               f"{gid}.{tid}"
+               for gid in range(6)
+               for tid in range(2)
+            ]
+        elif args.config == "sunspot-device":
+            accel_ids = [
+               f"{gid}.0,{gid}.1"
+               for gid in range(6)
+            ]
+        else:
+            raise ValueError(f'Not supported: {args.config}')
         config = Config(
             retries=2,
             executors=[
@@ -109,12 +117,12 @@ hostname
                     available_accelerators=accel_ids,  # Ensures one worker per accelerator
                     cpu_affinity="block",  # Assigns cpus in sequential order
                     prefetch_capacity=0,
-                    max_workers=12,
-                    cores_per_worker=16,
+                    max_workers=len(accel_ids),
+                    cores_per_worker=208 // len(accel_ids),
                     provider=PBSProProvider(
                         account="CSC249ADCD08_CNDA",
                         queue="workq",
-                        worker_init="""
+                        worker_init=f"""
 source activate /lus/gila/projects/CSC249ADCD08_CNDA/mof-generation-at-scale/env
 module reset
 module use /soft/modulefiles/
@@ -124,7 +132,7 @@ module load intel_compute_runtime/release/775.20
 module load gcc/12.2.0
 module list
 
-
+{"" if len(accel_ids) == 12 else "export IPEX_TILE_AS_DEVICE=0"}
 cd $PBS_O_WORKDIR
 pwd
 which python
@@ -169,5 +177,6 @@ hostname
                 'model_path': str(args.model_path),
                 'device': args.device,
                 'runtime': runtime,
+                'config': args.config,
                 **future.info
             }), file=fp)
