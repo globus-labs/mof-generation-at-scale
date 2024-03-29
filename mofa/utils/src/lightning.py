@@ -443,7 +443,6 @@ class DDPM(pl.LightningModule):
         else:
             raise NotImplementedError(self.center_of_mass)
         x = utils.remove_partial_mean_with_mask(x, node_mask, center_of_mass_mask)
-
         chain = self.edm.sample_chain(
             x=x,
             h=h,

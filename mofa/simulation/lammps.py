@@ -3,10 +3,10 @@ from tempfile import TemporaryDirectory
 from typing import Sequence
 from subprocess import run, CompletedProcess
 from pathlib import Path
+import os
 
 import ase
 import io
-import os
 import shutil
 import logging
 import pandas as pd
@@ -26,12 +26,17 @@ class LAMMPSRunner:
     Args:
         lammps_command: Command used to launch LAMMPS
         lmp_sims_root_path: Scratch directory for LAMMPS simulations
+        lammps_environ: Additional environment variables to provide to LAMMPS
     """
 
-    def __init__(self, lammps_command: Sequence[str] = ("lmp_serial",), lmp_sims_root_path: str = "lmp_sims"):
+    def __init__(self,
+                 lammps_command: Sequence[str] = ("lmp_serial",),
+                 lmp_sims_root_path: str = "lmp_sims",
+                 lammps_environ: dict[str, str] | None = None):
         self.lammps_command = lammps_command
         self.lmp_sims_root_path = lmp_sims_root_path
         os.makedirs(self.lmp_sims_root_path, exist_ok=True)
+        self.lammps_environ = lammps_environ.copy()
 
     def prep_molecular_dynamics_single(self, cif_path: str | Path, timesteps: int, report_frequency: int, stepsize_fs: float = 0.5) -> str:
         """Use cif2lammps to assign force field to a single MOF and generate input files for lammps simulation
@@ -147,4 +152,8 @@ write_data          relaxing.*.data
 
         lmp_path = Path(lmp_path)
         with open(lmp_path / 'stdout.lmp', 'w') as fp, open(lmp_path / 'stderr.lmp', 'w') as fe:
-            return run(list(self.lammps_command) + ['-i', 'in.lmp'], cwd=lmp_path, stdout=fp, stderr=fe)
+            env = None
+            if self.lammps_environ is not None:
+                env = os.environ.copy()
+                env.update(self.lammps_environ)
+            return run(list(self.lammps_command) + ['-i', 'in.lmp'], cwd=lmp_path, stdout=fp, stderr=fe, env=env)

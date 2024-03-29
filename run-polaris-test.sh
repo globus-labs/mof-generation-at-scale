@@ -1,9 +1,9 @@
 #!/bin/bash -le
-#PBS -l select=10:system=polaris
+#PBS -l select=32:system=polaris
 #PBS -l walltime=01:00:00
 #PBS -l filesystems=home:grand:eagle
-#PBS -q debug-scaling
-#PBS -N test-run
+#PBS -q prod
+#PBS -N mofa-test
 #PBS -A examol
 
 # Change to working directory
@@ -24,7 +24,7 @@ python run_parallel_workflow.py \
       --ligand-templates input-files/zn-paddle-pillar/template_*.yml \
       --num-samples 1024 \
       --gen-batch-size 16 \
-      --simulation-budget 256 \
+      --simulation-budget 4096 \
       --md-timesteps 1000000 \
       --md-snapshots 10 \
       --compute-config polaris

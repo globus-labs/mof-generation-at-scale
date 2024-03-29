@@ -5,6 +5,7 @@ import hashlib
 import sys
 import warnings
 from argparse import ArgumentParser
+from collections import defaultdict
 from dataclasses import asdict
 from datetime import datetime
 from random import choice
@@ -82,15 +83,15 @@ if __name__ == "__main__":
     templates = {}
     for path in args.ligand_templates:
         template = LigandTemplate.from_yaml(path)
-        templates[template.anchor_type] = template
+        templates[Path(path).with_suffix('').name] = template
     logger.info(f'Loaded {len(templates)} ligand templates: {", ".join(templates.keys())}')
 
     # Load a pretrained generator from disk and use it to create ligands
-    generated_ligands = {}
-    for template in templates.values():
+    generated_ligands = defaultdict(list)
+    for name, template in templates.items():
         my_ligands = []
         for n_atoms in args.molecule_sizes:
-            logger.info(f'Generating molecules with {n_atoms} atoms for {template.anchor_type} on {args.torch_device}')
+            logger.info(f'Generating molecules with {n_atoms} atoms for {name} on {args.torch_device}')
             my_ligands.extend(run_generator(
                 templates=[template],
                 model=args.generator_path,
@@ -98,20 +99,18 @@ if __name__ == "__main__":
                 n_samples=args.num_samples,
                 device=args.torch_device
             ))
-        generated_ligands[template.anchor_type] = my_ligands
-        logger.info(f'Generated a total of {len(my_ligands)} ligands for {template.anchor_type}')
+        generated_ligands[template.anchor_type].extend(my_ligands)
+        logger.info(f'Generated a total of {len(my_ligands)} ligands with a {template.anchor_type} anchor')
 
     # Initial quality checks and post-processing on the generated ligands
     valid_ligands = {}  # Ligands to be used during assembly
     all_ligands = []  # All ligands which were generated
     for anchor_type, new_ligands in generated_ligands.items():
         valid_ligands[anchor_type] = []
-        if anchor_type == "COO":
-            continue
         for ligand in new_ligands:
             # Store the ligand information for debugging purposes
             record = {"anchor_type": ligand.anchor_type, "xyz": ligand.xyz,
-                      "anchor_atoms": ligand.anchor_atoms, "valid": False}
+                      "prompt_atoms": ligand.prompt_atoms, "valid": False}
 
             # Try constrained optimization on the ligand
             try:
@@ -141,42 +140,7 @@ if __name__ == "__main__":
             record['valid'] = True
             all_ligands.append(record)
 
-            # begin of swap cyano for COO
-            coo_ligand = ligand.swap_cyano_with_COO()
-            coo_record = {"anchor_type": coo_ligand.anchor_type, "xyz": coo_ligand.xyz,
-                          "anchor_atoms": coo_ligand.anchor_atoms, "valid": False}
-
-            # Try constrained optimization on the ligand
-            try:
-                coo_ligand.anchor_constrained_optimization()
-            except (ValueError, AttributeError,):
-                continue
-
-            # Parse each new ligand, determine whether it is a single molecule
-            try:
-                mol = xyz_to_mol(coo_ligand.xyz)
-            except (ValueError,):
-                continue
-
-            # Store the smiles string
-            Chem.RemoveHs(mol)
-            smiles = Chem.MolToSmiles(mol)
-            coo_record['smiles'] = smiles
-
-            if len(Chem.GetMolFrags(mol)) > 1:
-                continue
-
-            # If passes, save the SMILES string and store the molecules
-            coo_ligand.smiles = Chem.MolToSmiles(mol)
-            valid_ligands["COO"].append(coo_ligand)
-
-            # Update the record
-            coo_record['valid'] = True
-            all_ligands.append(coo_record)
-            # end of swap cyano for COO
-
         logger.info(f'{len(valid_ligands[anchor_type])} of {len(new_ligands)} for {anchor_type} pass quality checks')
-        logger.info(f'{len(valid_ligands["COO"])} of {len(new_ligands)} for COO pass quality checks')
 
     # Save the ligands
     pd.DataFrame(all_ligands).to_csv(run_dir / 'all-ligands.csv', index=False)
@@ -235,5 +199,6 @@ if __name__ == "__main__":
     # Save the completed MOFs to disk
     with (run_dir / 'completed-mofs.json').open('w') as fp:
         for mof in successful_mofs:
+            mof.times = dict((k, v.isoformat()) for k, v in mof.times.items())
             print(json.dumps(asdict(mof)), file=fp)
     logger.info('Saved everything do disk. Done!')

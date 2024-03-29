@@ -60,7 +60,7 @@ def process_ligand(ligand: LigandDescription) -> dict:
     record = {"anchor_type": ligand.anchor_type,
               "smiles": None,
               "xyz": ligand.xyz,
-              "anchor_atoms": ligand.anchor_atoms,
+              "prompt_atoms": ligand.prompt_atoms,
               "valid": False}
 
     # Try constrained optimization on the ligand
