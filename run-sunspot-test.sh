@@ -1,5 +1,5 @@
 #!/bin/bash -le
-#PBS -l select=16
+#PBS -l select=64
 #PBS -l walltime=01:00:00
 #PBS -q workq
 #PBS -N mofa-test

@@ -140,10 +140,15 @@ class SunspotConfig(PolarisConfig):
     lammps_env = {'OMP_NUM_THREADS': '1'}
     cpus_per_node = 208
 
+    @property
+    def num_workers(self) -> int:
+        return len(self.hosts) * 12
+
     def launch_monitor_process(self, log_dir: Path, freq: int = 20) -> Popen:
         host_file = os.environ['PBS_NODEFILE']
+        smi_path = shutil.which('xpu-smi')
         return Popen(
-            args=f"parallel --onall --sshloginfile {host_file} {shutil.which('monitor_utilization')} ::: --frequency {freq} {log_dir}".split()
+            args=f"parallel --onall --sshloginfile {host_file} {shutil.which('monitor_utilization')} --frequency {freq} --xpu-smi-path {smi_path} ::: {log_dir}".split()
         )
 
 
