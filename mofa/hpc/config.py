@@ -2,10 +2,10 @@
 from dataclasses import dataclass, field
 from subprocess import Popen
 from pathlib import Path
+import shutil
 import os
 
 from parsl import HighThroughputExecutor
-
 from parsl import Config
 from parsl.launchers import MpiExecLauncher
 from parsl.providers import LocalProvider
@@ -140,6 +140,13 @@ class SunspotConfig(PolarisConfig):
     lammps_env = {'OMP_NUM_THREADS': '1'}
     cpus_per_node = 208
 
+    def launch_monitor_process(self, log_dir: Path, freq: int = 20) -> Popen:
+        host_file = os.environ['PBS_NODEFILE']
+        return Popen(
+            args=f"parallel --onall --sshloginfile {host_file} {shutil.which('monitor_utilization')} ::: --frequency {freq} {log_dir}".split()
+        )
+
+
     def make_parsl_config(self, run_dir: Path) -> Config:
         num_nodes = len(self.hosts)
 
@@ -182,5 +189,6 @@ hostname""",
 
 configs: dict[str, type[HPCConfig]] = {
     'local': LocalConfig,
-    'polaris': PolarisConfig
+    'polaris': PolarisConfig,
+    'sunspot': SunspotConfig
 }
