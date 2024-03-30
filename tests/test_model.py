@@ -133,8 +133,13 @@ def test_ligand_description(file_path, anchor_type):
     assert len(with_dummies) == len(desc.atoms) + size_change
 
 
-@mark.parametrize('anchor_type', ['cyano'])
+@mark.parametrize('anchor_type', ['cyano', 'cyano_bigger_prompt'])
 def test_ligand_description_swap(file_path, anchor_type):
     desc = LigandDescription.from_yaml(file_path / 'difflinker' / 'templates' / f'description_{anchor_type}.yml')
     new_desc = desc.swap_cyano_with_COO()
-    assert new_desc.anchor_type == "COO" and new_desc.dummy_element == "At"
+
+    assert new_desc.anchor_type == "COO" and new_desc.dummy_element == "At", "Anchor type unchanged"
+    assert len(desc.atoms) + 2 == len(new_desc.atoms), "Incorrect number of atoms added"
+    symbols = new_desc.atoms.symbols
+    for prompt in new_desc.prompt_atoms:
+        assert (symbols[prompt[-3:]] == ['C', 'O', 'O']).all()

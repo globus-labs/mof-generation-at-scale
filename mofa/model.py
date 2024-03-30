@@ -210,34 +210,50 @@ class LigandDescription:
         if self.dummy_element != "Fr" or self.anchor_type == "COO":
             raise ValueError()
 
-        # Generate the new XYZ file
+        # Load in the current XYZ file
         carboxylic_ion_CO_length = 1.26
         df = pd.read_csv(StringIO(self.xyz), skiprows=2, sep=r"\s+", header=None, names=["element", "x", "y", "z"])
-        anchor_ids = list(itertools.chain(*self.prompt_atoms))
-        other_atom_ids = list(set(df.index.tolist()) - set(anchor_ids))
-        other_atom_df = df.loc[other_atom_ids, :]
-        final_df_list = []
-        new_anchor_ids = []
-        for anc in self.prompt_atoms:
-            anc = anc[-2:]  # Only the last two atoms are the C#N
-            Cid = anc[0]
-            Nid = anc[1]
+
+        # Swap the C#N for COO in each of the prompts
+        new_prompt_list = []
+        for prompt in self.prompt_atoms:
+            # Determine the direction of the CN group
+            anchor = prompt[-2:]  # Only the last two atoms are the C#N, by definition in the Template
+            Cid = anchor[0]
+            Nid = anchor[1]
             Cxyz = df.loc[Cid, ["x", "y", "z"]].values
             Nxyz = df.loc[Nid, ["x", "y", "z"]].values
             bisector = Cxyz - Nxyz
             bisector = bisector / np.linalg.norm(bisector)
+
+            # Determine the position of the new oxygens
             O1norm_vec = np.array([[0.5, -0.866, 0.], [0.866, 0.5, 0.], [0., 0., 1.]]) @ bisector
             O2norm_vec = np.array([[0.5, 0.866, 0.], [-0.866, 0.5, 0.], [0., 0., 1.]]) @ bisector
             O1xyz = -O1norm_vec * carboxylic_ion_CO_length + Cxyz
             O2xyz = -O2norm_vec * carboxylic_ion_CO_length + Cxyz
+
+            # Assemble the new COO group
             new_COO_df = pd.DataFrame(np.array([Cxyz, O1xyz, O2xyz]), columns=["x", "y", "z"])
             new_COO_df["element"] = ["C", "O", "O"]
             new_COO_df = new_COO_df[["element", "x", "y", "z"]]
-            final_df_list.append(new_COO_df)
-        new_anchor_df = pd.concat(final_df_list, axis=0).reset_index(drop=True)
-        flat_anchor_ids = np.array(new_anchor_df.index)
-        new_anchor_ids = flat_anchor_ids.reshape(int(flat_anchor_ids.shape[0] / 3), 3).tolist()
-        final_df = pd.concat([new_anchor_df, other_atom_df.copy(deep=True)], axis=0).reset_index(drop=True)
+
+            # Append to the prompt in place of the original CN group
+            new_prompt = pd.concat([
+                df.loc[prompt[:-2]],
+                new_COO_df
+            ], ignore_index=True)
+
+            # Increment the index to start one after the last array
+            if len(new_prompt_list) > 0:
+                new_prompt.index += new_prompt_list[-1].index.max() + 1
+            new_prompt_list.append(new_prompt)
+
+        # Remove the old prompts, replace with new prompts
+        new_anchor_df = pd.concat(new_prompt_list, axis=0).reset_index(drop=True)
+        new_anchor_ids = [n.index.tolist() for n in new_prompt_list]
+
+        other_atom_df = df.drop(itertools.chain(*self.prompt_atoms))
+        final_df = pd.concat([new_anchor_df, other_atom_df.copy(deep=True)], axis=0, ignore_index=True)
         new_xyz_str = str(len(final_df)) + "\n\n" + final_df.to_string(header=None, index=None)
         return LigandDescription(anchor_type="COO", xyz=new_xyz_str, prompt_atoms=new_anchor_ids, dummy_element="At")
 
