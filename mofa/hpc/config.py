@@ -2,7 +2,6 @@
 from dataclasses import dataclass, field
 from subprocess import Popen
 from pathlib import Path
-import shutil
 import os
 
 from parsl import HighThroughputExecutor
@@ -146,10 +145,9 @@ class SunspotConfig(PolarisConfig):
 
     def launch_monitor_process(self, log_dir: Path, freq: int = 20) -> Popen:
         host_file = os.environ['PBS_NODEFILE']
-        smi_path = shutil.which('xpu-smi')
+        util_path = '/lus/gila/projects/CSC249ADCD08_CNDA/mof-generation-at-scale/bin/monitor_sunspot'
         return Popen(
-            args=f"parallel --onall --sshloginfile {host_file} {shutil.which('monitor_utilization')} "
-                 f"--frequency {freq} --xpu-smi-path {smi_path} ::: {log_dir}".split()
+            args=f"parallel --onall --sshloginfile {host_file} {util_path} --frequency {freq} ::: {log_dir}".split()
         )
 
     def make_parsl_config(self, run_dir: Path) -> Config:

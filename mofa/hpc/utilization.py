@@ -54,14 +54,13 @@ def utilization_cli() -> NoReturn:
 
     parser = ArgumentParser()
     parser.add_argument('--frequency', default=30, type=float, help='How often to log utilization. Units: s')
-    parser.add_argument('--xpu-smi-path', help='Path to the XPU-SMI utility')
     parser.add_argument('log_path', help='Name of the log file')
     args = parser.parse_args()
 
     log_path = Path(args.log_path)
 
     # Launch `xpu-smi` as a subprocess if available
-    xpu_smi = args.xpu_smi_path or shutil.which('xpu-smi')
+    xpu_smi = shutil.which('xpu-smi')
     if xpu_smi is not None:
         Popen(
             [xpu_smi, 'dump', '-d', '-1', '-m', '0,1,17,18', '-i', str(int(args.frequency))],
