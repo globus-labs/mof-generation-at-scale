@@ -148,7 +148,7 @@ class SunspotConfig(PolarisConfig):
         host_file = os.environ['PBS_NODEFILE']
         smi_path = shutil.which('xpu-smi')
         return Popen(
-            args=f"parallel --onall --sshloginfile {host_file} {shutil.which('monitor_utilization')} " \
+            args=f"parallel --onall --sshloginfile {host_file} {shutil.which('monitor_utilization')} "
                  f"--frequency {freq} --xpu-smi-path {smi_path} ::: {log_dir}".split()
         )
 
