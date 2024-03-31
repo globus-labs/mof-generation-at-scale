@@ -148,9 +148,9 @@ class SunspotConfig(PolarisConfig):
         host_file = os.environ['PBS_NODEFILE']
         smi_path = shutil.which('xpu-smi')
         return Popen(
-            args=f"parallel --onall --sshloginfile {host_file} {shutil.which('monitor_utilization')} --frequency {freq} --xpu-smi-path {smi_path} ::: {log_dir}".split()
+            args=f"parallel --onall --sshloginfile {host_file} {shutil.which('monitor_utilization')} " \
+                 f"--frequency {freq} --xpu-smi-path {smi_path} ::: {log_dir}".split()
         )
-
 
     def make_parsl_config(self, run_dir: Path) -> Config:
         num_nodes = len(self.hosts)
