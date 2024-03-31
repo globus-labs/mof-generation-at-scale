@@ -1,9 +1,11 @@
 """Utilization tracking"""
 import json
 import platform
+import shutil
 from datetime import datetime
 from argparse import ArgumentParser
 from pathlib import Path
+from subprocess import Popen
 from time import sleep
 from typing import NoReturn
 
@@ -51,12 +53,22 @@ def utilization_cli() -> NoReturn:
     """Log the utilization to disk"""
 
     parser = ArgumentParser()
-    parser.add_argument('--frequency', default=30, type=float, help='How often to log utilization')
+    parser.add_argument('--frequency', default=30, type=float, help='How often to log utilization. Units: s')
     parser.add_argument('log_path', help='Name of the log file')
     args = parser.parse_args()
 
+    log_path = Path(args.log_path)
+
+    # Launch `xpu-smi` as a subprocess if available
+    xpu_smi = shutil.which('xpu-smi')
+    if xpu_smi is not None:
+        Popen(
+            [xpu_smi, 'dump', '-d', '-1', '-m', '0,1,17,18', '-i', str(int(args.frequency))],
+            stdout=(log_path / f'{platform.node()}-xpu.csv').open('w')  # Leave open. Will close as Python exits
+        )
+
     # Make my log name
-    log_name = Path(args.log_path) / (platform.node() + ".log")
+    log_name = log_path / (platform.node() + ".log")
     with open(log_name, 'wt') as fp:
         get_utilization()  # First one is trash (see PSUtil docs: https://psutil.readthedocs.io/en/latest/#psutil.cpu_times_percent)
         while True:

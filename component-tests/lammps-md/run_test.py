@@ -98,9 +98,9 @@ hostname
                       '-pk gpu 1 -sf gpu').split()
         lammps_env = {'OMP_NUM_THREADS': '1'}
         accel_ids = [
-           f"{gid}.{tid}"
-           for gid in range(6)
-           for tid in range(2)
+            f"{gid}.{tid}"
+            for gid in range(6)
+            for tid in range(2)
         ]
         config = Config(
             retries=2,
@@ -139,7 +139,7 @@ hostname
                         select_options="system=sunspot,place=scatter",
                         nodes_per_block=1,
                         min_blocks=0,
-                        max_blocks=1, # Can increase more to have more parallel batch jobs
+                        max_blocks=1,  # Can increase more to have more parallel batch jobs
                         cpus_per_node=208,
                     ),
                 ),
