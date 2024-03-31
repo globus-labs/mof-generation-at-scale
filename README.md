@@ -15,6 +15,15 @@ Install the environment file appropriate for your system with a command similar 
 conda env create --file envs/environment-cpu.yml --force
 ```
 
+If solving is slow try updating to the newest version of conda and using the `libmamba` solver:
+
+```bash
+conda update -n base conda
+conda install -n base conda-libmamba-solver
+conda config --set solver libmamba
+conda env create --file envs/environment-cpu.yml
+```
+
 ## Running MOFA
 
 The `run_serial_workflow.py` script defines a workflow using MOFA. 
