@@ -16,8 +16,8 @@ from mofa.model import MOFRecord
 
 
 # Hard-coded defaults
-_model_path = "../../tests/files/difflinker/geom_difflinker.ckpt"
-_config_path = "config.yaml"
+_model_path = "../../models/geom-300k/geom_difflinker_epoch=997_new.ckpt"
+_config_path = "../../models/geom-300k/config-tf32-a100.yaml"
 _training_set = Path("mofs.json.gz")
 
 
