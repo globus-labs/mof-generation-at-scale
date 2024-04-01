@@ -1,6 +1,7 @@
 """Functions pertaining to training and running the generative model"""
 import gzip
 import json
+import shutil
 from dataclasses import asdict
 from tempfile import TemporaryDirectory
 from typing import Iterator
@@ -23,7 +24,7 @@ def train_generator(
     """Retrain a generative model for MOFs
 
     Args:
-        starting_model: Path to the starting weights of the model
+        starting_model: Path to the starting weights of the model. ``None`` to start from scratch
         run_directory: Directory in which to run training
         config_path: Path to the model configuration file
         examples: Path to examples used to train the generator. Should be a directory which contains SDF,
@@ -47,6 +48,15 @@ def train_generator(
         else:
             arg_dict[key] = value
     args.config = args.config.name
+
+    # Save the current model into the checkpoint directory, which is where difflinker will look for starting weights
+    run_directory = Path(run_directory)
+    run_directory.mkdir(exist_ok=True)
+    chkpt_dir = run_directory / 'chkpt'
+    if starting_model is not None:
+        chkpt_dir.mkdir()
+        shutil.copyfile(starting_model, chkpt_dir / 'difflinker_epoch=00.ckpt')
+        args.resume = 'yes'
 
     # Write the training data to run directory, formatted as needed by difflinker
     #  TODO (wardlt): Include example molecules from GEOM?

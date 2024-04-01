@@ -1,6 +1,5 @@
 import json
 import gzip
-from pathlib import Path
 
 from pytest import fixture, mark
 
@@ -42,7 +41,8 @@ def test_load_model(load_denoising_model, load_size_gnn_model):
     assert load_size_gnn_model.__class__.__name__ == 'SizeClassifier'
 
 
-def test_training(file_dir, tmpdir):
+@mark.parametrize('finetune', [True, False])
+def test_training(file_dir, tmpdir, finetune):
     # Load some examples from disk
     examples = []
     with gzip.open(file_dir / 'datasets/mofs.json.gz') as fp:
@@ -52,8 +52,8 @@ def test_training(file_dir, tmpdir):
             examples.append(MOFRecord(**record))
 
     new_model = train_generator(
-        starting_model=None,
-        run_directory=Path(tmpdir),
+        starting_model=file_dir / 'geom_difflinker.ckpt' if finetune else None,
+        run_directory=tmpdir,
         config_path=file_dir / 'config.yaml',
         examples=examples,
         num_epochs=1
