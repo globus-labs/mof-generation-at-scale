@@ -2,13 +2,48 @@ import argparse
 import os
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
+from typing import Any
 
+import torch
 from pytorch_lightning import Trainer, callbacks
+from pytorch_lightning.accelerators import Accelerator
 from pytorch_lightning.callbacks import TQDMProgressBar
 
 from mofa.utils.src.const import NUMBER_OF_ATOM_TYPES, GEOM_NUMBER_OF_ATOM_TYPES
 from mofa.utils.src.lightning import DDPM
 from mofa.utils.src.utils import disable_rdkit_logging
+
+
+# Placeholder until XPU support merged: https://github.com/Lightning-AI/pytorch-lightning/pull/17700
+class XPUAccelerator(Accelerator):
+    """Shim for XPU support"""
+
+    # See: https://lightning.ai/docs/pytorch/stable/extensions/accelerator.html#create-a-custom-accelerator
+
+    def setup(self, trainer: Trainer) -> None:
+        import intel_extension_for_pytorch as ipex
+        trainer.model = ipex.optimize(trainer.model)
+
+    @staticmethod
+    def parse_devices(devices: Any) -> Any:
+        return devices
+
+    @staticmethod
+    def get_parallel_devices(devices: Any) -> Any:
+        return [torch.device("xpu", idx) for idx in devices]
+
+    @staticmethod
+    def auto_device_count() -> int:
+        # Return a value for auto-device selection when `Trainer(devices="auto")`
+        raise NotImplementedError()
+
+    @staticmethod
+    def is_available() -> bool:
+        return True
+
+    def get_device_stats(self, device: str | torch.device) -> dict[str, Any]:
+        # Return optional device statistics for loggers
+        return {}
 
 
 def get_args(args: list[str]) -> argparse.Namespace:
@@ -138,6 +173,13 @@ def main(
             if '.' in args.train_data_prefix:
                 context_node_nf += 1
 
+            # Make an XPU acceleator, if needed
+            if 'xpu' in args.device:
+                args.device = XPUAccelerator()
+                devices = [0]
+            else:
+                devices = "auto"
+
             checkpoint_callback = [callbacks.ModelCheckpoint(
                 dirpath=checkpoints_dir,
                 filename='difflinker_{epoch:02d}',
@@ -150,7 +192,7 @@ def main(
                 max_epochs=args.n_epochs,
                 callbacks=checkpoint_callback,
                 accelerator=args.device,
-                devices="auto",
+                devices=devices,
                 num_sanity_val_steps=0,
                 enable_progress_bar=args.enable_progress_bar,
             )

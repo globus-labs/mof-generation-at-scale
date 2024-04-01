@@ -56,7 +56,8 @@ class HPCConfig:
 class LocalConfig(HPCConfig):
     """Configuration used for testing purposes"""
 
-    torch_device = 'cuda'
+    torch_device = 'cpu'
+    lammps_env = {}
 
     @property
     def num_workers(self):
