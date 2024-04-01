@@ -91,7 +91,7 @@ def get_args(args: list[str]) -> argparse.Namespace:
     p.add_argument('--center_of_mass', type=str, default='fragments', help='Where to center the data: fragments | prompts')
     p.add_argument('--inpainting', action='store_true', default=False, help='Inpainting mode (full generation)')
     p.add_argument('--remove_anchors_context', action='store_true', default=False, help='Remove anchors context')
-    p.add_argument('--dataset_override',type=str, default="", help="Dataset override flag - set to MOFA for retraining")
+    p.add_argument('--dataset_override', type=str, default="", help="Dataset override flag - set to MOFA for retraining")
     disable_rdkit_logging()
 
     return p.parse_args(args)
@@ -234,7 +234,7 @@ def main(
                                                  inpainting=args.inpainting,
                                                  anchors_context=anchors_context, )
 
-            trainer.fit(model=ddpm)
+            trainer.fit(model=ddpm)  # TODO (wardlt): Separate the data loader from the model code
 
             # Save the last model
             trained_path = run_directory / 'model.ckpt'

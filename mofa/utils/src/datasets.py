@@ -3,18 +3,16 @@ import json
 import logging
 import os
 import pickle
-from typing import Union
-from uuid import uuid4
 
 import numpy as np
 import pandas as pd
 import torch
-import torch.nn.functional as F
 from rdkit import Chem
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
 from . import const
+from ...model import LigandDescription
 
 
 def read_sdf(sdf_path):
@@ -43,18 +41,16 @@ def parse_molecule(mol, is_geom):
 
 
 class MOFA_Dataset(Dataset):
-
     """Pytorch Dataset for MOFA generated data
 
     Example Usage: ds = MOFA_Dataset("datasets", "mof.json.gz", "cpu")
     """
     # Create a custom logger
-
     def __init__(self, data_path, prefix, device):
         self.log = logging.getLogger(__name__)
         if len(prefix.split(".")) != 1:
-            self.log(
-                f"WARNING the prefix you provided contains a period or an extension"
+            self.log.info(
+                "WARNING the prefix you provided contains a period or an extension"
             )
             prefix = prefix.split(".")[0]
 
@@ -80,31 +76,20 @@ class MOFA_Dataset(Dataset):
         # assumes since the data was not saved as pytorch its saved as json.gz
         dataset_path = os.path.join(data_path, f"{prefix}.json.gz")
         assert os.path.isfile(dataset_path)
-        mofa_data = self._read_mofa_from_jsongz(dataset_path)
-        for mofa_mof in mofa_data:
-            training_set.extend(self._process_one_mof_result(mofa_mof, device))
+        with gzip.open(dataset_path, mode='rt') as fp:
+            for line in fp:
+                mof_record = json.loads(line)
+                training_set.extend(self._process_one_mof_result(mof_record))
         return training_set
 
-    def _read_mofa_from_jsongz(self, filepath: Union[str, os.PathLike]):
-        json_objects = []
-        with gzip.open(filepath, "rt", encoding="utf-8") as file:
-            for line in file:
-                try:
-                    json_object = json.loads(line)
-                    json_objects.append(json_object)
-                except json.JSONDecodeError as e:
-                    self.log(f"Error decoding JSON of MOF object: {line}")
-                    self.log(e)
-        return json_objects
-
-    def _process_one_mof_result(self, mofa_mof, device):
+    def _process_one_mof_result(self, mofa_mof: dict) -> list[dict]:
         """Formats the ligands in a MOFA_MOF into a training object for the difflinker training script
 
         Parameters:
-        - mofa_mof: a mof that was generated within the mofa workflow
+            mofa_mof: a mof that was generated within the mofa workflow
 
         Returns:
-        - difflinker_ligand: a ligand in the format difflinker expects for training
+            List of ligands in a form ready for training
         """
         ligands = mofa_mof.get("ligands", None)
         assert ligands, "There are no ligands in this MOFA_MOF"
@@ -113,89 +98,15 @@ class MOFA_Dataset(Dataset):
         seen = set()
 
         for ligand in mofa_mof["ligands"]:
-            # TODO: this was done by smile string which is not a good unique identifier
-            # Tried the string representation non-hashable list, and tried converted training data into tuples (only the first ligand of each mof was accepted)
-            identifier = ligand["smiles"]
+            identifier = ligand["smiles"]  # TODO (wardlt): Switch to using the name field once we have a training set with this property
             if identifier in seen:
-                # TODO: investigate why printing here doesn't work
-                self.log(
+                self.log.info(
                     "MOFA Dataset to Training Set Conversion: Skipping ligand that we've already seen"
                 )
-                self.log(identifier)
                 continue
             else:
-                seen.add(identifier)
-                training_ligand = {}
-                training_ligand["uuid"] = str(uuid4())
-                training_ligand["name"] = ligand["smiles"]
-                xyz_info = ligand["xyz"].split("\n\n")[1]
-
-                # grab position information removing atom types and hydrogens
-                positions = [
-                    line.split()[1:]
-                    for line in xyz_info.strip().split("\n")
-                    if line.split()[0] != "H"
-                ]
-                positions = np.array(positions, dtype=float)
-                positions = torch.tensor(positions, dtype=torch.float, device=device)
-                training_ligand["positions"] = positions
-
-                # get the number of atoms with hydrogens removed and create one-hot encoding of atom types
-                atom_types = [
-                    line.split()[0]
-                    for line in xyz_info.strip().split("\n")
-                    if line.split()[0] != "H"
-                ]
-                atom_numbers = [
-                    const.GEOM_ATOM2IDX[atom] for atom in atom_types if atom != "H"
-                ]
-                training_ligand["num_atoms"] = len(atom_numbers)
-                atom_numbers_tensor = torch.tensor(
-                    atom_numbers, dtype=torch.long, device=device
-                )
-                one_hot_encoded = F.one_hot(
-                    atom_numbers_tensor, num_classes=len(const.GEOM_ATOM2IDX.keys())
-                )
-                training_ligand["one_hot"] = one_hot_encoded.float()
-
-                # convert atom types to charges
-                charges = [
-                    const.GEOM_CHARGES[atom] for atom in atom_types if atom != "H"
-                ]
-                training_ligand["charges"] = torch.tensor(
-                    charges, dtype=torch.float, device=device
-                )
-
-                # create linker_mask and fragment_mask using the "anchors" in the mofa data
-                flattened_indices = {
-                    index for sublist in ligand["anchor_atoms"] for index in sublist
-                }
-                linker_mask = [
-                    0 if i in flattened_indices else 1 for i in range(len(atom_numbers))
-                ]
-                training_ligand["linker_mask"] = torch.tensor(
-                    linker_mask, dtype=torch.float
-                )
-                training_ligand["fragment_mask"] = torch.tensor(
-                    [1 if x == 0 else 0 for x in linker_mask],
-                    dtype=torch.float,
-                    device=device,
-                )
-
-                # create anchors for difflinker
-                # TODO: this is fragile (its just the carbons in the two types we used COO and CN)
-                anchors = (
-                    np.array(atom_types)[training_ligand["fragment_mask"] == 1] == "C"
-                )
-                new_anchor_array = np.full(
-                    len(atom_types), fill_value=False, dtype=bool
-                )
-                new_anchor_array[: min(len(anchors), len(atom_types))] = anchors
-                training_ligand["anchors"] = torch.tensor(
-                    new_anchor_array, device=device
-                ).float()
-
-                generated_training_samples.append(training_ligand)
+                ligand = LigandDescription(**ligand)
+                generated_training_samples.append(ligand.to_training_example())
         return generated_training_samples
 
 

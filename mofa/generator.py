@@ -1,9 +1,12 @@
 """Functions pertaining to training and running the generative model"""
+import gzip
+import json
+from dataclasses import asdict
 from tempfile import TemporaryDirectory
 from typing import Iterator
 from pathlib import Path
 
-from mofa.model import LigandDescription, LigandTemplate
+from mofa.model import LigandDescription, LigandTemplate, MOFRecord
 from mofa.utils.difflinker_sample_and_analyze import main_run
 from mofa.difflinker_train import get_args, main
 import yaml
@@ -13,7 +16,7 @@ def train_generator(
         starting_model: str | Path | None,
         run_directory: Path,
         config_path: str | Path,
-        examples: Path,
+        examples: list[MOFRecord],
         num_epochs: int = 10,
         device: str = 'cpu',
 ) -> Path:
@@ -45,14 +48,20 @@ def train_generator(
             arg_dict[key] = value
     args.config = args.config.name
 
-    # Write the training data to a temporary directory, formatted as needed by difflinker
-    args.data = examples
-    args.val_data_prefix = 'hMOF_frag'
-    args.train_data_prefix = 'hMOF_frag'
+    # Write the training data to run directory, formatted as needed by difflinker
+    #  TODO (wardlt): Include example molecules from GEOM?
+    with gzip.open(run_directory / 'mofa_train.json.gz', 'wt') as fp:
+        for example in examples:
+            print(json.dumps(asdict(example)), file=fp)
+    args.data = run_directory
+    args.val_data_prefix = 'mofa_train'  # TODO (wardlt): Use separate data for validation?
+    args.train_data_prefix = 'mofa_train'
+    args.dataset_override = 'MOFA'
 
     # Overwrite the options provided by the Python function
     args.n_epochs = num_epochs
     args.device = device
+
     return main(args=args, run_directory=run_directory)
 
 

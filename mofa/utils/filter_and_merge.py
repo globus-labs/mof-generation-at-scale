@@ -3,9 +3,6 @@ from tqdm import tqdm
 from rdkit import Chem
 import pandas as pd
 import os
-import argparse
-import sys
-sys.path.append('../../')
 
 
 def run(input_dir, output_dir, template):

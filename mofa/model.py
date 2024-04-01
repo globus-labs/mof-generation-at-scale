@@ -23,7 +23,7 @@ from rdkit.Chem import rdDetermineBonds, AllChem
 
 from mofa.utils.conversions import read_from_string, write_to_string
 from mofa.utils.xyz import unsaturated_xyz_to_xyz
-from mofa.utils import const
+from mofa.utils.src import const
 
 
 @dataclass

@@ -1,8 +1,10 @@
+import json
+import gzip
 from pathlib import Path
 
 from pytest import fixture, mark
 
-from mofa.model import LigandTemplate
+from mofa.model import LigandTemplate, MOFRecord
 from mofa.utils.src.lightning import DDPM
 from mofa.utils.src.linker_size_lightning import SizeClassifier
 from mofa.generator import train_generator, run_generator
@@ -41,11 +43,19 @@ def test_load_model(load_denoising_model, load_size_gnn_model):
 
 
 def test_training(file_dir, tmpdir):
+    # Load some examples from disk
+    examples = []
+    with gzip.open(file_dir / 'datasets/mofs.json.gz') as fp:
+        for line in fp:
+            record = json.loads(line)
+            record.pop('_id')
+            examples.append(MOFRecord(**record))
+
     new_model = train_generator(
         starting_model=None,
         run_directory=Path(tmpdir),
         config_path=file_dir / 'config.yaml',
-        examples=file_dir / 'datasets/fragments_all/CuCu',
+        examples=examples,
         num_epochs=1
     )
     assert new_model.is_file()

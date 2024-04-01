@@ -32,7 +32,7 @@ import pathlib
 import pandas as pd
 
 ROOT_DIR = pathlib.Path(__file__).parent  # delinker direct
-sys.path.append(ROOT_DIR)
+sys.path.append(str(ROOT_DIR))
 
 _fscores = None
 
