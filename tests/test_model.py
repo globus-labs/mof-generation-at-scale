@@ -143,3 +143,20 @@ def test_ligand_description_swap(file_path, anchor_type):
     symbols = new_desc.atoms.symbols
     for prompt in new_desc.prompt_atoms:
         assert (symbols[prompt[-3:]] == ['C', 'O', 'O']).all()
+
+
+def test_ligand_to_difflinker_train(file_path):
+    example = LigandDescription.from_yaml(file_path / 'difflinker' / 'templates' / 'description_cyano_bigger_prompt.yml')
+    num_non_h = len([a for a in example.atoms.get_atomic_numbers() if a > 1])
+    train = example.to_training_example()
+
+    # Make sure the fragment and anchor atoms are correct
+    frag_ids = list(itertools.chain(*example.prompt_atoms))
+    fragment_mask = np.zeros(num_non_h)
+    fragment_mask[frag_ids] = 1
+    assert np.isclose(train["fragment_mask"].numpy(), fragment_mask).all()
+
+    anchor_mask = np.zeros(num_non_h)
+    for prompt in example.prompt_atoms:
+        anchor_mask[prompt[0]] = 1
+    assert np.isclose(train["anchors"].numpy(), anchor_mask).all()
