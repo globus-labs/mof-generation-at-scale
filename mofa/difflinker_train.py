@@ -24,6 +24,12 @@ class XPUAccelerator(Accelerator):
         import intel_extension_for_pytorch as ipex
         trainer.model = ipex.optimize(trainer.model)
 
+    def setup_device(self, device: torch.device) -> None:
+        return
+
+    def teardown(self) -> None:
+        return
+
     @staticmethod
     def parse_devices(devices: Any) -> Any:
         return devices
