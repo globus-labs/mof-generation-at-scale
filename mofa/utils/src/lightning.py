@@ -9,7 +9,7 @@ from .const import LINKER_SIZE_DIST
 from .egnn import Dynamics, DynamicsWithPockets
 from .edm import EDM, InpaintingEDM
 from .datasets import (
-    ZincDataset, MOADDataset, MOFA_Dataset create_templates_for_linker_generation, get_dataloader, collate
+    ZincDataset, MOADDataset, MOFA_Dataset, create_templates_for_linker_generation, get_dataloader, collate
 )
 from .linker_size import DistributionNodes
 from .molecule_builder import build_molecules

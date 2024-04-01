@@ -17,7 +17,6 @@ from pathlib import Path
 from threading import Event
 import logging
 import hashlib
-import gzip
 import json
 import sys
 
@@ -159,12 +158,12 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         # Output files
         self._output_files: dict[str, Path | TextIO] = {}
         for name in ['generation-results', 'simulation-results']:
-            self._output_files[name] = run_dir / f'{name}.json.gz'
+            self._output_files[name] = run_dir / f'{name}.json'
 
     def __enter__(self):
         """Open the output files"""
         for name, path in self._output_files.items():
-            self._output_files[name] = gzip.open(path, mode='wt', compresslevel=9)
+            self._output_files[name] = open(path, 'w')
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         for obj in self._output_files.values():
@@ -199,7 +198,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             self.rec.release('generation')
             self.logger.info(f'Generator task for anchor_type={anchor_type} size={size} finished')
 
-            print(result.json(exclude={'inputs', 'value'}), file=self._output_files['generation-results'], flush=False)
+            print(result.json(exclude={'inputs', 'value'}), file=self._output_files['generation-results'], flush=True)
             return
 
         # Retrieve the results
@@ -337,7 +336,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             self.logger.warning(f'MD task failed: {result.failure_info.exception}\nStack: {result.failure_info.traceback}')
         else:
             self.post_md_queue.put(result)
-        print(result.json(exclude={'inputs', 'value'}), file=self._output_files['simulation-results'])
+        print(result.json(exclude={'inputs', 'value'}), file=self._output_files['simulation-results'], flush=True)
 
     @agent()
     def process_md_results(self):

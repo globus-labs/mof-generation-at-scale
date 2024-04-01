@@ -32,7 +32,7 @@ python run_parallel_workflow.py \
       --ligand-templates input-files/zn-paddle-pillar/template_*.yml \
       --num-samples 1024 \
       --gen-batch-size 16 \
-      --simulation-budget 4096 \
+      --simulation-budget 100000 \
       --md-timesteps 1000000 \
       --md-snapshots 10 \
       --compute-config sunspot
