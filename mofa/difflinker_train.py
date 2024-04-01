@@ -22,7 +22,7 @@ class XPUAccelerator(Accelerator):
 
     def setup(self, trainer: Trainer) -> None:
         import intel_extension_for_pytorch as ipex
-        trainer.model = ipex.optimize(trainer.model)
+        trainer.model, trainer.optimizers[0] = ipex.optimize(trainer.model, optimizer=trainer.optimizers[0])
 
     def setup_device(self, device: torch.device) -> None:
         return
