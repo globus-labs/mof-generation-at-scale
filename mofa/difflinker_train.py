@@ -14,6 +14,13 @@ from mofa.utils.src.lightning import DDPM
 from mofa.utils.src.utils import disable_rdkit_logging
 
 
+def _intel_on_train_start(trainer: Trainer):
+    """Hook for optimizing the model and optimizer before training"""
+    import intel_extension_for_pytorch as ipex
+    assert len(trainer.optimizers) == 1, 'We only support one optimizer for now'
+    trainer.model, trainer.optimizers[0] = ipex.optimize(trainer.model, optimizer=trainer.optimizers[0])
+
+
 # Placeholder until XPU support merged: https://github.com/Lightning-AI/pytorch-lightning/pull/17700
 class XPUAccelerator(Accelerator):
     """Shim for XPU support"""
@@ -21,8 +28,7 @@ class XPUAccelerator(Accelerator):
     # See: https://lightning.ai/docs/pytorch/stable/extensions/accelerator.html#create-a-custom-accelerator
 
     def setup(self, trainer: Trainer) -> None:
-        import intel_extension_for_pytorch as ipex
-        trainer.model, trainer.optimizers[0] = ipex.optimize(trainer.model, optimizer=trainer.optimizers[0])
+        pass
 
     def setup_device(self, device: torch.device) -> None:
         return
@@ -181,9 +187,10 @@ def main(
 
             # Make an XPU acceleator, if needed
             if 'xpu' in args.device:
-                args.device = XPUAccelerator()
+                pl_device = XPUAccelerator()
                 devices = [0]
             else:
+                pl_device = args.device
                 devices = "auto"
 
             checkpoint_callback = [callbacks.ModelCheckpoint(
@@ -197,11 +204,15 @@ def main(
                 default_root_dir=log_directory,
                 max_epochs=args.n_epochs,
                 callbacks=checkpoint_callback,
-                accelerator=args.device,
+                accelerator=pl_device,
                 devices=devices,
                 num_sanity_val_steps=0,
                 enable_progress_bar=args.enable_progress_bar,
             )
+
+            # Add a callback for fit setup
+            if args.device == "xpu":
+                trainer.on_train_start = _intel_on_train_start
 
             # Get the model
             if args.resume is None:
