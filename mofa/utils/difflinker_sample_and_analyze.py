@@ -95,7 +95,7 @@ def main_run(templates: list[LigandTemplate],
                 'Please pass anchor atoms indices '
                 'or use another DiffLinker model that does not require information about anchors'
             )
-        
+
         one_hot = np.array([get_one_hot(s, atom2idx) for s in symbols])
         charges = np.array([charges_dict[s] for s in symbols])
         fragment_mask = np.ones_like(charges)

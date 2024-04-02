@@ -57,6 +57,7 @@ class LocalConfig(HPCConfig):
     """Configuration used for testing purposes"""
 
     torch_device = 'cuda'
+    lammps_env = {}
 
     @property
     def num_workers(self):
@@ -69,7 +70,7 @@ class LocalConfig(HPCConfig):
 
     def make_parsl_config(self, run_dir: Path) -> Config:
         return Config(
-            executors=[HighThroughputExecutor(max_workers=2)],
+            executors=[HighThroughputExecutor(max_workers=1)],
             run_dir=str(run_dir / 'runinfo')
         )
 

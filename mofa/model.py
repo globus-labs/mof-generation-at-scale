@@ -9,6 +9,8 @@ from uuid import uuid4
 import json
 
 import yaml
+import torch
+import torch.nn.functional as F
 import numpy as np
 from ase import Atom
 from ase.io import read
@@ -21,6 +23,7 @@ from rdkit.Chem import rdDetermineBonds, AllChem
 
 from mofa.utils.conversions import read_from_string, write_to_string
 from mofa.utils.xyz import unsaturated_xyz_to_xyz
+from mofa.utils.src import const
 
 
 @dataclass
@@ -150,6 +153,8 @@ class LigandTemplate:
 class LigandDescription:
     """Description of organic sections which connect inorganic nodes"""
 
+    name: str = None
+    """Unique name for the ligand"""
     smiles: str | None = field(default=None)
     """SMILES-format designation of the molecule"""
     xyz: str | None = field(default=None, repr=False)
@@ -167,6 +172,17 @@ class LigandDescription:
     never altered during MOF generation."""
     dummy_element: str = field(default=None, repr=False)
     """Element used to represent the anchor group during assembly"""
+
+    def __post_init__(self):
+        if self.name is None:
+            # Make a name by hashing
+            hasher = sha512()
+            if self.xyz is not None:
+                hasher.update(self.xyz.encode())
+            else:
+                hasher.update(str(uuid4()).encode())
+
+            self.name = f'ligand-{hasher.hexdigest()[-8:]}'
 
     @cached_property
     def atoms(self):
@@ -303,6 +319,74 @@ class LigandDescription:
             raise NotImplementedError(f'Logic not yet defined for anchor_type={self.anchor_type}')
 
         return output
+
+    def to_training_example(self) -> dict:
+        """Render this ligand into the training format for DiffLinker
+
+        Returns:
+            Difflinker-format representation of the training example
+        """
+
+        # Start with a unique name of the ligand
+        training_ligand = {"uuid": str(uuid4()), "name": self.smiles}
+
+        # Get the molecule without hydrogens, and a mapping between old and new index
+        atoms_with_h = self.atoms.copy()
+        original_ids = []
+        for i, atom in enumerate(atoms_with_h):
+            if atom.symbol != "H":
+                original_ids.append(i)
+        atoms_no_h = atoms_with_h[[a.symbol != "H" for a in atoms_with_h]]
+
+        old_to_new_ind = dict((a, i) for i, a in enumerate(original_ids))
+
+        # grab position information removing atom types and hydrogens
+        positions = torch.tensor(atoms_no_h.positions, dtype=torch.float)
+        training_ligand["positions"] = positions
+
+        # get the number of atoms with hydrogens removed and create one-hot encoding of atom types
+        atom_numbers = [
+            const.GEOM_ATOM2IDX[atom] for atom in atoms_no_h.get_chemical_symbols()
+        ]
+        training_ligand["num_atoms"] = len(atoms_no_h)
+        atom_numbers_tensor = torch.tensor(
+            atom_numbers, dtype=torch.long
+        )
+        one_hot_encoded = F.one_hot(
+            atom_numbers_tensor, num_classes=len(const.GEOM_ATOM2IDX.keys())
+        )
+        training_ligand["one_hot"] = one_hot_encoded.float()
+
+        # convert atom types to charges
+        charges = [
+            const.GEOM_CHARGES[atom] for atom in atoms_no_h.get_chemical_symbols()
+        ]
+        training_ligand["charges"] = torch.tensor(
+            charges, dtype=torch.float
+        )
+
+        # Map the IDs of prompt atoms and anchor atoms (first atom in prompt) to new indices (of the prompts w/o H)
+        anchor_ids = set()
+        prompt_ids = set()
+        for prompt in self.prompt_atoms:
+            anchor_ids.add(old_to_new_ind[prompt[0]])
+            prompt_ids.update(old_to_new_ind[p] for p in prompt if p in old_to_new_ind)
+
+        training_ligand["linker_mask"] = torch.tensor(
+            [0 if i in prompt_ids else 1 for i in range(len(atoms_no_h))], dtype=torch.float
+        )
+        training_ligand["fragment_mask"] = 1 - training_ligand["linker_mask"]
+
+        # create anchors for difflinker. Anchors are the first atom in the list of each prompt
+        new_anchor_array = np.full(
+            len(atoms_no_h), fill_value=False, dtype=bool
+        )
+        new_anchor_array[list(anchor_ids)] = True
+        training_ligand["anchors"] = torch.tensor(
+            new_anchor_array
+        ).float()
+
+        return training_ligand
 
     @classmethod
     def from_yaml(cls, path: Path) -> 'LigandDescription':
