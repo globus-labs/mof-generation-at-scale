@@ -16,14 +16,19 @@ def test_local(tmpdir):
 def test_polaris(tmpdir):
     hostfile_path = tmpdir / 'HOSTFILE'
     with open(hostfile_path, 'w') as fp:
-        print('localhost', file=fp)
+        for i in range(4):
+            print(f'host-{i}', file=fp)
     os.environ['PBS_NODEFILE'] = str(hostfile_path)
 
     try:
         config = configs['polaris']()
-        assert config.num_workers == 4
+        assert config.num_workers == 16
         parsl_cfg = config.make_parsl_config(Path(tmpdir))
         assert str(tmpdir) in parsl_cfg.run_dir
-        assert parsl_cfg.executors[0].provider.nodes_per_block == 1
+
+        # Make sure nodes are allocated appropriately
+        assert config.num_ai_workers == 4
+        assert config.num_sim_workers == 12
+
     finally:
         del os.environ['PBS_NODEFILE']

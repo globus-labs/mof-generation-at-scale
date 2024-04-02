@@ -216,7 +216,7 @@ hostname"""
                 available_accelerators=4,
                 provider=LocalProvider(
                     launcher=WrappedLauncher(
-                        f"mpiexec -n {len(self.sim_executors)} --ppn 1 --hostfile {sim_nodefile} --depth=64 --cpu-bind depth"
+                        f"mpiexec -n {len(self.sim_hosts)} --ppn 1 --hostfile {sim_nodefile} --depth=64 --cpu-bind depth"
                     ),
                     worker_init=worker_init,
                     min_blocks=1,
