@@ -76,6 +76,30 @@ class LocalConfig(HPCConfig):
 
 
 @dataclass(kw_only=True)
+class LocalConfigXY(HPCConfig):
+    """Configuration used for testing purposes"""
+
+    torch_device = 'cuda'
+    lammps_cmd = ("/home/xyan11/software/lmp20230802up3/build-gpu/lmp -sf gpu -pk gpu 1").split()
+    lammps_env = {}
+
+    @property
+    def num_workers(self):
+        return 2
+
+    def launch_monitor_process(self, log_dir: Path, freq: int = 20) -> Popen:
+        return Popen(
+            args=f"monitor_utilization --frequency {freq} {log_dir}".split()
+        )
+
+    def make_parsl_config(self, run_dir: Path) -> Config:
+        return Config(
+            executors=[HighThroughputExecutor(max_workers=1)],
+            run_dir=str(run_dir / 'runinfo')
+        )
+
+
+@dataclass(kw_only=True)
 class PolarisConfig(HPCConfig):
     """Configuration used on Polaris"""
 
@@ -193,6 +217,7 @@ hostname""",
 
 configs: dict[str, type[HPCConfig]] = {
     'local': LocalConfig,
+    'localXY': LocalConfigXY,
     'polaris': PolarisConfig,
     'sunspot': SunspotConfig
 }
