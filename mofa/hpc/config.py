@@ -135,6 +135,7 @@ class PolarisConfig(HPCConfig):
     torch_device = 'cuda'
     lammps_cmd = ('/lus/eagle/projects/ExaMol/mofa/lammps-2Aug2023/build-gpu-nompi-mixed/lmp '
                   '-sf gpu -pk gpu 1').split()
+    lammps_env = {}
 
     ai_hosts: list[str] = field(default_factory=list)
     """Hosts which will run AI tasks"""
