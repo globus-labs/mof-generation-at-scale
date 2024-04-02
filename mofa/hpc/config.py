@@ -217,6 +217,7 @@ hostname""",
 
 configs: dict[str, type[HPCConfig]] = {
     'local': LocalConfig,
+    'localXY': LocalConfig,
     'polaris': PolarisConfig,
     'sunspot': SunspotConfig
 }
