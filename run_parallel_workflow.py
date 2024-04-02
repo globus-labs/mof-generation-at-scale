@@ -113,6 +113,8 @@ class TrainingConfig:
     """Trigger retraining after these many computations have completed successfully"""
     maximum_train_size: int
     """How many of the top MOFs to train on"""
+    best_fraction: float
+    """Percentile of top MOFs to include in training set"""
 
 
 class MOFAThinker(BaseThinker, AbstractContextManager):
@@ -410,14 +412,15 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
 
         # Get the top MOFs
         sort_field = 'structure_stability.uff'
+        to_include = min(int(self.collection.estimated_document_count() * self.trainer_config.best_fraction), self.trainer_config.maximum_train_size)
         self.collection.create_index(sort_field)
         cursor = (
             self.collection.find(
                 {sort_field: {'$exists': True}},
-                {'md_trajectory': 0}  # Filter out the trajectory
+                {'md_trajectory': 0}  # Filter out the trajectory to save I/O
             )
             .sort(sort_field, pymongo.ASCENDING)
-            .limit(self.trainer_config.maximum_train_size)
+            .limit(to_include)
         )
         examples = []
         for record in cursor:
@@ -468,6 +471,7 @@ if __name__ == "__main__":
     group.add_argument('--retrain-freq', type=int, default=8, help='Trigger retraining after these many successful computations')
     group.add_argument('--maximum-train-size', type=int, default=256, help='Maximum number of MOFs to use for retraining')
     group.add_argument('--num-epochs', type=int, default=128, help='Number of training epochs')
+    group.add_argument('--best-fraction', type=float, default=0.5, help='What percentile of MOFs to include in training')
 
     group = parser.add_argument_group(title='Assembly Settings', description='Options related to MOF assembly')
     group.add_argument('--max-assemble-attempts', default=100,
@@ -479,6 +483,7 @@ if __name__ == "__main__":
 
     group = parser.add_argument_group(title='Compute Settings', description='Compute environment configuration')
     group.add_argument('--compute-config', default='local', help='Configuration for the HPC system')
+    group.add_argument('--sim-fraction', default=0.9, type=float, help='Fraction of workers devoted to AI tasks')
     group.add_argument('--redis-host', default=node(), help='Host for the Redis server')
 
     args = parser.parse_args()
@@ -504,7 +509,7 @@ if __name__ == "__main__":
         templates.append(template)
 
     # Load the HPC configuration
-    hpc_config = hpc_configs[args.compute_config]()
+    hpc_config = hpc_configs[args.compute_config](sim_fraction=args.sim_fraction)
     with (run_dir / 'compute-config.json').open('w') as fp:
         json.dump(asdict(hpc_config), fp)
 
@@ -529,6 +534,7 @@ if __name__ == "__main__":
         maximum_train_size=args.maximum_train_size,
         num_epochs=args.num_epochs,
         retrain_freq=args.retrain_freq,
+        best_fraction=args.best_fraction
     )
     train_func = partial(train_generator, config_path=args.generator_config_path,
                          num_epochs=trainer.num_epochs, device=hpc_config.torch_device)
