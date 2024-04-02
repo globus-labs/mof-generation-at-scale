@@ -3,10 +3,11 @@ from dataclasses import dataclass, field
 from subprocess import Popen
 from pathlib import Path
 import os
+from typing import Literal
 
 from parsl import HighThroughputExecutor
 from parsl import Config
-from parsl.launchers import MpiExecLauncher
+from parsl.launchers import MpiExecLauncher, WrappedLauncher
 from parsl.providers import LocalProvider
 
 
@@ -22,13 +23,27 @@ class HPCConfig:
     """Extra environment variables to include when running LAMMPS"""
 
     # How tasks are distributed
-    sim_executors: str | list[str] = 'all'
-    ai_executors: str | list[str] = 'all'
+    sim_fraction: float = 0.9
+    """Maximum fraction of resources set aside for simulation tasks"""
+    sim_executors: Literal['all'] | list[str] = 'all'
+    """Which executors are available for simulation tasks"""
+    ai_executors: Literal['all'] | list[str] = 'all'
+    """Which executors are available for AI tasks"""
 
     @property
     def num_workers(self) -> int:
         """Total number of workers"""
         raise NotImplementedError
+
+    @property
+    def num_ai_workers(self) -> int:
+        """Number of workers set aside for AI"""
+        raise NotImplementedError
+
+    @property
+    def num_sim_workers(self) -> int:
+        """Number of workers available for simulation"""
+        return self.num_workers - self.num_ai_workers
 
     def launch_monitor_process(self, log_dir: Path, freq: int = 20) -> Popen:
         """Launch a monitor process on all resources
@@ -54,14 +69,24 @@ class HPCConfig:
 
 @dataclass(kw_only=True)
 class LocalConfig(HPCConfig):
-    """Configuration used for testing purposes"""
+    """Configuration used for testing purposes
+
+    Uses a different worker for AI and simulation tasks.
+    """
 
     torch_device = 'cuda'
     lammps_env = {}
 
+    sim_executors = ['sim']
+    ai_executors = ['ai']
+
     @property
     def num_workers(self):
         return 2
+
+    @property
+    def num_ai_workers(self) -> int:
+        return 1
 
     def launch_monitor_process(self, log_dir: Path, freq: int = 20) -> Popen:
         return Popen(
@@ -70,7 +95,10 @@ class LocalConfig(HPCConfig):
 
     def make_parsl_config(self, run_dir: Path) -> Config:
         return Config(
-            executors=[HighThroughputExecutor(max_workers=1)],
+            executors=[
+                HighThroughputExecutor(label='sim', max_workers=1),
+                HighThroughputExecutor(label='ai', max_workers=1, available_accelerators=1)
+            ],
             run_dir=str(run_dir / 'runinfo')
         )
 
@@ -84,8 +112,16 @@ class PolarisConfig(HPCConfig):
                   '-sf gpu -pk gpu 1').split()
     hosts: list[str] = field(default_factory=list)
     """Lists of hosts on which this computation is running"""
+    ai_hosts: list[str] = field(default_factory=list)
+    sim_hosts: list[str] = field(default_factory=list)
+
     cpus_per_node: int = 64
     """Number of CPUs to use per node"""
+    gpus_per_node: int = 4
+    """Number of GPUs per compute node"""
+
+    sim_executors = ['sim']
+    ai_executors = ['ai']
 
     def __post_init__(self):
         # Determine the number of nodes from the PBS_NODEFILE
@@ -93,9 +129,18 @@ class PolarisConfig(HPCConfig):
         with open(node_file) as fp:
             self.hosts = [x.strip() for x in fp]
 
+        # Determine the number of hosts to use for simulation
+        num_sim_hosts = max(int(self.sim_fraction * len(self.hosts)), len(self.hosts) - 1)
+        self.sim_hosts = self.hosts[-num_sim_hosts:]  # Assign the last hosts, simulation tasks are likely more CPU-intensive and would interfere with Thinker
+        self.ai_hosts = self.hosts[:-num_sim_hosts]
+
     @property
     def num_workers(self):
-        return len(self.hosts) * 4
+        return len(self.hosts) * self.gpus_per_node
+
+    @property
+    def num_ai_workers(self):
+        return len(self.ai_hosts) * self.gpus_per_node
 
     def launch_monitor_process(self, log_dir: Path, freq: int = 20) -> Popen:
         return Popen(
@@ -104,24 +149,49 @@ class PolarisConfig(HPCConfig):
         )
 
     def make_parsl_config(self, run_dir: Path) -> Config:
-        num_nodes = len(self.hosts)
+        # Write the nodefiles
+        ai_nodefile = run_dir / 'ai.hosts'
+        ai_nodefile.write_text('\n'.join(self.ai_hosts))
+        sim_nodefile = run_dir / 'sim.hosts'
+        sim_nodefile.write_text('\n'.join(self.sim_hosts))
 
-        # Launch 4 workers per node, one per GPU
-        return Config(executors=[
-            HighThroughputExecutor(
-                max_workers=4,
-                cpu_affinity='block-reverse',
-                available_accelerators=4,
-                provider=LocalProvider(
-                    launcher=MpiExecLauncher(bind_cmd="--cpu-bind", overrides="--depth=64 --ppn 1"),
-                    worker_init="""
+        # Use the same worker_init
+        worker_init = """
 module load kokkos
 module load nvhpc/23.3
 module list
 source activate /lus/eagle/projects/ExaMol/mofa/mof-generation-at-scale/env-polaris
 which python
-hostname""",
-                    nodes_per_block=num_nodes
+hostname"""
+
+        # Launch 4 workers per node, one per GPU
+        return Config(executors=[
+            HighThroughputExecutor(
+                label='ai',
+                max_workers=4,
+                cpu_affinity='block-reverse',
+                available_accelerators=4,
+                provider=LocalProvider(
+                    launcher=WrappedLauncher(
+                        f"mpiexec -n {len(self.ai_hosts)} --ppn 1 --hostfile {ai_nodefile} --depth=64 --cpu-bind depth"
+                    ),
+                    worker_init=worker_init,
+                    min_blocks=1,
+                    max_blocks=1
+                )
+            ),
+            HighThroughputExecutor(
+                label='sim',
+                max_workers=4,
+                cpu_affinity='block-reverse',
+                available_accelerators=4,
+                provider=LocalProvider(
+                    launcher=WrappedLauncher(
+                        f"mpiexec -n {len(self.sim_executors)} --ppn 1 --hostfile {sim_nodefile} --depth=64 --cpu-bind depth"
+                    ),
+                    worker_init=worker_init,
+                    min_blocks=1,
+                    max_blocks=1
                 )
             ),
         ],
@@ -139,10 +209,7 @@ class SunspotConfig(PolarisConfig):
                   '-pk gpu 1 -sf gpu').split()
     lammps_env = {'OMP_NUM_THREADS': '1'}
     cpus_per_node = 208
-
-    @property
-    def num_workers(self) -> int:
-        return len(self.hosts) * 12
+    gpus_per_node = 12
 
     def launch_monitor_process(self, log_dir: Path, freq: int = 20) -> Popen:
         host_file = os.environ['PBS_NODEFILE']
