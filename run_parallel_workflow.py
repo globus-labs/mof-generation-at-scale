@@ -20,6 +20,7 @@ import hashlib
 import json
 import sys
 
+import pymongo
 from rdkit import Chem
 from rdkit import RDLogger
 from openbabel import openbabel as ob
@@ -34,7 +35,7 @@ from colmena.queue.redis import RedisQueues
 from colmena.thinker import BaseThinker, result_processor, task_submitter, ResourceCounter, event_responder, agent
 
 from mofa.assembly.assemble import assemble_mof
-from mofa.generator import run_generator
+from mofa.generator import run_generator, train_generator
 from mofa.model import MOFRecord, NodeDescription, LigandTemplate, LigandDescription
 from mofa.scoring.geometry import LatticeParameterChange
 from mofa.simulation.lammps import LAMMPSRunner
@@ -102,6 +103,18 @@ class GeneratorConfig:
     """Number of atoms within a linker to generate"""
 
 
+@dataclass
+class TrainingConfig:
+    """Configuration for retraining tasks"""
+
+    num_epochs: int
+    """Number of epochs to use for training"""
+    retrain_freq: int
+    """Trigger retraining after these many computations have completed successfully"""
+    maximum_train_size: int
+    """How many of the top MOFs to train on"""
+
+
 class MOFAThinker(BaseThinker, AbstractContextManager):
     """Thinker which schedules MOF generation and testing"""
 
@@ -118,11 +131,13 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
                  num_workers: int,
                  simulation_budget: int,
                  generator_config: GeneratorConfig,
+                 trainer_config: TrainingConfig,
                  node_template: NodeDescription):
         if num_workers < 2:
             raise ValueError(f'There must be at least two workers. Supplied: {num_workers}')
         super().__init__(queues, ResourceCounter(num_workers, task_types=['generation', 'simulation']))
         self.generator_config = generator_config
+        self.trainer_config = trainer_config
         self.node_template = node_template
         self.out_dir = out_dir
         self.simulations_left = simulation_budget
@@ -142,7 +157,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         # Database of completed MOFs
         self.database: dict[str, MOFRecord] = {}
 
-        # Set aside one node for generation
+        # Set aside one GPU for generation
         self.rec.reallocate(None, 'generation', 1)
         self.rec.reallocate(None, 'simulation', 'all')
 
@@ -151,13 +166,18 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         self.make_mofs = Event()  # Signal that we need new MOFs
         self.mofs_available = Event()  # Signal that new MOFs are done
 
+        # Settings related for training
+        self.start_train = Event()
+        self.num_completed = 0  # Number of MOFs which have finished training
+        self.model_iteration = 0  # Which version of the model we used for generating a ligand
+
         # Connect to MongoDB
         self.mongo_client = MongoClient()
         self.collection: Collection = mofadb.initialize_database(self.mongo_client)
 
         # Output files
         self._output_files: dict[str, Path | TextIO] = {}
-        for name in ['generation-results', 'simulation-results']:
+        for name in ['generation-results', 'simulation-results', 'training-results']:
             self._output_files[name] = run_dir / f'{name}.json'
 
     def __enter__(self):
@@ -176,10 +196,13 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         ligand_id, size = self.generate_queue.popleft()
         ligand = self.generator_config.templates[ligand_id]
         self.queues.send_inputs(
-            input_kwargs={'templates': [ligand], 'n_atoms': size},
+            input_kwargs={'model': self.generator_config.generator_path, 'templates': [ligand], 'n_atoms': size},
             topic='generation',
             method='run_generator',
-            task_info={'task': (ligand_id, size)}
+            task_info={
+                'task': (ligand_id, size),
+                'model_version': self.model_iteration
+            }
         )
         self.logger.info(f'Requested more samples of type={ligand.anchor_type} size={size}')
 
@@ -315,10 +338,8 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             topic='simulation',
             task_info={'name': to_run.name}
         )
-        self.simulations_left -= 1
         self.logger.info(f'Started MD simulation for mof={to_run.name}. '
-                         f'Simulation queue depth: {len(self.mof_queue)}. '
-                         f'Budget remaining: {self.simulations_left}')
+                         f'Simulation queue depth: {len(self.mof_queue)}.')
 
         if self.simulations_left == 0:
             self.done.set()
@@ -336,6 +357,9 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             self.logger.warning(f'MD task failed: {result.failure_info.exception}\nStack: {result.failure_info.traceback}')
         else:
             self.post_md_queue.put(result)
+
+            self.simulations_left -= 1
+            self.logger.info(f'Successful computation. Budget remaining: {self.simulations_left}')
         print(result.json(exclude={'inputs', 'value'}), file=self._output_files['simulation-results'], flush=True)
 
     @agent()
@@ -360,11 +384,64 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             traj_vasp = [write_to_string(t, 'vasp') for t in traj]
             record.md_trajectory['uff'] = traj_vasp
             strain = scorer.score_mof(record)
-            record.structure_stability['uff-10000'] = strain
+            record.structure_stability['uff'] = strain
             self.logger.info(f'Lattice change after MD simulation for mof={name}: {strain * 100:.1f}%')
 
             # Store the result in MongoDB
             mofadb.create_records(self.collection, [record])
+
+            # Determine if we should retrain
+            self.num_completed += 1
+            if self.num_completed % self.trainer_config.retrain_freq == 0:
+                self.start_train.set()
+                self.logger.info('Triggered retraining')
+
+    @event_responder(event_name='start_train')
+    def retrain(self):
+        """Retrain difflinker"""
+
+        # Determine the run directory
+        self.model_iteration += 1
+        train_dir = self.out_dir / 'retraining' / f'model-v{self.model_iteration}'
+        train_dir.mkdir(parents=True)
+        self.logger.info(f'Preparing to retrain Difflinker in {train_dir}')
+
+        # Get the top MOFs
+        sort_field = 'structure_stability.uff'
+        self.collection.create_index(sort_field)
+        cursor = (
+            self.collection.find(
+                {sort_field: {'$exists': True}},
+                {'md_trajectory': 0}  # Filter out the trajectory
+            )
+            .sort(sort_field, pymongo.ASCENDING)
+            .limit(self.trainer_config.maximum_train_size)
+        )
+        examples = []
+        for record in cursor:
+            record.pop("_id")
+            record['times'] = {}
+            record['md_trajectory'] = {}
+            examples.append(MOFRecord(**record))
+        self.logger.info(f'Gathered the top {len(examples)} records based on stability')
+
+        # Submit training using the latest model
+        self.queues.send_inputs(
+            self.generator_config.generator_path,
+            input_kwargs={'examples': examples, 'run_directory': train_dir},
+            method='train_generator',
+            topic='training',
+        )
+        self.logger.info('Submitted task for execution on any worker. Waiting until complete')
+
+        # Update the model
+        result = self.queues.get_result(topic='training')
+        result.task_info['train_size'] = len(examples)
+        assert result.success, f'Training failed: {result.failure_info.exception} - {result.failure_info.traceback}'
+        self.generator_config.generator_path = result.value
+        self.logger.info(f'Received training result. Updated generator path to {result.value}')
+
+        print(result.json(exclude={'inputs', 'value'}), file=self._output_files['training-results'], flush=True)
 
 
 if __name__ == "__main__":
@@ -383,6 +460,12 @@ if __name__ == "__main__":
     group.add_argument('--molecule-sizes', nargs='+', type=int, default=(10, 11, 12), help='Sizes of molecules we should generate')
     group.add_argument('--num-samples', type=int, default=16, help='Number of molecules to generate at each size')
     group.add_argument('--gen-batch-size', type=int, default=4, help='Number of ligands to stream per batch')
+
+    group = parser.add_argument_group('Retraining Settings', description='How often to retain, what to train on, etc')
+    group.add_argument('--generator-config-path', required=True, help='Path to the generator training configuration')
+    group.add_argument('--retrain-freq', type=int, default=8, help='Trigger retraining after these many successful computations')
+    group.add_argument('--maximum-train-size', type=int, default=256, help='Maximum number of MOFs to use for retraining')
+    group.add_argument('--num-epochs', type=int, default=128, help='Number of training epochs')
 
     group = parser.add_argument_group(title='Assembly Settings', description='Options related to MOF assembly')
     group.add_argument('--max-assemble-attempts', default=100,
@@ -410,7 +493,7 @@ if __name__ == "__main__":
     run_dir.mkdir(parents=True)
 
     # Configure to a use Redis queue, which allows streaming results form other nodes
-    queues = RedisQueues(hostname=args.redis_host, topics=['generation', 'simulation'])
+    queues = RedisQueues(hostname=args.redis_host, topics=['generation', 'simulation', 'training'])
 
     # Load the ligand descriptions
     templates = []
@@ -429,7 +512,7 @@ if __name__ == "__main__":
         atom_counts=args.molecule_sizes,
         templates=templates
     )
-    gen_func = partial(run_generator, model=generator.generator_path, n_samples=args.num_samples, device=hpc_config.torch_device)
+    gen_func = partial(run_generator, n_samples=args.num_samples, device=hpc_config.torch_device)
     gen_func = make_decorator(batched)(args.gen_batch_size)(gen_func)  # Wraps gen_func in a decorator in one line
     update_wrapper(gen_func, run_generator)
     gen_method = PythonGeneratorMethod(
@@ -438,6 +521,16 @@ if __name__ == "__main__":
         store_return_value=True,
         streaming_queue=queues
     )
+
+    # Make the training function
+    trainer = TrainingConfig(
+        maximum_train_size=args.maximum_train_size,
+        num_epochs=args.num_epochs,
+        retrain_freq=args.retrain_freq,
+    )
+    train_func = partial(train_generator, config_path=args.generator_config_path,
+                         num_epochs=trainer.num_epochs, device=hpc_config.torch_device)
+    update_wrapper(train_func, train_generator)
 
     # Make the LAMMPS function
     lmp_runner = LAMMPSRunner(hpc_config.lammps_cmd,
@@ -458,6 +551,7 @@ if __name__ == "__main__":
     thinker = MOFAThinker(queues,
                           num_workers=hpc_config.num_workers,
                           generator_config=generator,
+                          trainer_config=trainer,
                           simulation_budget=args.simulation_budget,
                           node_template=node_template,
                           out_dir=run_dir)
@@ -480,7 +574,7 @@ if __name__ == "__main__":
 
     # Launch the thinker and task server
     doer = ParslTaskServer(
-        methods=[gen_method, md_fun],
+        methods=[gen_method, train_func, md_fun],
         queues=queues,
         config=config
     )
