@@ -16,7 +16,6 @@ from ase import Atom
 from ase.io import read
 from ase.io.vasp import read_vasp
 import ase
-import pandas as pd
 import itertools
 from rdkit import Chem
 from rdkit.Chem import rdDetermineBonds, AllChem
@@ -216,63 +215,6 @@ class LigandDescription:
             ff.MMFFAddPositionConstraint(i, xyz_tol, force_constant)
         ff.Minimize(maxIts=max_iterations)
         self.xyz = Chem.MolToXYZBlock(mol)
-
-    def swap_cyano_with_COO(self):
-        """create a new LigandDescription object with the same middle part but with the -COO instead of -cyano groups
-
-        Returns:
-            the new -COO LigandDescription object
-        """
-
-        if self.dummy_element != "Fr" or self.anchor_type == "COO":
-            raise ValueError()
-
-        # Load in the current XYZ file
-        carboxylic_ion_CO_length = 1.26
-        df = pd.read_csv(StringIO(self.xyz), skiprows=2, sep=r"\s+", header=None, names=["element", "x", "y", "z"])
-
-        # Swap the C#N for COO in each of the prompts
-        new_prompt_list = []
-        for prompt in self.prompt_atoms:
-            # Determine the direction of the CN group
-            anchor = prompt[-2:]  # Only the last two atoms are the C#N, by definition in the Template
-            Cid = anchor[0]
-            Nid = anchor[1]
-            Cxyz = df.loc[Cid, ["x", "y", "z"]].values
-            Nxyz = df.loc[Nid, ["x", "y", "z"]].values
-            bisector = Cxyz - Nxyz
-            bisector = bisector / np.linalg.norm(bisector)
-
-            # Determine the position of the new oxygens
-            O1norm_vec = np.array([[0.5, -0.866, 0.], [0.866, 0.5, 0.], [0., 0., 1.]]) @ bisector
-            O2norm_vec = np.array([[0.5, 0.866, 0.], [-0.866, 0.5, 0.], [0., 0., 1.]]) @ bisector
-            O1xyz = -O1norm_vec * carboxylic_ion_CO_length + Cxyz
-            O2xyz = -O2norm_vec * carboxylic_ion_CO_length + Cxyz
-
-            # Assemble the new COO group
-            new_COO_df = pd.DataFrame(np.array([Cxyz, O1xyz, O2xyz]), columns=["x", "y", "z"])
-            new_COO_df["element"] = ["C", "O", "O"]
-            new_COO_df = new_COO_df[["element", "x", "y", "z"]]
-
-            # Append to the prompt in place of the original CN group
-            new_prompt = pd.concat([
-                df.loc[prompt[:-2]],
-                new_COO_df
-            ], ignore_index=True)
-
-            # Increment the index to start one after the last array
-            if len(new_prompt_list) > 0:
-                new_prompt.index += new_prompt_list[-1].index.max() + 1
-            new_prompt_list.append(new_prompt)
-
-        # Remove the old prompts, replace with new prompts
-        new_anchor_df = pd.concat(new_prompt_list, axis=0).reset_index(drop=True)
-        new_anchor_ids = [n.index.tolist() for n in new_prompt_list]
-
-        other_atom_df = df.drop(itertools.chain(*self.prompt_atoms))
-        final_df = pd.concat([new_anchor_df, other_atom_df.copy(deep=True)], axis=0, ignore_index=True)
-        new_xyz_str = str(len(final_df)) + "\n\n" + final_df.to_string(header=None, index=None)
-        return LigandDescription(anchor_type="COO", xyz=new_xyz_str, prompt_atoms=new_anchor_ids, dummy_element="At")
 
     def replace_with_dummy_atoms(self) -> ase.Atoms:
         """Replace the fragments which attach to nodes with dummy atoms

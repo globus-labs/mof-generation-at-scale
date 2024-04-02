@@ -248,14 +248,6 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
                 valid_count += 1
                 self.ligand_queue[anchor_type].append(ligand)  # Shoves old ligands out of the deque
 
-            # TODO (wardlt): Remove this hack when DiffLinker works with COO properly
-            if anchor_type != "COO":
-                # begin of swap cyano for COO
-                coo_ligand = ligand.swap_cyano_with_COO()
-                coo_record = process_ligand(coo_ligand)
-                all_records.append(coo_record)
-                if coo_record['valid']:
-                    self.ligand_queue["COO"].append(coo_ligand)
         self.logger.info(f'{valid_count} of {len(new_ligands)} are valid. ({valid_count / len(new_ligands) * 100:.1f}%)')
 
         # Write record of generation tasks to disk

@@ -21,7 +21,7 @@ echo launched redis on $redis_pid
 python run_parallel_workflow.py \
       --node-path input-files/zn-paddle-pillar/node.json \
       --generator-path input-files/zn-paddle-pillar/geom_difflinker.ckpt \
-      --ligand-templates input-files/zn-paddle-pillar/template_*.yml \
+      --ligand-templates input-files/zn-paddle-pillar/template_*_prompt.yml \
       --num-samples 1024 \
       --gen-batch-size 16 \
       --simulation-budget 4096 \
