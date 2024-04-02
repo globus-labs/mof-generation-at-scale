@@ -509,7 +509,8 @@ if __name__ == "__main__":
         templates.append(template)
 
     # Load the HPC configuration
-    hpc_config = hpc_configs[args.compute_config](sim_fraction=args.sim_fraction)
+    hpc_config = hpc_configs[args.compute_config]()
+    hpc_config.sim_fraction = args.sim_fraction
     with (run_dir / 'compute-config.json').open('w') as fp:
         json.dump(asdict(hpc_config), fp)
 

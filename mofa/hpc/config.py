@@ -1,5 +1,6 @@
 """Configuring a particular HPC resource"""
 from dataclasses import dataclass, field
+from functools import cached_property
 from subprocess import Popen
 from pathlib import Path
 import os
@@ -110,10 +111,11 @@ class PolarisConfig(HPCConfig):
     torch_device = 'cuda'
     lammps_cmd = ('/lus/eagle/projects/ExaMol/mofa/lammps-2Aug2023/build-gpu-nompi-mixed/lmp '
                   '-sf gpu -pk gpu 1').split()
-    hosts: list[str] = field(default_factory=list)
-    """Lists of hosts on which this computation is running"""
+
     ai_hosts: list[str] = field(default_factory=list)
+    """Hosts which will run AI tasks"""
     sim_hosts: list[str] = field(default_factory=list)
+    """Hosts which will run simulation tasks"""
 
     cpus_per_node: int = 64
     """Number of CPUs to use per node"""
@@ -123,16 +125,19 @@ class PolarisConfig(HPCConfig):
     sim_executors = ['sim']
     ai_executors = ['ai']
 
-    def __post_init__(self):
+    @cached_property
+    def hosts(self):
+        """Lists of hosts on which this computation is running"""
         # Determine the number of nodes from the PBS_NODEFILE
         node_file = os.environ['PBS_NODEFILE']
         with open(node_file) as fp:
-            self.hosts = [x.strip() for x in fp]
+            hosts = [x.strip() for x in fp]
 
         # Determine the number of hosts to use for simulation
-        num_sim_hosts = max(int(self.sim_fraction * len(self.hosts)), len(self.hosts) - 1)
-        self.sim_hosts = self.hosts[-num_sim_hosts:]  # Assign the last hosts, simulation tasks are likely more CPU-intensive and would interfere with Thinker
-        self.ai_hosts = self.hosts[:-num_sim_hosts]
+        num_sim_hosts = max(int(self.sim_fraction * len(hosts)), len(hosts) - 1)
+        self.sim_hosts = hosts[-num_sim_hosts:]  # Assign the last hosts, simulation tasks are likely more CPU-intensive and would interfere with Thinker
+        self.ai_hosts = hosts[:-num_sim_hosts]
+        return hosts
 
     @property
     def num_workers(self):
