@@ -505,7 +505,7 @@ if __name__ == "__main__":
     hpc_config = hpc_configs[args.compute_config]()
     with (run_dir / 'compute-config.json').open('w') as fp:
         json.dump(asdict(hpc_config), fp)
-    print(templates)
+
     # Make the generator settings and the function
     generator = GeneratorConfig(
         generator_path=args.generator_path,
