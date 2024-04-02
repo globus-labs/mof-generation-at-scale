@@ -10,4 +10,4 @@ python run_parallel_workflow.py \
       --num-samples 32 \
       --simulation-budget 8 \
       --redis-host 127.0.0.1 \
-      --compute-config local
+      --compute-config localXY
