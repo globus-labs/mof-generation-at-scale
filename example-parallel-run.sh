@@ -7,7 +7,8 @@ python run_parallel_workflow.py \
       --ligand-templates input-files/zn-paddle-pillar/template_*_prompt.yml \
       --retrain-freq 2 \
       --num-epochs 4 \
-      --num-samples 32 \
+      --num-samples 128 \
+      --gen-batch-size 64 \
       --simulation-budget 8 \
       --redis-host 127.0.0.1 \
       --compute-config local

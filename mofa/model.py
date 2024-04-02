@@ -158,8 +158,6 @@ class LigandDescription:
     """SMILES-format designation of the molecule"""
     xyz: str | None = field(default=None, repr=False)
     """XYZ coordinates of all atoms in the linker including all Hs"""
-    sdf: str | None = field(default=None, repr=False)
-    """SDF file string with atom positions and bond (with order) information (optional)"""
 
     # Information about how this ligand prompts to the inorganic portions
     anchor_type: str | None = field(default=None)
@@ -171,6 +169,9 @@ class LigandDescription:
     never altered during MOF generation."""
     dummy_element: str = field(default=None, repr=False)
     """Element used to represent the anchor group during assembly"""
+
+    metadata: dict[str, int | float | str] = field(default_factory=dict)
+    """Any notable information about the molecule"""
 
     def __post_init__(self):
         if self.name is None:

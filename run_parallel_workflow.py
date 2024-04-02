@@ -29,7 +29,7 @@ from pymongo.collection import Collection
 from more_itertools import batched, make_decorator
 from colmena.models import Result
 from colmena.models.methods import PythonGeneratorMethod
-from colmena.task_server import ParslTaskServer
+from colmena.task_server.parsl import ParslTaskServer
 from colmena.queue import ColmenaQueues
 from colmena.queue.redis import RedisQueues
 from colmena.thinker import BaseThinker, result_processor, task_submitter, ResourceCounter, event_responder, agent
@@ -42,7 +42,7 @@ from mofa.simulation.lammps import LAMMPSRunner
 from mofa.utils.conversions import write_to_string
 from mofa.utils.xyz import xyz_to_mol
 from mofa import db as mofadb
-from mofa.hpc.config import configs as hpc_configs
+from mofa.hpc.config import configs as hpc_configs, HPCConfig
 
 RDLogger.DisableLog('rdApp.*')
 ob.obErrorLog.SetOutputLevel(0)
@@ -113,6 +113,8 @@ class TrainingConfig:
     """Trigger retraining after these many computations have completed successfully"""
     maximum_train_size: int
     """How many of the top MOFs to train on"""
+    best_fraction: float
+    """Percentile of top MOFs to include in training set"""
 
 
 class MOFAThinker(BaseThinker, AbstractContextManager):
@@ -128,19 +130,20 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
     def __init__(self,
                  queues: ColmenaQueues,
                  out_dir: Path,
-                 num_workers: int,
+                 hpc_config: HPCConfig,
                  simulation_budget: int,
                  generator_config: GeneratorConfig,
                  trainer_config: TrainingConfig,
                  node_template: NodeDescription):
-        if num_workers < 2:
-            raise ValueError(f'There must be at least two workers. Supplied: {num_workers}')
-        super().__init__(queues, ResourceCounter(num_workers, task_types=['generation', 'simulation']))
+        if hpc_config.num_workers < 2:
+            raise ValueError(f'There must be at least two workers. Supplied: {hpc_config}')
+        super().__init__(queues, ResourceCounter(hpc_config.num_workers, task_types=['generation', 'simulation']))
         self.generator_config = generator_config
         self.trainer_config = trainer_config
         self.node_template = node_template
         self.out_dir = out_dir
         self.simulations_left = simulation_budget
+        self.hpc_config = hpc_config
 
         # Set up the queues
         self.mof_queue = deque(maxlen=200)  # Starts empty
@@ -158,11 +161,11 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         self.database: dict[str, MOFRecord] = {}
 
         # Set aside one GPU for generation
-        self.rec.reallocate(None, 'generation', 1)
-        self.rec.reallocate(None, 'simulation', 'all')
+        self.rec.reallocate(None, 'generation', self.hpc_config.num_ai_workers)
+        self.rec.reallocate(None, 'simulation', self.hpc_config.num_sim_workers)
 
         # Settings associated with MOF assembly
-        self.mofs_per_call = num_workers + 4
+        self.mofs_per_call = hpc_config.num_sim_workers + 4
         self.make_mofs = Event()  # Signal that we need new MOFs
         self.mofs_available = Event()  # Signal that new MOFs are done
 
@@ -204,6 +207,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
                 'model_version': self.model_iteration
             }
         )
+        self.generate_queue.append((ligand_id, size))  # Push this generation task back on the queue
         self.logger.info(f'Requested more samples of type={ligand.anchor_type} size={size}')
 
     @result_processor(topic='generation')
@@ -217,7 +221,6 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         # If "complete," then this is signifying the generator has finished and should not contain any ligands
         if result.complete:
             # Start a new task
-            self.generate_queue.append((ligand_id, size))  # Push this generation task back on the queue
             self.rec.release('generation')
             self.logger.info(f'Generator task for anchor_type={anchor_type} size={size} finished')
 
@@ -239,6 +242,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
 
         for ligand in new_ligands:
             record = process_ligand(ligand)
+            ligand.metadata['model_version'] = result.task_info['model_version']
             all_records.append(record)
             if record['valid']:
                 valid_count += 1
@@ -400,14 +404,15 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
 
         # Get the top MOFs
         sort_field = 'structure_stability.uff'
+        to_include = min(int(self.collection.estimated_document_count() * self.trainer_config.best_fraction), self.trainer_config.maximum_train_size)
         self.collection.create_index(sort_field)
         cursor = (
             self.collection.find(
                 {sort_field: {'$exists': True}},
-                {'md_trajectory': 0}  # Filter out the trajectory
+                {'md_trajectory': 0}  # Filter out the trajectory to save I/O
             )
             .sort(sort_field, pymongo.ASCENDING)
-            .limit(self.trainer_config.maximum_train_size)
+            .limit(to_include)
         )
         examples = []
         for record in cursor:
@@ -449,7 +454,8 @@ if __name__ == "__main__":
                        help='Path to YAML files containing a description of the ligands to be created')
     group.add_argument('--generator-path', required=True,
                        help='Path to the PyTorch files describing model architecture and weights')
-    group.add_argument('--molecule-sizes', nargs='+', type=int, default=(10, 11, 12), help='Sizes of molecules we should generate')
+    group.add_argument('--molecule-sizes', nargs='+', type=int, default=list(range(10, 21)),
+                       help='Sizes of molecules we should generate')
     group.add_argument('--num-samples', type=int, default=16, help='Number of molecules to generate at each size')
     group.add_argument('--gen-batch-size', type=int, default=4, help='Number of ligands to stream per batch')
 
@@ -458,6 +464,7 @@ if __name__ == "__main__":
     group.add_argument('--retrain-freq', type=int, default=8, help='Trigger retraining after these many successful computations')
     group.add_argument('--maximum-train-size', type=int, default=256, help='Maximum number of MOFs to use for retraining')
     group.add_argument('--num-epochs', type=int, default=128, help='Number of training epochs')
+    group.add_argument('--best-fraction', type=float, default=0.5, help='What percentile of MOFs to include in training')
 
     group = parser.add_argument_group(title='Assembly Settings', description='Options related to MOF assembly')
     group.add_argument('--max-assemble-attempts', default=100,
@@ -469,6 +476,7 @@ if __name__ == "__main__":
 
     group = parser.add_argument_group(title='Compute Settings', description='Compute environment configuration')
     group.add_argument('--compute-config', default='local', help='Configuration for the HPC system')
+    group.add_argument('--sim-fraction', default=0.9, type=float, help='Fraction of workers devoted to AI tasks')
     group.add_argument('--redis-host', default=node(), help='Host for the Redis server')
 
     args = parser.parse_args()
@@ -495,6 +503,7 @@ if __name__ == "__main__":
 
     # Load the HPC configuration
     hpc_config = hpc_configs[args.compute_config]()
+    hpc_config.sim_fraction = args.sim_fraction
     with (run_dir / 'compute-config.json').open('w') as fp:
         json.dump(asdict(hpc_config), fp)
 
@@ -519,6 +528,7 @@ if __name__ == "__main__":
         maximum_train_size=args.maximum_train_size,
         num_epochs=args.num_epochs,
         retrain_freq=args.retrain_freq,
+        best_fraction=args.best_fraction
     )
     train_func = partial(train_generator, config_path=args.generator_config_path,
                          num_epochs=trainer.num_epochs, device=hpc_config.torch_device)
@@ -541,7 +551,7 @@ if __name__ == "__main__":
 
     # Make the thinker
     thinker = MOFAThinker(queues,
-                          num_workers=hpc_config.num_workers,
+                          hpc_config=hpc_config,
                           generator_config=generator,
                           trainer_config=trainer,
                           simulation_budget=args.simulation_budget,
@@ -566,7 +576,11 @@ if __name__ == "__main__":
 
     # Launch the thinker and task server
     doer = ParslTaskServer(
-        methods=[gen_method, train_func, md_fun],
+        methods=[
+            (gen_method, {'executors': hpc_config.ai_executors}),
+            (train_func, {'executors': hpc_config.ai_executors}),
+            (md_fun, {'executors': hpc_config.sim_executors})
+        ],
         queues=queues,
         config=config
     )

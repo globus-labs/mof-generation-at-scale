@@ -67,7 +67,7 @@ if __name__ == "__main__":
     # Load in examples from the training set
     training_set = []
     with gzip.open('mofs.json.gz') as fp:
-        for line, _ in zip(fp, range(128)):
+        for line, _ in zip(fp, range(args.training_size)):
             record = json.loads(line)
             record.pop('_id')
             training_set.append(MOFRecord(**record))

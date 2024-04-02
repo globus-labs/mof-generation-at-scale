@@ -1,3 +1,4 @@
+from functools import lru_cache
 from typing import Iterator
 import os
 
@@ -49,6 +50,12 @@ def generate_animation(ddpm, chain_batch, node_mask, n_mol):
         visualize_chain(chain_output, wandb=None, mode=name, is_geom=ddpm.is_geom)  # set wandb None for now!
 
 
+@lru_cache(maxsize=1)  # Keep only one model in memory
+def load_model(path, device) -> DDPM:
+    """Load the DDPM model from disk"""
+    return DDPM.load_from_checkpoint(path, torch_device=device).eval().to(device)
+
+
 def main_run(templates: list[LigandTemplate],
              model, output_dir, n_samples, n_steps, linker_size,
              device: str = 'cpu') -> Iterator[LigandDescription]:
@@ -72,7 +79,8 @@ def main_run(templates: list[LigandTemplate],
             sizes = torch.tensor(sizes, device=samples.device, dtype=const.TORCH_INT)
             return sizes
 
-    ddpm = DDPM.load_from_checkpoint(model, torch_device=device).eval().to(device)
+    # Pull the model from disk, evicting the old one if needed
+    ddpm = load_model(model, device)
 
     # If xpu, optimize
     if device == "xpu":
