@@ -86,9 +86,9 @@ class CP2KRunner:
                 write_str = None
                 with open(_file_dir / "chargemol" / "job_control.txt", "r") as rf:
                     write_str = rf.read().replace("$$$ATOMIC_DENSITY_DIR$$$", atomic_density_folder_path)
-                with open(out_dir / "job_control.txt", "w") as wf:
+                with open(out_dir.absolute() / "job_control.txt", "w") as wf:
                     wf.write(write_str)
-                cmd = "cd " + out_dir + " && " + "chargemol"
+                cmd = "cd " + out_dir.absolute() + " && " + "chargemol"
                 os.system(cmd)
             return out_dir.absolute()
         finally:
