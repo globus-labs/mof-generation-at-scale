@@ -92,7 +92,7 @@ class CP2KRunner:
                 cube_fname = [x for x in os.listdir() if x.endswith(".cube")][-1]
                 # my local CP2k is not renaming the output automatically, so an extra renaming step is added here
                 os.rename(cube_fname, "valence_density.cube")
-                # run chargemol in the conda env bin, 
+                # run chargemol in the conda env bin
                 # chargemol uses all cores for OpenMP parallelism if no OMP_NUM_THREADS is set
                 os.system(f"OMP_NUM_THREADS={chargemol_nompt} chargemol")
                 os.chdir(start_dir)
