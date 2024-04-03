@@ -78,7 +78,7 @@ class CP2KRunner:
                 atoms.write('atoms.json')
 
             if self.run_ddec:
-                print(os.cwd())
+                print(os.getcwd())
                 print(out_dir)
                 print(out_dir.absolute())
                 # run ddec here
