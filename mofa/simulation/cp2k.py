@@ -80,10 +80,10 @@ class CP2KRunner:
             if self.run_ddec:
                 print(os.getcwd())
                 print(out_dir)
-                print(out_dir.absolute())
+                print(out_dir.resolve())
                 # run ddec here
                 import sys
-                atomic_density_folder_path = str(Path(sys.prefix).absolute() / "share" / "chargemol" / "atomic_densities")
+                atomic_density_folder_path = str(Path(sys.prefix).resolve() / "share" / "chargemol" / "atomic_densities")
                 if not atomic_density_folder_path.endswith("/"):
                     atomic_density_folder_path = atomic_density_folder_path + "/"
                 write_str = None
@@ -93,6 +93,6 @@ class CP2KRunner:
                     wf.write(write_str)
                 cmd = "chargemol"
                 os.system(cmd)
-            return out_dir.absolute()
+            return out_dir.resolve()
         finally:
             os.chdir(start_dir)
