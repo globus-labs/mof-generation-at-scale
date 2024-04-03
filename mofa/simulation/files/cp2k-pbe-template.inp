@@ -24,6 +24,7 @@
          &END E_DENSITY_CUBE
       &END
 
+      ! I guess no more OT?
       &SCF
          &MIXING
             METHOD BROYDEN_MIXING
