@@ -1,10 +1,3 @@
-&GLOBAL
-   PREFERRED_DIAG_LIBRARY  ELPA
-   RUN_TYPE ENERGY
-   PROJECT DDEC-MOFA
-   PRINT_LEVEL MEDIUM
-&END GLOBAL
-
 &FORCE_EVAL
    &DFT
       BASIS_SET_FILE_NAME BASIS_MOLOPT  ! file is available in cp2k/data, no need for local copies
