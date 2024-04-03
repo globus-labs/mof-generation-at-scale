@@ -31,6 +31,7 @@ jobs:
              sudo apt update
              sudo apt install -y cp2k
              which cp2k.psmp
+             ls /usr/bin/cp2k*
            else
              echo "$RUNNER_OS not supported"
              exit 1
