@@ -1,3 +1,6 @@
+&GLOBAL
+  PREFERRED_DIAG_LIBRARY  ELPA
+&END GLOBAL
 &FORCE_EVAL
    &DFT
       CHARGE 0  ! Species should be charged balanced
