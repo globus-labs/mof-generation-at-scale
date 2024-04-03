@@ -1,5 +1,5 @@
 <atomic densities directory complete path>
-$$$ATOMIC_DENSITY_DIR$$$/
+$$$ATOMIC_DENSITY_DIR$$$
 </atomic densities directory complete path>
 
 <net charge>
