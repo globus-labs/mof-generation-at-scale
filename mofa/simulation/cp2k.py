@@ -33,6 +33,9 @@ class CP2KRunner:
     run_dir: Path = Path('cp2k-runs')
     """Path in which to store CP2K files"""
 
+    run_ddec: bool = True
+    """whether to run DDEC after CP2k run or not"""
+
     def run_single_point(self, mof: MOFRecord, level: str = 'pbe') -> Path:
         """Perform a single-point computation at a certain level
 
@@ -75,6 +78,11 @@ class CP2KRunner:
 
                 # Write the
                 atoms.write('atoms.json')
+
+            if run_ddec:
+                # run ddec here
+                job_control_file = _file_dir / "chargemol" / "job_control.txt"
+                atomic_density_folder_path = _file_dir / "chargemol" / "atomic_densities"
             return out_dir.absolute()
         finally:
             os.chdir(start_dir)
