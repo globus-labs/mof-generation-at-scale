@@ -17,7 +17,6 @@ _cp2k_options = {
         'pseudo_potential': "GTH-PBE",
         'potential_file': None,
         'xc': None,  # Set in the input file
-        'stress_tensor': True,
         'cutoff': 280 * units.Ry
     }
 }
