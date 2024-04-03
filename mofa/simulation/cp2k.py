@@ -13,11 +13,10 @@ _file_dir = Path(__file__).parent / 'files'
 _cp2k_options = {
     'pbe': {
         'basis_set': 'DZVP-MOLOPT-SR-GTH',
-        'basis_set_file': None,
+        'basis_set_file': "BASIS_MOLOPT",
         'pseudo_potential': "GTH-PBE",
-        'potential_file': None,
-        'xc': None,  # Set in the input file
-        'cutoff': 280 * units.Ry
+        'potential_file': "GTH_POTENTIALS",
+        'cutoff': 600 * units.Ry
     }
 }
 
