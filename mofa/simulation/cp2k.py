@@ -65,7 +65,7 @@ class CP2KRunner:
         os.chdir(out_dir)
         try:
             with CP2K(
-                    # command=self.cp2k_invocation,
+                    command=self.cp2k_invocation,
                     directory=".",
                     inp=template_file.read_text(),
                     **options,
