@@ -26,7 +26,7 @@ jobs:
       run: |
         pip install -e .[test]
     - name: Add quantum chemistry tools (Linux)
-      condition: ${{ containsValue(matrix.os, 'ubuntu') }}
+      if: matrix.os == 'ubuntu-latest'
       run: |
         sudo apt-get update
         sudo apt install -y cp2k
