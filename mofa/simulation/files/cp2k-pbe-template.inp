@@ -13,14 +13,14 @@
       CHARGE 0  ! Species should be charged balanced
 
       &QS
-        METHOD GPW
+         METHOD GPW
       &END QS
 
       ! command to print cube file, rename cube file to "valance_density.cube" for DDEC Chargemol usage
       &PRINT
          &E_DENSITY_CUBE ON
-           FILENAME valence_density.cube
-           STRIDE 1 1 1
+            FILENAME valence_density.cube
+            STRIDE 1 1 1
          &END E_DENSITY_CUBE
       &END
 
@@ -52,4 +52,5 @@
          REL_CUTOFF [Ry] 60
       &END MGRID
    &END DFT
+   STRESS_TENSOR ANALYTICAL
 &END FORCE_EVAL
