@@ -1,5 +1,5 @@
 <atomic densities directory complete path>
-mof-generation-at-scale/mofa/simulation/files/chargemol/atomic_densities/
+$$$ATOMIC_DENSITY_DIR$$$/
 </atomic densities directory complete path>
 
 <net charge>
