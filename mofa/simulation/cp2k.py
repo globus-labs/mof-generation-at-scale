@@ -79,8 +79,10 @@ class CP2KRunner:
 
             if self.run_ddec:
                 # run ddec here
-                job_control_file = _file_dir / "chargemol" / "job_control.txt"
                 atomic_density_folder_path = _file_dir / "chargemol" / "atomic_densities"
+                print(atomic_density_folder_path)
+                import shutil
+                shutil.copy(_file_dir / "chargemol" / "job_control.txt", out_dir / "job_control.txt")
             return out_dir.absolute()
         finally:
             os.chdir(start_dir)
