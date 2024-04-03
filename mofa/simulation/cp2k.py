@@ -80,9 +80,14 @@ class CP2KRunner:
             if self.run_ddec:
                 # run ddec here
                 atomic_density_folder_path = _file_dir / "chargemol" / "atomic_densities"
-                print(atomic_density_folder_path)
-                import shutil
-                shutil.copy(_file_dir / "chargemol" / "job_control.txt", out_dir / "job_control.txt")
+                atomic_density_folder_path = str(atomic_density_folder_path.absolute())
+                if not atomic_density_folder_path.endswith("/"):
+                    atomic_density_folder_path = atomic_density_folder_path + "/"
+                write_str = None
+                with open(_file_dir / "chargemol" / "job_control.txt", "r") as rf:
+                    write_str = rf.read().replace("$$$ATOMIC_DENSITY_DIR$$$", atomic_density_folder_path)
+                with open(out_dir / "job_control.txt", "w") as wf:
+                    wf.write(write_str)
             return out_dir.absolute()
         finally:
             os.chdir(start_dir)
