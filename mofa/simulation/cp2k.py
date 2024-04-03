@@ -31,7 +31,7 @@ class CP2KRunner:
     run_dir: Path = Path('cp2k-runs')
     """Path in which to store CP2K files"""
 
-    run_ddec: bool = True
+    run_ddec: bool = False
     """whether to run DDEC after CP2k run or not"""
 
     def run_single_point(self, mof: MOFRecord, level: str = 'pbe') -> Path:
