@@ -77,7 +77,7 @@ class CP2KRunner:
                 # Write the
                 atoms.write('atoms.json')
 
-            if run_ddec:
+            if self.run_ddec:
                 # run ddec here
                 job_control_file = _file_dir / "chargemol" / "job_control.txt"
                 atomic_density_folder_path = _file_dir / "chargemol" / "atomic_densities"
