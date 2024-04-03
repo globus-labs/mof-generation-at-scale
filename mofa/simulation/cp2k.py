@@ -78,9 +78,10 @@ class CP2KRunner:
                 atoms.write('atoms.json')
 
             if self.run_ddec:
+                chargemol_nompt = 2  # OpenMP threads number for chargemol
                 # run ddec here
                 import sys
-                atomic_density_folder_path = str(Path(sys.prefix).resolve() / "share" / "chargemol" / "atomic_densities")
+                atomic_density_folder_path = str(Path(sys.prefix) / "share" / "chargemol" / "atomic_densities")
                 if not atomic_density_folder_path.endswith("/"):
                     atomic_density_folder_path = atomic_density_folder_path + "/"
                 write_str = None
@@ -89,9 +90,12 @@ class CP2KRunner:
                 with open("job_control.txt", "w") as wf:
                     wf.write(write_str)
                 cube_fname = [x for x in os.listdir() if x.endswith(".cube")][-1]
+                # my local CP2k is not renaming the output automatically, so an extra renaming step is added here
                 os.rename(cube_fname, "valence_density.cube")
-                cmd = "chargemol"
-                os.system(cmd)
-            return out_dir.absolute()
+                # run chargemol in the conda env bin, 
+                # chargemol uses all cores for OpenMP parallelism if no OMP_NUM_THREADS is set
+                os.system(f"OMP_NUM_THREADS={chargemol_nompt} chargemol")
+                os.chdir(start_dir)
         finally:
             os.chdir(start_dir)
+        return out_dir.absolute()
