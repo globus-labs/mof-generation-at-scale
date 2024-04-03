@@ -1,8 +1,5 @@
 &FORCE_EVAL
    &DFT
-      BASIS_SET_FILE_NAME BASIS_MOLOPT  ! file is available in cp2k/data, no need for local copies
-      POTENTIAL_FILE_NAME GTH_POTENTIALS  ! file is available in cp2k/data, no need for local copies
-
       CHARGE 0  ! Species should be charged balanced
 
       &QS
