@@ -41,7 +41,6 @@
 
       &MGRID
          NGRIDS 5
-         CUTOFF [Ry] 600
          REL_CUTOFF [Ry] 60
       &END MGRID
    &END DFT
