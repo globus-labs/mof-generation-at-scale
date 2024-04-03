@@ -78,9 +78,6 @@ class CP2KRunner:
                 atoms.write('atoms.json')
 
             if self.run_ddec:
-                print(os.getcwd())
-                print(out_dir)
-                print(out_dir.resolve())
                 # run ddec here
                 import sys
                 atomic_density_folder_path = str(Path(sys.prefix).resolve() / "share" / "chargemol" / "atomic_densities")
