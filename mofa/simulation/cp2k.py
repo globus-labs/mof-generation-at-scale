@@ -91,8 +91,10 @@ class CP2KRunner:
                     write_str = rf.read().replace("$$$ATOMIC_DENSITY_DIR$$$", atomic_density_folder_path)
                 with open("job_control.txt", "w") as wf:
                     wf.write(write_str)
+                cube_fname = [x for x in os.listdir() if x.endswith(".cube")][-1]
+                os.rename(cube_fname, "valence_density.cube")
                 cmd = "chargemol"
                 os.system(cmd)
-            return out_dir.resolve()
+            return out_dir.absolute()
         finally:
             os.chdir(start_dir)
