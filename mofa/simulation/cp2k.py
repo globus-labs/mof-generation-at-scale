@@ -14,6 +14,7 @@ _cp2k_options = {
     'pbe': {
         'basis_set': 'DZVP-MOLOPT-SR-GTH',
         'basis_set_file': None,
+        'pseudo_potential': "GTH-PBE",
         'potential_file': None,
         'xc': None,  # Set in the input file
         'stress_tensor': True,
