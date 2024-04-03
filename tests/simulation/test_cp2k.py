@@ -8,7 +8,7 @@ from mofa.simulation.cp2k import CP2KRunner
 def test_cp2k_runner(cif_name, cif_dir, tmpdir):
     # Make a CP2k simulator that reads and writes to a temporary directory
     runner = CP2KRunner(
-        cp2k_invocation="env OMP_THREADS_NUM=1 mpiexec -np 2 cp2k_shell.psmp",
+        cp2k_invocation="mpiexec -np 2 cp2k_shell.psmp",
         run_ddec=True,
     )
 
