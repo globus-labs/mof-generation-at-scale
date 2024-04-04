@@ -1,6 +1,8 @@
 """Run computations backed by CP2K"""
 from dataclasses import dataclass
+from subprocess import run
 from pathlib import Path
+import sys
 import os
 
 from ase.calculators.cp2k import CP2K
@@ -20,19 +22,54 @@ _cp2k_options = {
     }
 }
 
+# Get the path to the CP2K atomic density guesses
+_atomic_density_folder_path = str(Path(sys.prefix) / "share" / "chargemol" / "atomic_densities")
+if not _atomic_density_folder_path.endswith("/"):
+    _atomic_density_folder_path = _atomic_density_folder_path + "/"
+
+
+def compute_partial_charges(cp2k_path: Path, threads: int | None = 2):
+    """Compute partial charges with DDEC
+
+    Args:
+        cp2k_path: Path to a CP2K computation which wrote a CUBE file
+        threads: Number of threads to use for chargemol
+    """
+
+    # Make a copy of the input file
+    with open(_file_dir / "chargemol" / "job_control.txt", "r") as rf:
+        write_str = rf.read().replace("$$$ATOMIC_DENSITY_DIR$$$", _atomic_density_folder_path)
+    with open(cp2k_path / "job_control.txt", "w") as wf:
+        wf.write(write_str)
+
+    # my local CP2k is not renaming the output automatically, so an extra renaming step is added here
+    if not (cp2k_path / "valence_density.cube").is_file():
+        cube_fname = list(cp2k_path.glob('*.cube'))
+        if len(cube_fname) != 1:
+            raise ValueError(f'Expected 1 cube file. Found {cube_fname}')
+        cube_fname[0].rename(cp2k_path / "valence_density.cube")
+
+    # chargemol uses all cores for OpenMP parallelism if no OMP_NUM_THREADS is set
+    with open(cp2k_path / 'chargemol.stdout', 'w') as fo, open(cp2k_path / 'chargemol.stderr', 'w') as fe:
+        if threads is not None:
+            env = os.environ.copy()
+            env['OMP_THREADS'] = str(threads)
+        else:
+            env = None
+        proc = run(["chargemol"], cwd=cp2k_path, env=env, stdout=fo, stderr=fe)
+        if proc.returncode != 0:
+            raise ValueError(f'Chargemol failed in {cp2k_path}')
+
 
 @dataclass
 class CP2KRunner:
     """Interface for running pre-defined CP2K workflows"""
 
-    cp2k_invocation: list[str] = ('cp2k_shell',)
+    cp2k_invocation: str = 'cp2k_shell'
     """Invocation used to run CP2K on this system"""
 
     run_dir: Path = Path('cp2k-runs')
     """Path in which to store CP2K files"""
-
-    run_ddec: bool = False
-    """whether to run DDEC after CP2k run or not"""
 
     def run_single_point(self, mof: MOFRecord, level: str = 'pbe') -> Path:
         """Perform a single-point computation at a certain level
@@ -76,26 +113,6 @@ class CP2KRunner:
 
                 # Write the
                 atoms.write('atoms.json')
-
-            if self.run_ddec:
-                chargemol_nompt = 2  # OpenMP threads number for chargemol
-                # run ddec here
-                import sys
-                atomic_density_folder_path = str(Path(sys.prefix) / "share" / "chargemol" / "atomic_densities")
-                if not atomic_density_folder_path.endswith("/"):
-                    atomic_density_folder_path = atomic_density_folder_path + "/"
-                write_str = None
-                with open(_file_dir / "chargemol" / "job_control.txt", "r") as rf:
-                    write_str = rf.read().replace("$$$ATOMIC_DENSITY_DIR$$$", atomic_density_folder_path)
-                with open("job_control.txt", "w") as wf:
-                    wf.write(write_str)
-                cube_fname = [x for x in os.listdir() if x.endswith(".cube")][-1]
-                # my local CP2k is not renaming the output automatically, so an extra renaming step is added here
-                os.rename(cube_fname, "valence_density.cube")
-                # run chargemol in the conda env bin
-                # chargemol uses all cores for OpenMP parallelism if no OMP_NUM_THREADS is set
-                os.system(f"OMP_NUM_THREADS={chargemol_nompt} chargemol")
-                os.chdir(start_dir)
         finally:
             os.chdir(start_dir)
         return out_dir.absolute()
