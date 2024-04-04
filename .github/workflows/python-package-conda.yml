@@ -25,6 +25,16 @@ jobs:
     - name: Install test dependencies
       run: |
         pip install -e .[test]
+    - name: Add quantum chemistry tools (Linux)
+      run: |
+           if [ "$RUNNER_OS" == "Linux" ]; then
+             sudo apt update
+             sudo apt install -y cp2k
+           else
+             echo "$RUNNER_OS not supported"
+             exit 1
+           fi
+      shell: bash
     - name: Lint with flake8
       run: |
         pip install flake8
