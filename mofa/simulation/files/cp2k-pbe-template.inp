@@ -6,8 +6,10 @@
       CHARGE 0  ! Species should be charged balanced
 
       &QS
-         METHOD GPW
-      &END QS
+        EPS_DEFAULT 1.0E-7
+        EXTRAPOLATION_ORDER 3
+        EXTRAPOLATION PS
+      &END
 
       ! command to print cube file, rename cube file to "valance_density.cube" for DDEC Chargemol usage
       &PRINT
@@ -41,7 +43,7 @@
 
       &MGRID
          NGRIDS 5
-         REL_CUTOFF [Ry] 60
+         REL_CUTOFF [Ry] 50
       &END MGRID
    &END DFT
 &END FORCE_EVAL
