@@ -1,4 +1,5 @@
 """Run computations backed by CP2K"""
+from contextlib import redirect_stdout, redirect_stderr
 from dataclasses import dataclass
 from subprocess import run
 from pathlib import Path
@@ -98,21 +99,22 @@ class CP2KRunner:
         out_dir.mkdir(parents=True, exist_ok=True)
         (out_dir / 'cp2k.out').write_text('')  # Clear old content
         os.chdir(out_dir)
-        try:
-            with CP2K(
-                    command=self.cp2k_invocation,
-                    directory=".",
-                    inp=template_file.read_text(),
-                    **options,
-            ) as calc:
+        with open('cp2k.stdout', 'w') as fo, redirect_stdout(fo), open('cp2k.stderr', 'w') as fe, redirect_stderr(fe):
+            try:
+                with CP2K(
+                        command=self.cp2k_invocation,
+                        directory=".",
+                        inp=template_file.read_text(),
+                        **options,
+                ) as calc:
 
-                # Run the calculation
-                atoms = mof.atoms
-                atoms.calc = calc
-                atoms.get_potential_energy()
+                    # Run the calculation
+                    atoms = mof.atoms
+                    atoms.calc = calc
+                    atoms.get_potential_energy()
 
-                # Write the
-                atoms.write('atoms.json')
-        finally:
-            os.chdir(start_dir)
-        return out_dir.absolute()
+                    # Write the
+                    atoms.write('atoms.json')
+            finally:
+                os.chdir(start_dir)
+            return out_dir.absolute()

@@ -30,22 +30,26 @@ def test_polaris(tmpdir):
         hosts = config.hosts
         assert len(hosts) == 4
         assert len(config.ai_hosts) == 1
-        assert len(config.cp2k_hosts) == 1
-        assert len(config.lammps_hosts) == 2
+        assert len(config.cp2k_hosts) == 2
+        assert len(config.lammps_hosts) == 1
 
-        assert config.num_workers == 4 + 8 + 1
+        assert config.num_workers == 4 + 4 + 1
         parsl_cfg = config.make_parsl_config(Path(tmpdir))
         assert str(tmpdir) in parsl_cfg.run_dir
 
         # Make sure nodes are allocated appropriately
         assert config.num_ai_workers == 4
-        assert config.num_lammps_workers == 8
+        assert config.num_lammps_workers == 4
         assert config.num_cp2k_workers == 1
 
         # Check the CPU affinity
         assert parsl_cfg.executors[0].cpu_affinity == 'list:24-31:16-23:8-15:0-7'
         assert parsl_cfg.executors[1].cpu_affinity == 'list:24-30:16-22:8-14:0-6'
         assert parsl_cfg.executors[-1].cpu_affinity == 'list:7:15:23:31'
+
+        # Make the cp2k call
+        cmd = config.cp2k_cmd
+        assert str(config.run_dir) in cmd
 
     finally:
         del os.environ['PBS_NODEFILE']

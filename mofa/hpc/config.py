@@ -178,12 +178,14 @@ class PolarisConfig(HPCConfig):
             hosts = [x.strip() for x in fp]
 
         # Determine the number of nodes to use for AI
-        num_ai_hosts = max(1, min(int(self.ai_fraction * len(hosts)), len(hosts) - 2))
+        num_ai_hosts = max(1, min(int(self.ai_fraction * len(hosts)), len(hosts) - self.nodes_per_cp2k - 1))
         self.ai_hosts = hosts[:num_ai_hosts]
 
         # Determine the number of hosts to use for simulation
         sim_hosts = hosts[num_ai_hosts:]
-        num_dft_hosts = max(1, min(int(self.dft_fraction * len(sim_hosts)), len(sim_hosts) - 1))  # Within [1, len(sim_hosts) - 1]
+        max_cp2k_slots = len(sim_hosts) // self.nodes_per_cp2k
+        num_cp2k_slots = max(1, min(int(self.dft_fraction * max_cp2k_slots), max_cp2k_slots))  # [nodes_per_cp2k, len(sim_hosts) - nodes_per_cp2k]
+        num_dft_hosts = num_cp2k_slots * self.nodes_per_cp2k
         self.lammps_hosts = sim_hosts[num_dft_hosts:]
         self.cp2k_hosts = sim_hosts[:num_dft_hosts]
         return hosts
