@@ -430,7 +430,6 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             cursor = (
                 self.collection.find(
                     {sort_field: {'$exists': True}},
-                    {'md_trajectory': 0}  # Filter out the trajectory to save I/O
                 )
                 .sort(sort_field, pymongo.ASCENDING)
             )
@@ -550,6 +549,9 @@ if __name__ == "__main__":
     with (run_dir / 'compute-config.json').open('w') as fp:
         json.dump(asdict(hpc_config), fp)
 
+    # Make the Parsl configuration
+    config = hpc_config.make_parsl_config(run_dir)
+
     # Make the generator settings and the function
     generator = GeneratorConfig(
         generator_path=args.generator_path,
@@ -620,9 +622,6 @@ if __name__ == "__main__":
 
     # Save the run parameters to disk
     (run_dir / 'params.json').write_text(json.dumps(run_params))
-
-    # Make the Parsl configuration
-    config = hpc_config.make_parsl_config(run_dir)
 
     # Launch the thinker and task server
     doer = ParslTaskServer(
