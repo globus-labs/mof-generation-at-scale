@@ -206,12 +206,15 @@ class PolarisConfig(HPCConfig):
         )
 
     def make_parsl_config(self, run_dir: Path) -> Config:
+        self.run_dir = str(run_dir)  # Used for CP2K config
+        assert len(self.hosts) > 0, 'No hosts detected'
+
         # Write the nodefiles
         ai_nodefile = run_dir / 'ai.hosts'
         ai_nodefile.write_text('\n'.join(self.ai_hosts))
         lammps_nodefile = run_dir / 'lammps.hosts'
         lammps_nodefile.write_text('\n'.join(self.lammps_hosts))
-        cp2k_nodefile = run_dir / 'lammps.hosts'
+        cp2k_nodefile = run_dir / 'cp2k.hosts'
         cp2k_nodefile.write_text('\n'.join(self.cp2k_hosts))
 
         # Use the same worker_init for most workers
