@@ -21,6 +21,8 @@ import json
 import sys
 
 import pymongo
+from proxystore.connectors.redis import RedisConnector
+from proxystore.store import Store
 from rdkit import RDLogger
 from openbabel import openbabel as ob
 from pymongo import MongoClient
@@ -534,8 +536,16 @@ if __name__ == "__main__":
     run_dir = Path('run') / f'parallel-{args.compute_config}-{start_time.strftime("%d%b%y%H%M%S")}-{params_hash}'
     run_dir.mkdir(parents=True)
 
+    # Open a proxystore with Redis
+    store = Store(name='redis', connector=RedisConnector(hostname=args.redis_host, port=6379), metrics=True)
+
     # Configure to a use Redis queue, which allows streaming results form other nodes
-    queues = RedisQueues(hostname=args.redis_host, topics=['generation', 'lammps', 'cp2k', 'training'])
+    queues = RedisQueues(
+        hostname=args.redis_host,
+        topics=['generation', 'lammps', 'cp2k', 'training'],
+        proxystore_name='redis',
+        proxystore_threshold=10000
+    )
 
     # Load the ligand descriptions
     templates = []
@@ -659,3 +669,6 @@ if __name__ == "__main__":
         util_proc.terminate()
         mongo_proc.terminate()
         mongo_proc.poll()
+
+        # Close the proxy store
+        store.close()
