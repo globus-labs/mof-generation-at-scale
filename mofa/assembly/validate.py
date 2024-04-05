@@ -1,40 +1,57 @@
 """Validate and standardize a generated molecule"""
-from io import StringIO
-
-from ase import Atoms
-
 from rdkit import Chem
-from rdkit.Chem import rdDetermineBonds
+
+from mofa.model import LigandDescription
+from mofa.utils.xyz import xyz_to_mol
 
 
-def validate_xyz(atoms: Atoms) -> str:
-    """Generate the SMILES string from n molecule structure if it passes some quality checks
-
-    Quality checks:
-        1. Molecule is only one fragment
+def process_ligands(ligands: list[LigandDescription]) -> tuple[list[LigandDescription], list[dict]]:
+    """Assess whether a ligand is valid and prepare it for the next step
 
     Args:
-        atoms: Atoms object produced by the generator
+        ligands: Ligands to be processed
     Returns:
-        SMILES string of a validated molecule
-    Raises:
-        ValueError if molecule fails validation checks
+        - List of the ligands which pass validation
+        - Records describing the ligands suitable for serialization into CSV file
     """
 
-    # Write the atoms to an XYZ
-    fp = StringIO()
-    atoms.write(fp, format='xyz')
-    xyz = fp.getvalue()
+    all_records = []
+    valid_ligands = []
 
-    # Parse the XYZ and detect bonds
-    mol = Chem.MolFromXYZBlock(xyz)
-    rdDetermineBonds.DetermineConnectivity(mol)
-    rdDetermineBonds.DetermineBonds(mol)
+    for ligand in ligands:
 
-    # Make sure it parses as one molecule
-    if len(Chem.GetMolFrags(mol)) > 1:
-        raise ValueError('Disconnected molecule')
+        # Store the ligand information for debugging purposes
+        record = {"anchor_type": ligand.anchor_type,
+                  "smiles": None,
+                  "xyz": ligand.xyz,
+                  "prompt_atoms": ligand.prompt_atoms,
+                  "valid": False}
+        all_records.append(record)  # Record is still editable even after added to list
 
-    # Remove the Hs for parsimony
-    mol_no_h = Chem.RemoveHs(mol)
-    return Chem.MolToSmiles(mol_no_h)
+        # Try constrained optimization on the ligand
+        try:
+            ligand.anchor_constrained_optimization()
+        except (ValueError, AttributeError,):
+            continue
+
+        # Parse each new ligand, determine whether it is a single molecule
+        try:
+            mol = xyz_to_mol(ligand.xyz)
+        except (ValueError,):
+            continue
+
+        # Store the smiles string
+        mol = Chem.RemoveHs(mol)
+        smiles = Chem.MolToSmiles(mol)
+        record['smiles'] = smiles
+
+        if len(Chem.GetMolFrags(mol)) > 1:
+            continue
+
+        # If passes, save the SMILES string and store the molecules
+        ligand.smiles = Chem.MolToSmiles(mol)
+
+        # Update the record, add to ligand queue and prepare it for writing to disk
+        record['valid'] = True
+        valid_ligands.append(ligand)
+    return valid_ligands, all_records

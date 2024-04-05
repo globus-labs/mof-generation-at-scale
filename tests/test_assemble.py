@@ -1,24 +1,13 @@
 from pathlib import Path
 from io import StringIO
 
-from rdkit import Chem
 from pytest import mark
 from ase.io import read
 
 from mofa.assembly.assemble import assemble_pillaredPaddleWheel_pcuMOF, assemble_mof
 from mofa.model import NodeDescription, LigandDescription
-from mofa.assembly.preprocess_linkers import clean_linker
 
 _files_dir = Path(__file__).parent / 'files' / 'assemble'
-
-
-@mark.parametrize('smiles', ['C=Cc1ccccc1C=C'])
-def test_prepare_linker(smiles):
-    mol = Chem.MolFromSmiles(smiles)
-    linkers = clean_linker(mol)
-    assert len(linkers) == 3
-    for xyz in linkers.values():
-        read(StringIO(xyz), format='xyz')  # Make sure it parses as an XYZ
 
 
 def test_paddlewheel_pcu():

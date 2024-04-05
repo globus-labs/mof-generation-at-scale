@@ -30,6 +30,8 @@ class HPCConfig:
     """Which executors are available for simulation tasks"""
     ai_executors: Literal['all'] | list[str] = 'all'
     """Which executors are available for AI tasks"""
+    helper_executors: Literal['all'] | list[str] = 'all'
+    """Which executors are available for processing tasks"""
 
     @property
     def num_workers(self) -> int:
@@ -80,6 +82,7 @@ class LocalConfig(HPCConfig):
 
     sim_executors = ['sim']
     ai_executors = ['ai']
+    helper_executors = ['helper']
 
     @property
     def num_workers(self):
@@ -98,6 +101,7 @@ class LocalConfig(HPCConfig):
         return Config(
             executors=[
                 HighThroughputExecutor(label='sim', max_workers=1),
+                HighThroughputExecutor(label='helper', max_workers=1),
                 HighThroughputExecutor(label='ai', max_workers=1, available_accelerators=1)
             ],
             run_dir=str(run_dir / 'runinfo')
@@ -142,13 +146,14 @@ class PolarisConfig(HPCConfig):
     sim_hosts: list[str] = field(default_factory=list)
     """Hosts which will run simulation tasks"""
 
-    cpus_per_node: int = 64
+    cpus_per_node: int = 32
     """Number of CPUs to use per node"""
     gpus_per_node: int = 4
     """Number of GPUs per compute node"""
 
     sim_executors = ['sim']
     ai_executors = ['ai']
+    helper_executors = ['helper']
 
     @cached_property
     def hosts(self):
@@ -194,12 +199,21 @@ source activate /lus/eagle/projects/ExaMol/mofa/mof-generation-at-scale/env-pola
 which python
 hostname"""
 
+        # Divide CPUs on "sim" such that a from each NUMA affinity are set aside for helpers
+        #  See https://docs.alcf.anl.gov/polaris/hardware-overview/machine-overview/#polaris-device-affinity-information
+        cpus_per_worker = self.cpus_per_node // self.gpus_per_node  # Only use one thread per core
+        helpers_per_worker = 1  # One core per worker set aside for "helpers"
+        sim_cores = [f"{i * cpus_per_worker}-{(i + 1) * cpus_per_worker - helpers_per_worker - 1}" for i in range(4)][::-1]  # GPU3 is to cores 0-7
+        helper_cores = [str(i) for w in range(4) for i in range((w + 1) * cpus_per_worker - helpers_per_worker, (w + 1) * cpus_per_worker)]
+
+        ai_cores = [f"{i * cpus_per_worker}-{(i + 1) * cpus_per_worker - 1}" for i in range(4)][::-1]  # All CPUs to AI tasks
+
         # Launch 4 workers per node, one per GPU
         return Config(executors=[
             HighThroughputExecutor(
                 label='ai',
                 max_workers=4,
-                cpu_affinity='block-reverse',
+                cpu_affinity='list:' + ":".join(ai_cores),
                 available_accelerators=4,
                 provider=LocalProvider(
                     launcher=WrappedLauncher(
@@ -212,8 +226,22 @@ hostname"""
             ),
             HighThroughputExecutor(
                 label='sim',
-                max_workers=4,
-                cpu_affinity='block-reverse',
+                max_workers=self.gpus_per_node,
+                cpu_affinity='list:' + ":".join(sim_cores),
+                available_accelerators=4,
+                provider=LocalProvider(
+                    launcher=WrappedLauncher(
+                        f"mpiexec -n {len(self.sim_hosts)} --ppn 1 --hostfile {sim_nodefile} --depth=64 --cpu-bind depth"
+                    ),
+                    worker_init=worker_init,
+                    min_blocks=1,
+                    max_blocks=1
+                )
+            ),
+            HighThroughputExecutor(
+                label='helper',
+                max_workers=helpers_per_worker * self.gpus_per_node,
+                cpu_affinity='list:' + ":".join(helper_cores),
                 available_accelerators=4,
                 provider=LocalProvider(
                     launcher=WrappedLauncher(

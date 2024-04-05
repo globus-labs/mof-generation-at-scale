@@ -1,6 +1,6 @@
 """An example of the workflow which runs all aspects of MOF generation in parallel"""
 from contextlib import AbstractContextManager
-from functools import partial, update_wrapper
+from functools import partial, update_wrapper, cached_property
 from subprocess import Popen
 from typing import TextIO
 from csv import DictWriter
@@ -21,74 +21,30 @@ import json
 import sys
 
 import pymongo
-from rdkit import Chem
 from rdkit import RDLogger
 from openbabel import openbabel as ob
 from pymongo import MongoClient
 from pymongo.collection import Collection
 from more_itertools import batched, make_decorator
 from colmena.models import Result
-from colmena.models.methods import PythonGeneratorMethod
 from colmena.task_server.parsl import ParslTaskServer
 from colmena.queue import ColmenaQueues
 from colmena.queue.redis import RedisQueues
 from colmena.thinker import BaseThinker, result_processor, task_submitter, ResourceCounter, event_responder, agent
 
 from mofa.assembly.assemble import assemble_mof
+from mofa.assembly.validate import process_ligands
 from mofa.generator import run_generator, train_generator
 from mofa.model import MOFRecord, NodeDescription, LigandTemplate, LigandDescription
 from mofa.scoring.geometry import LatticeParameterChange
 from mofa.simulation.lammps import LAMMPSRunner
 from mofa.utils.conversions import write_to_string
-from mofa.utils.xyz import xyz_to_mol
+from mofa.hpc.colmena import DiffLinkerInference
 from mofa import db as mofadb
 from mofa.hpc.config import configs as hpc_configs, HPCConfig
 
 RDLogger.DisableLog('rdApp.*')
 ob.obErrorLog.SetOutputLevel(0)
-
-
-def process_ligand(ligand: LigandDescription) -> dict:
-    """Assess whether a ligand is valid and prepare it for the next step
-
-    Args:
-        ligand: Ligand to be processed
-    Returns:
-        Record describing the ligand suitable for serialization into CSV file
-    """
-    # Store the ligand information for debugging purposes
-    record = {"anchor_type": ligand.anchor_type,
-              "smiles": None,
-              "xyz": ligand.xyz,
-              "prompt_atoms": ligand.prompt_atoms,
-              "valid": False}
-
-    # Try constrained optimization on the ligand
-    try:
-        ligand.anchor_constrained_optimization()
-    except (ValueError, AttributeError,):
-        return record
-
-    # Parse each new ligand, determine whether it is a single molecule
-    try:
-        mol = xyz_to_mol(ligand.xyz)
-    except (ValueError,):
-        return record
-
-    # Store the smiles string
-    Chem.RemoveHs(mol)
-    smiles = Chem.MolToSmiles(mol)
-    record['smiles'] = smiles
-
-    if len(Chem.GetMolFrags(mol)) > 1:
-        return record
-
-    # If passes, save the SMILES string and store the molecules
-    ligand.smiles = Chem.MolToSmiles(mol)
-
-    # Update the record, add to ligand queue and prepare it for writing to disk
-    record['valid'] = True
-    return record
 
 
 @dataclass
@@ -101,6 +57,12 @@ class GeneratorConfig:
     """The templates being generated"""
     atom_counts: list[int]
     """Number of atoms within a linker to generate"""
+    min_ligand_candidates: int
+    """Minimum number of candidates of each anchor needed before assembling MOFs"""
+
+    @cached_property
+    def anchor_types(self) -> set[str]:
+        return set(x.anchor_type for x in self.templates)
 
 
 @dataclass
@@ -122,7 +84,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
 
     mof_queue: deque[MOFRecord]
     """Priority queue of MOFs to be evaluated"""
-    ligand_queue: dict[str, deque[LigandDescription]]
+    ligand_assembly_queue: dict[str, deque[LigandDescription]]
     """Queue of the latest ligands to be generated for each type"""
     generate_queue: deque[tuple[int, int]]
     """Queue used to ensure we generate equal numbers of each type of ligand"""
@@ -153,7 +115,8 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         shuffle(tasks)
         self.generate_queue.extend(tasks)
 
-        self.ligand_queue = defaultdict(lambda: deque(maxlen=200))  # Starts empty
+        self.ligand_process_queue: Queue[Result] = Queue()  # Ligands ready to be stored in queues
+        self.ligand_assembly_queue = defaultdict(lambda: deque(maxlen=200))  # Starts empty
 
         self.post_md_queue: Queue[Result] = Queue()  # Holds MD results ready to be stored
 
@@ -218,66 +181,67 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         ligand_id, size = result.task_info['task']
         anchor_type = self.generator_config.templates[ligand_id].anchor_type
 
-        # If "complete," then this is signifying the generator has finished and should not contain any ligands
-        if result.complete:
+        # The generation topic includes both the generator and process functions
+        self.logger.info(f'Generator task type={result.method} for anchor_type={anchor_type} size={size} finished')
+        if result.method == 'run_generator':
             # Start a new task
             self.rec.release('generation')
-            self.logger.info(f'Generator task for anchor_type={anchor_type} size={size} finished')
+        elif result.method == 'process_ligands':
+            # Process them asynchronously
+            self.ligand_process_queue.put(result)
 
-            print(result.json(exclude={'inputs', 'value'}), file=self._output_files['generation-results'], flush=True)
-            return
-
-        # Retrieve the results
         if not result.success:
             self.logger.warning(f'Generation task failed: {result.failure_info.exception}\nStack: {result.failure_info.traceback}')
-            print(result.json(exclude={'inputs', 'value'}), file=self._output_files['generation-results'])
-            return
-        new_ligands: list[LigandDescription] = result.value
-        self.logger.info(f'Received {len(new_ligands)} new ligands of anchor_type={anchor_type} size={size}')
 
-        # Check if they are valid
-        #  TODO (wardlt): Make this parallel
-        all_records = []
-        valid_count = 0
-
-        for ligand in new_ligands:
-            record = process_ligand(ligand)
-            ligand.metadata['model_version'] = result.task_info['model_version']
-            all_records.append(record)
-            if record['valid']:
-                valid_count += 1
-                self.ligand_queue[anchor_type].append(ligand)  # Shoves old ligands out of the deque
-
-        self.logger.info(f'{valid_count} of {len(new_ligands)} are valid. ({valid_count / len(new_ligands) * 100:.1f}%)')
-
-        # Write record of generation tasks to disk
-        if valid_count > 0:
-            # Signal that we're ready for more MOFs
-            self.make_mofs.set()
-
-        # Store the generated ligands
-        record_file = self.out_dir / 'all_ligands.csv'
-        first_write = not record_file.is_file()
-
-        with record_file.open('a') as fp:
-            writer = DictWriter(fp, all_records[0].keys())
-            if first_write:
-                writer.writeheader()
-            writer.writerows(all_records)
-
-        # Store the task information
         print(result.json(exclude={'inputs', 'value'}), file=self._output_files['generation-results'], flush=False)
+
+    @agent()
+    def process_ligands(self):
+        """Store ligands to disk and process queues"""
+
+        while not (self.done.is_set() and self.queues.wait_until_done(timeout=0.01)):
+            # Wait for a result
+            try:
+                result = self.ligand_process_queue.get(block=True, timeout=1)
+            except Empty:
+                continue
+
+            # Lookup task information
+            ligand_id, size = result.task_info['task']
+            anchor_type = self.generator_config.templates[ligand_id].anchor_type
+
+            # Put ligands in the assembly queue
+            valid_ligands, all_records = result.value
+            self.logger.info(f'Received {len(all_records)} {anchor_type} ligands of size {size}, '
+                             f'{len(valid_ligands)} ({len(valid_ligands) / len(all_records) * 100:.1f}%) are valid. '
+                             f'Processing backlog: {self.ligand_process_queue.qsize()}')
+
+            self.ligand_assembly_queue[anchor_type].extend(valid_ligands)  # Shoves old ligands out of the deque
+            self.logger.info(f'Current length of {anchor_type} queue: {len(self.ligand_assembly_queue[anchor_type])}')
+
+            # Signal that we're ready for more MOFs
+            if len(valid_ligands) > 0:
+                self.make_mofs.set()
+
+            # Store the generated ligands
+            record_file = self.out_dir / 'all_ligands.csv'
+            first_write = not record_file.is_file()
+
+            with record_file.open('a') as fp:
+                writer = DictWriter(fp, all_records[0].keys())
+                if first_write:
+                    writer.writeheader()
+                writer.writerows(all_records)
 
     @event_responder(event_name='make_mofs')
     def assemble_new_mofs(self):
         """Pull from the list of ligands and create MOFs. Runs when new MOFs are available"""
 
         # Check that we have enough ligands to start assembly
-        requirements = {'COO': 2, 'cyano': 1}
-        for anchor_type, count in requirements.items():
-            have = len(self.ligand_queue[anchor_type])
-            if have < count:
-                self.logger.info(f'Too few candidate for anchor_type={anchor_type}. have={have}, need={count}')
+        for anchor_type in self.generator_config.anchor_types:
+            have = len(self.ligand_assembly_queue[anchor_type])
+            if have < self.generator_config.min_ligand_candidates:
+                self.logger.info(f'Too few candidate for anchor_type={anchor_type}. have={have}, need={self.generator_config.min_ligand_candidates}')
                 return
 
         # Make a certain number of attempts
@@ -288,8 +252,9 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
 
             # Get a sample of ligands
             ligand_choices = {}
+            requirements = {'COO': 2, 'cyano': 1}  # TODO (wardlt): Do not hard code this
             for anchor_type, count in requirements.items():
-                ligand_choices[anchor_type] = [choice(self.ligand_queue[anchor_type])] * count
+                ligand_choices[anchor_type] = [choice(self.ligand_assembly_queue[anchor_type])] * count
 
             # Attempt assembly
             try:
@@ -471,6 +436,7 @@ if __name__ == "__main__":
     group = parser.add_argument_group(title='Assembly Settings', description='Options related to MOF assembly')
     group.add_argument('--max-assemble-attempts', default=100,
                        help='Maximum number of attempts to create a MOF')
+    group.add_argument('--minimum-ligand-pool', type=int, default=4, help='Minimum number of ligands before MOF assembly')
 
     group = parser.add_argument_group(title='Simulation Settings Settings', description='Options related to MOF assembly')
     group.add_argument('--md-timesteps', default=100000, help='Number of timesteps for the UFF MD simulation', type=int)
@@ -497,7 +463,7 @@ if __name__ == "__main__":
     # Configure to a use Redis queue, which allows streaming results form other nodes
     queues = RedisQueues(hostname=args.redis_host, topics=['generation', 'simulation', 'training'])
 
-    # Load the ligand descriptions
+    # Load the ligand descriptionsm
     templates = []
     for path in args.ligand_templates:
         template = LigandTemplate.from_yaml(path)
@@ -513,12 +479,13 @@ if __name__ == "__main__":
     generator = GeneratorConfig(
         generator_path=args.generator_path,
         atom_counts=args.molecule_sizes,
-        templates=templates
+        templates=templates,
+        min_ligand_candidates=args.minimum_ligand_pool
     )
     gen_func = partial(run_generator, n_samples=args.num_samples, device=hpc_config.torch_device)
     gen_func = make_decorator(batched)(args.gen_batch_size)(gen_func)  # Wraps gen_func in a decorator in one line
     update_wrapper(gen_func, run_generator)
-    gen_method = PythonGeneratorMethod(
+    gen_method = DiffLinkerInference(
         function=gen_func,
         name='run_generator',
         store_return_value=True,
@@ -581,7 +548,8 @@ if __name__ == "__main__":
         methods=[
             (gen_method, {'executors': hpc_config.ai_executors}),
             (train_func, {'executors': hpc_config.ai_executors}),
-            (md_fun, {'executors': hpc_config.sim_executors})
+            (md_fun, {'executors': hpc_config.sim_executors}),
+            (process_ligands, {'executors': hpc_config.helper_executors})
         ],
         queues=queues,
         config=config
