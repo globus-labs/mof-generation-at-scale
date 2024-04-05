@@ -208,11 +208,12 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
 
             # Lookup task information
             ligand_id, size = result.task_info['task']
+            model_version = result.task_info['model_version']
             anchor_type = self.generator_config.templates[ligand_id].anchor_type
 
             # Put ligands in the assembly queue
             valid_ligands, all_records = result.value
-            self.logger.info(f'Received {len(all_records)} {anchor_type} ligands of size {size}, '
+            self.logger.info(f'Received {len(all_records)} {anchor_type} ligands of size {size} from model v{model_version}, '
                              f'{len(valid_ligands)} ({len(valid_ligands) / len(all_records) * 100:.1f}%) are valid. '
                              f'Processing backlog: {self.ligand_process_queue.qsize()}')
 
@@ -222,6 +223,10 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             # Signal that we're ready for more MOFs
             if len(valid_ligands) > 0:
                 self.make_mofs.set()
+
+            # Add the model version to the ligand identity
+            for record in all_records:
+                record['model_version'] = model_version
 
             # Store the generated ligands
             record_file = self.out_dir / 'all_ligands.csv'
