@@ -30,6 +30,8 @@ class HPCConfig:
     """Which executors are available for simulation tasks"""
     ai_executors: Literal['all'] | list[str] = 'all'
     """Which executors are available for AI tasks"""
+    helper_executors: Literal['all'] | list[str] = 'all'
+    """Which executors are available for processing tasks"""
 
     @property
     def num_workers(self) -> int:
@@ -80,6 +82,7 @@ class LocalConfig(HPCConfig):
 
     sim_executors = ['sim']
     ai_executors = ['ai']
+    helper_executors = ['helper']
 
     @property
     def num_workers(self):
@@ -98,6 +101,7 @@ class LocalConfig(HPCConfig):
         return Config(
             executors=[
                 HighThroughputExecutor(label='sim', max_workers=1),
+                HighThroughputExecutor(label='helper', max_workers=1),
                 HighThroughputExecutor(label='ai', max_workers=1, available_accelerators=1)
             ],
             run_dir=str(run_dir / 'runinfo')
