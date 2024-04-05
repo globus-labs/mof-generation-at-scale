@@ -1,0 +1,21 @@
+<atomic densities directory complete path>
+$$$ATOMIC_DENSITY_DIR$$$
+</atomic densities directory complete path>
+
+<net charge>
+0.0
+</net charge>
+
+<periodicity along A, B, and C vectors>
+.true.
+.true.
+.true.
+</periodicity along A, B, and C vectors>
+
+<charge type>
+DDEC6 <-- DDEC3 or DDEC6
+</charge type>
+
+<compute BOs>
+.false. <-- specifies whether to compute bond orders or not
+</compute BOs>

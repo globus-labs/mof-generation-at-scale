@@ -292,7 +292,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             self.logger.info('No MOFs are available for simulation. Waiting')
             self.mofs_available.wait()
 
-        to_run = self.mof_queue.popleft()
+        to_run = self.mof_queue.pop()
         self.queues.send_inputs(
             to_run,
             method='run_molecular_dynamics',
@@ -399,9 +399,11 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         # Update the model
         result = self.queues.get_result(topic='training')
         result.task_info['train_size'] = len(examples)
-        assert result.success, f'Training failed: {result.failure_info.exception} - {result.failure_info.traceback}'
-        self.generator_config.generator_path = result.value
-        self.logger.info(f'Received training result. Updated generator path to {result.value}')
+        if result.success:
+            self.generator_config.generator_path = result.value
+            self.logger.info(f'Received training result. Updated generator path to {result.value}')
+        else:
+            self.logger.warning(f'Training failed: {result.failure_info.exception} - {result.failure_info.traceback}')
 
         print(result.json(exclude={'inputs', 'value'}), file=self._output_files['training-results'], flush=True)
 

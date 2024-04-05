@@ -164,7 +164,7 @@ class PolarisConfig(HPCConfig):
             hosts = [x.strip() for x in fp]
 
         # Determine the number of hosts to use for simulation
-        num_sim_hosts = max(int(self.sim_fraction * len(hosts)), len(hosts) - 1)
+        num_sim_hosts = min(int(self.sim_fraction * len(hosts)), len(hosts) - 1)
         self.sim_hosts = hosts[-num_sim_hosts:]  # Assign the last hosts, simulation tasks are likely more CPU-intensive and would interfere with Thinker
         self.ai_hosts = hosts[:-num_sim_hosts]
         return hosts
