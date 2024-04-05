@@ -120,6 +120,10 @@ class LocalConfigXY(HPCConfig):
     def num_workers(self):
         return 2
 
+    @property
+    def num_ai_workers(self) -> int:
+        return 1
+
     def launch_monitor_process(self, log_dir: Path, freq: int = 20) -> Popen:
         return Popen(
             args=f"monitor_utilization --frequency {freq} {log_dir}".split()
