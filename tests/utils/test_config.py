@@ -8,7 +8,7 @@ from mofa.hpc.config import configs, PolarisConfig
 def test_local(tmpdir):
     config = configs['local']()
     assert config.torch_device == 'cuda'
-    assert config.num_workers == 2
+    assert config.num_workers == 3
     parsl_cfg = config.make_parsl_config(Path(tmpdir))
     assert str(tmpdir) in parsl_cfg.run_dir
 

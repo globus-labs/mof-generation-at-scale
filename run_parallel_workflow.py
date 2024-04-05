@@ -461,13 +461,16 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
     def store_cp2k(self, result: Result):
         """Store the results for the CP2K, submit any post-processing"""
 
+        # Trigger new CP2K
+        if result.method == 'run_single_point':
+            self.rec.release('cp2k')
+
         # If it's a failure, report to the user
         mof_name = result.task_info['mof']
         if not result.success:
             self.logger.warning(f'Task {result.method} failed for {mof_name}. Exception: {result.failure_info.exception}')
         elif result.method == 'run_single_point':
-            # Submit post-processing to happen, trigger another CP2K computation
-            self.rec.release('cp2k')
+            # Submit post-processing to happen
             cp2k_path = result.value
             self.queues.send_inputs(cp2k_path, method='compute_partial_charges', task_info=result.task_info, topic='cp2k')
             self.logger.info(f'Completed CP2K computation for {mof_name}. Runtime: {result.time.running:.2f} s. Started partial charge computation')
