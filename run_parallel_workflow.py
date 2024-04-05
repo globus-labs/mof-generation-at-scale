@@ -439,6 +439,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
                     continue
 
                 # Add this to the list of things which have been run
+                self.cp2k_rank.add(record['name'])
                 record.pop("_id")
                 record['times'] = {}
                 record['md_trajectory'] = {}
@@ -477,6 +478,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             self.logger.info(f'Partial charges are complete for {mof_name}')
         else:
             raise ValueError(f'Method not supported: {result.method}')
+        print(result.json(exclude={'inputs', 'value'}), file=self._output_files['simulation-results'], flush=True)
 
 
 if __name__ == "__main__":
@@ -545,12 +547,11 @@ if __name__ == "__main__":
     hpc_config = hpc_configs[args.compute_config]()
     hpc_config.ai_fraction = args.ai_fraction
     hpc_config.dft_fraction = args.dft_fraction
-    num_workers = hpc_config.num_workers  # Forces resolution of the host names
-    with (run_dir / 'compute-config.json').open('w') as fp:
-        json.dump(asdict(hpc_config), fp)
 
     # Make the Parsl configuration
     config = hpc_config.make_parsl_config(run_dir)
+    with (run_dir / 'compute-config.json').open('w') as fp:
+        json.dump(asdict(hpc_config), fp)
 
     # Make the generator settings and the function
     generator = GeneratorConfig(
