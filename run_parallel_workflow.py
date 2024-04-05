@@ -439,7 +439,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
                     continue
 
                 # Add this to the list of things which have been run
-                self.cp2k_rank.add(record['name'])
+                self.cp2k_ran.add(record['name'])
                 record.pop("_id")
                 record['times'] = {}
                 record['md_trajectory'] = {}
