@@ -577,7 +577,8 @@ if __name__ == "__main__":
         function=gen_func,
         name='run_generator',
         store_return_value=True,
-        streaming_queue=queues
+        streaming_queue=queues,
+        store=store
     )
 
     # Make the training function
