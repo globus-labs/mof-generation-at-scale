@@ -70,6 +70,7 @@ def train_generator(
 
     # Overwrite the options provided by the Python function
     args.n_epochs = num_epochs
+    args.test_epochs = num_epochs * 2  # Turn off testing during workflow training
     args.device = device
 
     return main(args=args, run_directory=run_directory)
