@@ -30,5 +30,10 @@ def test_polaris(tmpdir):
         assert config.num_ai_workers == 4
         assert config.num_sim_workers == 12
 
+        # Check the CPU affinity
+        assert parsl_cfg.executors[0].cpu_affinity == 'block-reverse'
+        assert parsl_cfg.executors[1].cpu_affinity == 'list:24-30:16-22:8-14:0-6'
+        assert parsl_cfg.executors[2].cpu_affinity == 'list:7:15:23:31'
+
     finally:
         del os.environ['PBS_NODEFILE']
