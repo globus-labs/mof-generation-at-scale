@@ -206,12 +206,14 @@ hostname"""
         sim_cores = [f"{i * cpus_per_worker}-{(i + 1) * cpus_per_worker - helpers_per_worker - 1}" for i in range(4)][::-1]  # GPU3 is to cores 0-7
         helper_cores = [str(i) for w in range(4) for i in range((w + 1) * cpus_per_worker - helpers_per_worker, (w + 1) * cpus_per_worker)]
 
+        ai_cores = [f"{i * cpus_per_worker}-{(i + 1) * cpus_per_worker - 1}" for i in range(4)][::-1]  # All CPUs to AI tasks
+
         # Launch 4 workers per node, one per GPU
         return Config(executors=[
             HighThroughputExecutor(
                 label='ai',
                 max_workers=4,
-                cpu_affinity='block-reverse',
+                cpu_affinity='list:' + ":".join(ai_cores),
                 available_accelerators=4,
                 provider=LocalProvider(
                     launcher=WrappedLauncher(
