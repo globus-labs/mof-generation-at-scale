@@ -157,6 +157,7 @@ class PolarisConfig(HPCConfig):
 
     lammps_executors = ['lammps']
     ai_executors = ['ai']
+    cp2k_executors = ['cp2k']
     helper_executors = ['helper']
 
     @property
@@ -166,7 +167,7 @@ class PolarisConfig(HPCConfig):
         return (f'mpiexec -n {self.nodes_per_cp2k * 4} --ppn 4 --cpu-bind depth --depth 8 -env OMP_NUM_THREADS=8 '
                 f'--hostfile {self.run_dir}/cp2k-hostfiles/local_hostfile.`printf %03d $PARSL_WORKER_RANK` '
                 '/lus/eagle/projects/ExaMol/cp2k-2024.1/set_affinity_gpu_polaris.sh'
-                '/lus/eagle/projects/ExaMol/cp2k-2024.1/exe/local_cuda/cp2k.psmp')
+                '/lus/eagle/projects/ExaMol/cp2k-2024.1/exe/local_cuda/cp2k_shell.psmp')
 
     @cached_property
     def hosts(self):
@@ -206,7 +207,7 @@ class PolarisConfig(HPCConfig):
         )
 
     def make_parsl_config(self, run_dir: Path) -> Config:
-        self.run_dir = str(run_dir)  # Used for CP2K config
+        self.run_dir = str(run_dir.absolute())  # Used for CP2K config
         assert len(self.hosts) > 0, 'No hosts detected'
 
         # Write the nodefiles
