@@ -22,7 +22,7 @@ import sys
 
 import pymongo
 from proxystore.connectors.redis import RedisConnector
-from proxystore.store import Store
+from proxystore.store import Store, register_store
 from rdkit import RDLogger
 from openbabel import openbabel as ob
 from pymongo import MongoClient
@@ -538,6 +538,7 @@ if __name__ == "__main__":
 
     # Open a proxystore with Redis
     store = Store(name='redis', connector=RedisConnector(hostname=args.redis_host, port=6379), metrics=True)
+    register_store(store)
 
     # Configure to a use Redis queue, which allows streaming results form other nodes
     queues = RedisQueues(
