@@ -200,7 +200,7 @@ class LigandDescription:
         """
 
         mol = Chem.MolFromXYZBlock(self.xyz)
-        all_anchor_atoms = list(itertools.chain(*self.prompt_atoms))
+        # all_anchor_atoms = list(itertools.chain(*self.prompt_atoms))
         charge = 0  # added hydrogen to COO ligand template, so no more charges
         rdDetermineBonds.DetermineBonds(mol, charge=charge)
         rdDetermineBonds.DetermineConnectivity(mol)
