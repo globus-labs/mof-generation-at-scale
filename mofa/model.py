@@ -135,7 +135,7 @@ class LigandTemplate:
         try:
             ld.full_ligand_optimization()
         except (ValueError, AttributeError,):
-            continue
+            pass
         return ld
 
     @classmethod
