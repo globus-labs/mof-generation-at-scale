@@ -21,6 +21,8 @@ import json
 import sys
 
 import pymongo
+from proxystore.connectors.redis import RedisConnector
+from proxystore.store import Store, register_store
 from rdkit import RDLogger
 from openbabel import openbabel as ob
 from pymongo import MongoClient
@@ -37,6 +39,7 @@ from mofa.assembly.validate import process_ligands
 from mofa.generator import run_generator, train_generator
 from mofa.model import MOFRecord, NodeDescription, LigandTemplate, LigandDescription
 from mofa.scoring.geometry import LatticeParameterChange
+from mofa.simulation.cp2k import CP2KRunner, compute_partial_charges
 from mofa.simulation.lammps import LAMMPSRunner
 from mofa.utils.conversions import write_to_string
 from mofa.hpc.colmena import DiffLinkerInference
@@ -99,7 +102,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
                  node_template: NodeDescription):
         if hpc_config.num_workers < 2:
             raise ValueError(f'There must be at least two workers. Supplied: {hpc_config}')
-        super().__init__(queues, ResourceCounter(hpc_config.num_workers, task_types=['generation', 'simulation']))
+        super().__init__(queues, ResourceCounter(hpc_config.num_workers, task_types=['generation', 'lammps', 'cp2k']))
         self.generator_config = generator_config
         self.trainer_config = trainer_config
         self.node_template = node_template
@@ -125,10 +128,11 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
 
         # Set aside one GPU for generation
         self.rec.reallocate(None, 'generation', self.hpc_config.num_ai_workers)
-        self.rec.reallocate(None, 'simulation', self.hpc_config.num_sim_workers)
+        self.rec.reallocate(None, 'lammps', self.hpc_config.num_lammps_workers)
+        self.rec.reallocate(None, 'cp2k', self.hpc_config.num_cp2k_workers)
 
         # Settings associated with MOF assembly
-        self.mofs_per_call = hpc_config.num_sim_workers + 4
+        self.mofs_per_call = hpc_config.num_lammps_workers + 4
         self.make_mofs = Event()  # Signal that we need new MOFs
         self.mofs_available = Event()  # Signal that new MOFs are done
 
@@ -136,6 +140,10 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         self.start_train = Event()
         self.num_completed = 0  # Number of MOFs which have finished training
         self.model_iteration = 0  # Which version of the model we used for generating a ligand
+
+        # Settings related to scheduling CP2K
+        self.cp2k_ready = Event()
+        self.cp2k_ran = set()
 
         # Connect to MongoDB
         self.mongo_client = MongoClient()
@@ -208,11 +216,12 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
 
             # Lookup task information
             ligand_id, size = result.task_info['task']
+            model_version = result.task_info['model_version']
             anchor_type = self.generator_config.templates[ligand_id].anchor_type
 
             # Put ligands in the assembly queue
             valid_ligands, all_records = result.value
-            self.logger.info(f'Received {len(all_records)} {anchor_type} ligands of size {size}, '
+            self.logger.info(f'Received {len(all_records)} {anchor_type} ligands of size {size} from model v{model_version}, '
                              f'{len(valid_ligands)} ({len(valid_ligands) / len(all_records) * 100:.1f}%) are valid. '
                              f'Processing backlog: {self.ligand_process_queue.qsize()}')
 
@@ -222,6 +231,10 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             # Signal that we're ready for more MOFs
             if len(valid_ligands) > 0:
                 self.make_mofs.set()
+
+            # Add the model version to the ligand identity
+            for record in all_records:
+                record['model_version'] = model_version
 
             # Store the generated ligands
             record_file = self.out_dir / 'all_ligands.csv'
@@ -278,12 +291,12 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
 
         self.logger.info(f'Created {num_added} new MOFs. Current queue depth: {len(self.mof_queue)}')
 
-    @task_submitter(task_type='simulation')
-    def submit_simulation(self):
+    @task_submitter(task_type='lammps')
+    def submit_lammps(self):
         """Submit an MD simulation"""
 
         # Block until new MOFs are available
-        if len(self.mof_queue) <= self.rec.allocated_slots('simulation'):
+        if len(self.mof_queue) <= self.rec.allocated_slots('lammps'):
             self.logger.info('MOF queue is low. Triggering more to be made.')
             self.make_mofs.set()
         if len(self.mof_queue) == 0:
@@ -296,7 +309,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         self.queues.send_inputs(
             to_run,
             method='run_molecular_dynamics',
-            topic='simulation',
+            topic='lammps',
             task_info={'name': to_run.name}
         )
         self.logger.info(f'Started MD simulation for mof={to_run.name}. '
@@ -306,12 +319,12 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             self.done.set()
             self.logger.info('No longer submitting tasks.')
 
-    @result_processor(topic='simulation')
-    def store_simulation(self, result: Result):
+    @result_processor(topic='lammps')
+    def store_lammps(self, result: Result):
         """Gather MD results, push result to post-processing queue"""
 
         # Trigger a new simulation
-        self.rec.release('simulation')
+        self.rec.release('lammps')
 
         # Retrieve the results
         if not result.success:
@@ -350,6 +363,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
 
             # Store the result in MongoDB
             mofadb.create_records(self.collection, [record])
+            self.cp2k_ready.set()
 
             # Determine if we should retrain
             self.num_completed += 1
@@ -407,6 +421,65 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
 
         print(result.json(exclude={'inputs', 'value'}), file=self._output_files['training-results'], flush=True)
 
+    @task_submitter(task_type='cp2k')
+    def submit_cp2k(self):
+        """Start a CP2K submission"""
+
+        # Query the database to find the best MOF we have not run CP2K on yet
+        while True:  # Runs until something gets submitted
+            sort_field = 'structure_stability.uff'
+            self.collection.create_index(sort_field)
+            cursor = (
+                self.collection.find(
+                    {sort_field: {'$exists': True}},
+                )
+                .sort(sort_field, pymongo.ASCENDING)
+            )
+            for record in cursor:
+                # If has been run, skip
+                if record['name'] in self.cp2k_ran:
+                    continue
+
+                # Add this to the list of things which have been run
+                self.cp2k_ran.add(record['name'])
+                record.pop("_id")
+                record = MOFRecord(**record)
+                self.queues.send_inputs(
+                    record,
+                    method='run_single_point',
+                    topic='cp2k',
+                    task_info={'mof': record.name}
+                )
+                self.logger.info(f'Submitted {record.name} to run with CP2K')
+                return
+
+            self.logger.info('No MOFs ready for CP2K. Waiting for MD to finish')
+            self.cp2k_ready.clear()
+            self.cp2k_ready.wait()
+
+    @result_processor(topic='cp2k')
+    def store_cp2k(self, result: Result):
+        """Store the results for the CP2K, submit any post-processing"""
+
+        # Trigger new CP2K
+        if result.method == 'run_single_point':
+            self.rec.release('cp2k')
+
+        # If it's a failure, report to the user
+        mof_name = result.task_info['mof']
+        if not result.success:
+            self.logger.warning(f'Task {result.method} failed for {mof_name}. Exception: {result.failure_info.exception}')
+        elif result.method == 'run_single_point':
+            # Submit post-processing to happen
+            cp2k_path = result.value
+            self.queues.send_inputs(cp2k_path, method='compute_partial_charges', task_info=result.task_info, topic='cp2k')
+            self.logger.info(f'Completed CP2K computation for {mof_name}. Runtime: {result.time.running:.2f} s. Started partial charge computation')
+        elif result.method == 'compute_partial_charges':
+            self.logger.info(f'Partial charges are complete for {mof_name}')
+        else:
+            raise ValueError(f'Method not supported: {result.method}')
+        print(result.json(exclude={'inputs', 'value'}), file=self._output_files['simulation-results'], flush=True)
+
 
 if __name__ == "__main__":
     # Make the argument parser
@@ -444,7 +517,8 @@ if __name__ == "__main__":
 
     group = parser.add_argument_group(title='Compute Settings', description='Compute environment configuration')
     group.add_argument('--compute-config', default='local', help='Configuration for the HPC system')
-    group.add_argument('--sim-fraction', default=0.9, type=float, help='Fraction of workers devoted to AI tasks')
+    group.add_argument('--ai-fraction', default=0.1, type=float, help='Fraction of workers devoted to AI tasks')
+    group.add_argument('--dft-fraction', default=0.1, type=float, help='Fraction of workers devoted to DFT tasks')
     group.add_argument('--redis-host', default=node(), help='Host for the Redis server')
 
     args = parser.parse_args()
@@ -460,10 +534,19 @@ if __name__ == "__main__":
     run_dir = Path('run') / f'parallel-{args.compute_config}-{start_time.strftime("%d%b%y%H%M%S")}-{params_hash}'
     run_dir.mkdir(parents=True)
 
-    # Configure to a use Redis queue, which allows streaming results form other nodes
-    queues = RedisQueues(hostname=args.redis_host, topics=['generation', 'simulation', 'training'])
+    # Open a proxystore with Redis
+    store = Store(name='redis', connector=RedisConnector(hostname=args.redis_host, port=6379), metrics=True)
+    register_store(store)
 
-    # Load the ligand descriptionsm
+    # Configure to a use Redis queue, which allows streaming results form other nodes
+    queues = RedisQueues(
+        hostname=args.redis_host,
+        topics=['generation', 'lammps', 'cp2k', 'training'],
+        proxystore_name='redis',
+        proxystore_threshold=10000
+    )
+
+    # Load the ligand descriptions
     templates = []
     for path in args.ligand_templates:
         template = LigandTemplate.from_yaml(path)
@@ -471,7 +554,11 @@ if __name__ == "__main__":
 
     # Load the HPC configuration
     hpc_config = hpc_configs[args.compute_config]()
-    hpc_config.sim_fraction = args.sim_fraction
+    hpc_config.ai_fraction = args.ai_fraction
+    hpc_config.dft_fraction = args.dft_fraction
+
+    # Make the Parsl configuration
+    config = hpc_config.make_parsl_config(run_dir)
     with (run_dir / 'compute-config.json').open('w') as fp:
         json.dump(asdict(hpc_config), fp)
 
@@ -489,7 +576,8 @@ if __name__ == "__main__":
         function=gen_func,
         name='run_generator',
         store_return_value=True,
-        streaming_queue=queues
+        streaming_queue=queues,
+        store=store
     )
 
     # Make the training function
@@ -509,6 +597,14 @@ if __name__ == "__main__":
                               lammps_environ=hpc_config.lammps_env)
     md_fun = partial(lmp_runner.run_molecular_dynamics, timesteps=args.md_timesteps, report_frequency=max(1, args.md_timesteps / args.md_snapshots))
     update_wrapper(md_fun, lmp_runner.run_molecular_dynamics)
+
+    # Make the CP2K function
+    cp2k_runner = CP2KRunner(
+        cp2k_invocation=hpc_config.cp2k_cmd,
+        run_dir=run_dir / 'cp2k-runs'
+    )
+    cp2k_fun = partial(cp2k_runner.run_single_point, structure_source=('uff', -1))  # Run the last structure from the UFF traj
+    update_wrapper(cp2k_fun, cp2k_runner.run_single_point)
 
     # Launch MongoDB as a subprocess
     mongo_dir = run_dir / 'db'
@@ -540,15 +636,14 @@ if __name__ == "__main__":
     # Save the run parameters to disk
     (run_dir / 'params.json').write_text(json.dumps(run_params))
 
-    # Make the Parsl configuration
-    config = hpc_config.make_parsl_config(run_dir)
-
     # Launch the thinker and task server
     doer = ParslTaskServer(
         methods=[
             (gen_method, {'executors': hpc_config.ai_executors}),
             (train_func, {'executors': hpc_config.ai_executors}),
-            (md_fun, {'executors': hpc_config.sim_executors}),
+            (md_fun, {'executors': hpc_config.lammps_executors}),
+            (cp2k_fun, {'executors': hpc_config.cp2k_executors}),
+            (compute_partial_charges, {'executors': hpc_config.helper_executors}),
             (process_ligands, {'executors': hpc_config.helper_executors})
         ],
         queues=queues,
@@ -576,3 +671,6 @@ if __name__ == "__main__":
         util_proc.terminate()
         mongo_proc.terminate()
         mongo_proc.poll()
+
+        # Close the proxy store
+        store.close()

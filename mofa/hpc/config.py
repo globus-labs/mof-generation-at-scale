@@ -2,13 +2,16 @@
 from dataclasses import dataclass, field
 from functools import cached_property
 from subprocess import Popen
-from pathlib import Path
-import os
 from typing import Literal
+from pathlib import Path
+from math import ceil
+import os
+
+from more_itertools import batched
 
 from parsl import HighThroughputExecutor
 from parsl import Config
-from parsl.launchers import MpiExecLauncher, WrappedLauncher
+from parsl.launchers import MpiExecLauncher, WrappedLauncher, SimpleLauncher
 from parsl.providers import LocalProvider
 
 
@@ -20,14 +23,20 @@ class HPCConfig:
     """Device used for DiffLinker training"""
     lammps_cmd: tuple[str] = ('lmp_serial',)
     """Command used to launch a non-MPI LAMMPS task"""
+    cp2k_cmd: str = 'cp2k_shell.psmp'
+    """Command used to launch the CP2K shell"""
     lammps_env: dict[str, str] = field(default_factory=dict)
     """Extra environment variables to include when running LAMMPS"""
 
     # How tasks are distributed
-    sim_fraction: float = 0.9
-    """Maximum fraction of resources set aside for simulation tasks"""
-    sim_executors: Literal['all'] | list[str] = 'all'
+    ai_fraction: float = 0.1
+    """Maximum fraction of resources set aside for AI tasks"""
+    dft_fraction: float = 0.4
+    """Maximum fraction of resources not used for AI that will be used for CP2K"""
+    lammps_executors: Literal['all'] | list[str] = 'all'
     """Which executors are available for simulation tasks"""
+    cp2k_executors: Literal['all'] | list[str] = 'all'
+    """Which executors to use for CP2K tasks"""
     ai_executors: Literal['all'] | list[str] = 'all'
     """Which executors are available for AI tasks"""
     helper_executors: Literal['all'] | list[str] = 'all'
@@ -36,7 +45,7 @@ class HPCConfig:
     @property
     def num_workers(self) -> int:
         """Total number of workers"""
-        raise NotImplementedError
+        return self.num_lammps_workers + self.num_cp2k_workers + self.num_ai_workers
 
     @property
     def num_ai_workers(self) -> int:
@@ -44,9 +53,14 @@ class HPCConfig:
         raise NotImplementedError
 
     @property
-    def num_sim_workers(self) -> int:
-        """Number of workers available for simulation"""
-        return self.num_workers - self.num_ai_workers
+    def num_lammps_workers(self) -> int:
+        """Number of workers available for LAMMPS tasks"""
+        raise NotImplementedError
+
+    @property
+    def num_cp2k_workers(self):
+        """Number of workers available for CP2K tasks"""
+        raise NotImplementedError
 
     def launch_monitor_process(self, log_dir: Path, freq: int = 20) -> Popen:
         """Launch a monitor process on all resources
@@ -80,16 +94,24 @@ class LocalConfig(HPCConfig):
     torch_device = 'cuda'
     lammps_env = {}
 
-    sim_executors = ['sim']
+    lammps_executors = ['sim']
     ai_executors = ['ai']
     helper_executors = ['helper']
 
     @property
     def num_workers(self):
-        return 2
+        return self.num_lammps_workers + self.num_cp2k_workers + self.num_ai_workers
 
     @property
     def num_ai_workers(self) -> int:
+        return 1
+
+    @property
+    def num_lammps_workers(self) -> int:
+        return 1
+
+    @property
+    def num_cp2k_workers(self) -> int:
         return 1
 
     def launch_monitor_process(self, log_dir: Path, freq: int = 20) -> Popen:
@@ -109,19 +131,31 @@ class LocalConfig(HPCConfig):
 
 
 @dataclass(kw_only=True)
-class LocalConfigXY(HPCConfig):
-    """Configuration used for testing purposes"""
+class LocalXYConfig(HPCConfig):
+    """Configuration Xiaoli uses for testing purposes"""
 
     torch_device = 'cuda'
-    lammps_cmd = ("/home/xyan11/software/lmp20230802up3/build-gpu/lmp -sf gpu -pk gpu 1").split()
+    lammps_cmd = "/home/xyan11/software/lmp20230802up3/build-gpu/lmp -sf gpu -pk gpu 1".split()
     lammps_env = {}
+
+    lammps_executors = ['sim']
+    ai_executors = ['ai']
+    helper_executors = ['helper']
 
     @property
     def num_workers(self):
-        return 2
+        return self.num_lammps_workers + self.num_cp2k_workers + self.num_ai_workers
 
     @property
     def num_ai_workers(self) -> int:
+        return 1
+
+    @property
+    def num_lammps_workers(self) -> int:
+        return 1
+
+    @property
+    def num_cp2k_workers(self) -> int:
         return 1
 
     def launch_monitor_process(self, log_dir: Path, freq: int = 20) -> Popen:
@@ -131,7 +165,11 @@ class LocalConfigXY(HPCConfig):
 
     def make_parsl_config(self, run_dir: Path) -> Config:
         return Config(
-            executors=[HighThroughputExecutor(max_workers=1)],
+            executors=[
+                HighThroughputExecutor(label='sim', max_workers=1),
+                HighThroughputExecutor(label='helper', max_workers=1),
+                HighThroughputExecutor(label='ai', max_workers=1, available_accelerators=1)
+            ],
             run_dir=str(run_dir / 'runinfo')
         )
 
@@ -144,20 +182,36 @@ class PolarisConfig(HPCConfig):
     lammps_cmd = ('/lus/eagle/projects/ExaMol/mofa/lammps-2Aug2023/build-gpu-nompi-mixed/lmp '
                   '-sf gpu -pk gpu 1').split()
     lammps_env = {}
+    run_dir: Path | None = None  # Set when building the configuration
+
+    nodes_per_cp2k: int = 2
+    """Number of nodes per CP2K task"""
 
     ai_hosts: list[str] = field(default_factory=list)
     """Hosts which will run AI tasks"""
-    sim_hosts: list[str] = field(default_factory=list)
-    """Hosts which will run simulation tasks"""
+    lammps_hosts: list[str] = field(default_factory=list)
+    """Hosts which will run LAMMPS tasks"""
+    cp2k_hosts: list[str] = field(default_factory=list)
+    """Hosts which will run CP2K tasks"""
 
     cpus_per_node: int = 32
     """Number of CPUs to use per node"""
     gpus_per_node: int = 4
     """Number of GPUs per compute node"""
 
-    sim_executors = ['sim']
+    lammps_executors = ['lammps']
     ai_executors = ['ai']
+    cp2k_executors = ['cp2k']
     helper_executors = ['helper']
+
+    @property
+    def cp2k_cmd(self):
+        # TODO (wardlt): Turn these into factory classes to ensure everything gets set on build
+        assert self.run_dir is not None, 'This must be run after the Parsl config is built'
+        return (f'mpiexec -n {self.nodes_per_cp2k * 4} --ppn 4 --cpu-bind depth --depth 8 -env OMP_NUM_THREADS=8 '
+                f'--hostfile {self.run_dir}/cp2k-hostfiles/local_hostfile.`printf %03d $PARSL_WORKER_RANK` '
+                '/lus/eagle/projects/ExaMol/cp2k-2024.1/set_affinity_gpu_polaris.sh '
+                '/lus/eagle/projects/ExaMol/cp2k-2024.1/exe/local_cuda/cp2k_shell.psmp')
 
     @cached_property
     def hosts(self):
@@ -167,19 +221,30 @@ class PolarisConfig(HPCConfig):
         with open(node_file) as fp:
             hosts = [x.strip() for x in fp]
 
-        # Determine the number of hosts to use for simulation
-        num_sim_hosts = min(int(self.sim_fraction * len(hosts)), len(hosts) - 1)
-        self.sim_hosts = hosts[-num_sim_hosts:]  # Assign the last hosts, simulation tasks are likely more CPU-intensive and would interfere with Thinker
-        self.ai_hosts = hosts[:-num_sim_hosts]
-        return hosts
+        # Determine the number of nodes to use for AI
+        num_ai_hosts = max(1, min(int(self.ai_fraction * len(hosts)), len(hosts) - self.nodes_per_cp2k - 1))
+        self.ai_hosts = hosts[:num_ai_hosts]
 
-    @property
-    def num_workers(self):
-        return len(self.hosts) * self.gpus_per_node
+        # Determine the number of hosts to use for simulation
+        sim_hosts = hosts[num_ai_hosts:]
+        max_cp2k_slots = len(sim_hosts) // self.nodes_per_cp2k
+        num_cp2k_slots = max(1, min(int(self.dft_fraction * max_cp2k_slots), max_cp2k_slots))  # [nodes_per_cp2k, len(sim_hosts) - nodes_per_cp2k]
+        num_dft_hosts = num_cp2k_slots * self.nodes_per_cp2k
+        self.lammps_hosts = sim_hosts[num_dft_hosts:]
+        self.cp2k_hosts = sim_hosts[:num_dft_hosts]
+        return hosts
 
     @property
     def num_ai_workers(self):
         return len(self.ai_hosts) * self.gpus_per_node
+
+    @property
+    def num_lammps_workers(self):
+        return len(self.lammps_hosts) * self.gpus_per_node
+
+    @property
+    def num_cp2k_workers(self):
+        return ceil(len(self.cp2k_hosts) / self.nodes_per_cp2k)
 
     def launch_monitor_process(self, log_dir: Path, freq: int = 20) -> Popen:
         return Popen(
@@ -188,13 +253,18 @@ class PolarisConfig(HPCConfig):
         )
 
     def make_parsl_config(self, run_dir: Path) -> Config:
+        self.run_dir = str(run_dir.absolute())  # Used for CP2K config
+        assert len(self.hosts) > 0, 'No hosts detected'
+
         # Write the nodefiles
         ai_nodefile = run_dir / 'ai.hosts'
         ai_nodefile.write_text('\n'.join(self.ai_hosts))
-        sim_nodefile = run_dir / 'sim.hosts'
-        sim_nodefile.write_text('\n'.join(self.sim_hosts))
+        lammps_nodefile = run_dir / 'lammps.hosts'
+        lammps_nodefile.write_text('\n'.join(self.lammps_hosts))
+        cp2k_nodefile = run_dir / 'cp2k.hosts'
+        cp2k_nodefile.write_text('\n'.join(self.cp2k_hosts))
 
-        # Use the same worker_init
+        # Use the same worker_init for most workers
         worker_init = """
 module load kokkos
 module load nvhpc/23.3
@@ -202,6 +272,12 @@ module list
 source activate /lus/eagle/projects/ExaMol/mofa/mof-generation-at-scale/env-polaris
 which python
 hostname"""
+
+        # Make the nodefiles for the CP2K workers
+        nodefile_path = run_dir / 'cp2k-hostfiles'
+        nodefile_path.mkdir(parents=True)
+        for i, nodes in enumerate(batched(self.cp2k_hosts, self.nodes_per_cp2k)):
+            (nodefile_path / f'local_hostfile.{i:03d}').write_text("\n".join(nodes))
 
         # Divide CPUs on "sim" such that a from each NUMA affinity are set aside for helpers
         #  See https://docs.alcf.anl.gov/polaris/hardware-overview/machine-overview/#polaris-device-affinity-information
@@ -229,17 +305,25 @@ hostname"""
                 )
             ),
             HighThroughputExecutor(
-                label='sim',
+                label='lammps',
                 max_workers=self.gpus_per_node,
                 cpu_affinity='list:' + ":".join(sim_cores),
                 available_accelerators=4,
                 provider=LocalProvider(
                     launcher=WrappedLauncher(
-                        f"mpiexec -n {len(self.sim_hosts)} --ppn 1 --hostfile {sim_nodefile} --depth=64 --cpu-bind depth"
+                        f"mpiexec -n {len(self.lammps_hosts)} --ppn 1 --hostfile {lammps_nodefile} --depth=64 --cpu-bind depth"
                     ),
                     worker_init=worker_init,
                     min_blocks=1,
                     max_blocks=1
+                )
+            ),
+            HighThroughputExecutor(
+                label='cp2k',
+                max_workers=self.num_cp2k_workers,
+                cores_per_worker=1e-6,
+                provider=LocalProvider(
+                    launcher=SimpleLauncher()  # Places a single worker on the launch node
                 )
             ),
             HighThroughputExecutor(
@@ -249,7 +333,7 @@ hostname"""
                 available_accelerators=4,
                 provider=LocalProvider(
                     launcher=WrappedLauncher(
-                        f"mpiexec -n {len(self.sim_hosts)} --ppn 1 --hostfile {sim_nodefile} --depth=64 --cpu-bind depth"
+                        f"mpiexec -n {len(self.lammps_hosts)} --ppn 1 --hostfile {lammps_nodefile} --depth=64 --cpu-bind depth"
                     ),
                     worker_init=worker_init,
                     min_blocks=1,
@@ -261,6 +345,7 @@ hostname"""
         )
 
 
+# TODO (wardlt): Update with changes in schema
 class SunspotConfig(PolarisConfig):
     """Configuration for running on Sunspot
 
@@ -322,7 +407,7 @@ hostname""",
 
 configs: dict[str, type[HPCConfig]] = {
     'local': LocalConfig,
-    'localXY': LocalConfigXY,
+    'localXY': LocalXYConfig,
     'polaris': PolarisConfig,
     'sunspot': SunspotConfig
 }
