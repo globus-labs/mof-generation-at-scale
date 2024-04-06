@@ -188,6 +188,27 @@ class LigandDescription:
     def atoms(self):
         return read_from_string(self.xyz, "xyz")
 
+    def full_ligand_optimization(self, xyz_tol=0.001, force_constant=10000.0, max_iterations=1000):
+        """optimize the ligand while the anchor atoms are constrained
+
+        Args:
+            xyz_tol: coordinate tolerance for constrained atoms
+            force_constant: the spring force constant to keep the constrained atoms in original position
+            max_iterations: maximum number of iterations for optimization
+        Returns:
+            inplace function, no return
+        """
+
+        mol = Chem.MolFromXYZBlock(self.xyz)
+        all_anchor_atoms = list(itertools.chain(*self.prompt_atoms))
+        charge = 0  # added hydrogen to COO ligand template, so no more charges
+        rdDetermineBonds.DetermineBonds(mol, charge=charge)
+        rdDetermineBonds.DetermineConnectivity(mol)
+        rdDetermineBonds.DetermineBondOrders(mol)
+        AllChem.EmbedMolecule(mol)
+        AllChem.MMFFOptimizeMolecule(mol)
+        self.xyz = Chem.MolToXYZBlock(mol)
+
     def anchor_constrained_optimization(self, xyz_tol=0.001, force_constant=10000.0, max_iterations=1000):
         """optimize the ligand while the anchor atoms are constrained
 
