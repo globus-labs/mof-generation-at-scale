@@ -30,7 +30,7 @@ def process_ligands(ligands: list[LigandDescription]) -> tuple[list[LigandDescri
 
         # Try constrained optimization on the ligand
         try:
-            ligand.anchor_constrained_optimization()
+            ligand.full_ligand_optimization()
         except (ValueError, AttributeError,):
             continue
 
