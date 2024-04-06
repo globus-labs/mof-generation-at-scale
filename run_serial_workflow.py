@@ -114,7 +114,7 @@ if __name__ == "__main__":
 
             # Try constrained optimization on the ligand
             try:
-                ligand.anchor_constrained_optimization()
+                ligand.full_ligand_optimization()
             except (ValueError, AttributeError,):
                 continue
 
