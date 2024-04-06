@@ -3,6 +3,7 @@ from contextlib import redirect_stdout, redirect_stderr
 from dataclasses import dataclass
 from subprocess import run
 from pathlib import Path
+import time
 import sys
 import os
 
@@ -105,6 +106,7 @@ class CP2KRunner:
                         command=self.cp2k_invocation,
                         directory=".",
                         inp=template_file.read_text(),
+                        max_scf=128,
                         **options,
                 ) as calc:
 
@@ -115,6 +117,9 @@ class CP2KRunner:
 
                     # Write the
                     atoms.write('atoms.json')
+            except AssertionError:
+                time.sleep(30)  # Give time for CP2K to exit cleanly
+                raise
             finally:
                 os.chdir(start_dir)
-            return out_dir.absolute()
+        return out_dir.absolute()

@@ -19,8 +19,13 @@
          &END E_DENSITY_CUBE
       &END
 
-      ! I guess no more OT?
       &SCF
+         &OUTER_SCF
+            MAX_SCF 5
+         &END OUTER_SCF
+         &OT T
+            PRECONDITIONER FULL_ALL
+         &END OT
          &MIXING
             METHOD BROYDEN_MIXING
             ALPHA 0.4
