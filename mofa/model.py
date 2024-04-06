@@ -126,13 +126,14 @@ class LigandTemplate:
         # Add Hydrogens to the molecule
         unsat_xyz = write_to_string(atoms, 'xyz')
         sat_xyz = unsaturated_xyz_to_xyz(unsat_xyz, exclude_atoms=list(itertools.chain(*prompt_atoms)))
-
-        return LigandDescription(
+        ld = LigandDescription(
             xyz=sat_xyz,
             anchor_type=self.anchor_type,
             prompt_atoms=prompt_atoms,
             dummy_element=self.dummy_element
         )
+        ld.full_ligand_optimization()
+        return ld
 
     @classmethod
     def from_yaml(cls, path: Path | str) -> 'LigandTemplate':
