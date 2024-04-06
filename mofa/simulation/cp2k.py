@@ -11,6 +11,7 @@ from ase.calculators.cp2k import CP2K
 from ase import units
 
 from mofa.model import MOFRecord
+from mofa.utils.conversions import read_from_string
 
 _file_dir = Path(__file__).parent / 'files'
 
@@ -73,12 +74,16 @@ class CP2KRunner:
     run_dir: Path = Path('cp2k-runs')
     """Path in which to store CP2K files"""
 
-    def run_single_point(self, mof: MOFRecord, level: str = 'pbe') -> Path:
+    def run_single_point(self, mof: MOFRecord,
+                         level: str = 'pbe',
+                         structure_source: tuple[str, int] | None = None) -> Path:
         """Perform a single-point computation at a certain level
 
         Args:
             mof: Structure to be run
             level: Name of the level of DFT computation to perform
+            structure_source: Name of the MD trajectory and frame ID from which to source the
+                input structure. Default is to use the as-assembled structure
         Returns:
             Path to the output files
         """
@@ -92,6 +97,13 @@ class CP2KRunner:
         if level not in _cp2k_options:
             raise ValueError(f'No presents for {level}')
         options = _cp2k_options[level]
+
+        # Determine which structure to pull
+        if structure_source is None:
+            atoms = mof.atoms
+        else:
+            traj, ind = structure_source
+            atoms = read_from_string(mof.md_trajectory[traj][ind], 'vasp')
 
         # Open then move to the output directory
         # CP2K does not like long directory names in input files, so we move to the local directory
@@ -111,11 +123,10 @@ class CP2KRunner:
                 ) as calc:
 
                     # Run the calculation
-                    atoms = mof.atoms
                     atoms.calc = calc
                     atoms.get_potential_energy()
 
-                    # Write the
+                    # Write the result to disk for easy retrieval
                     atoms.write('atoms.json')
             except AssertionError:
                 time.sleep(30)  # Give time for CP2K to exit cleanly

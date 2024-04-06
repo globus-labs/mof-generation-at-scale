@@ -443,8 +443,6 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
                 # Add this to the list of things which have been run
                 self.cp2k_ran.add(record['name'])
                 record.pop("_id")
-                record['times'] = {}
-                record['md_trajectory'] = {}
                 record = MOFRecord(**record)
                 self.queues.send_inputs(
                     record,
@@ -605,6 +603,8 @@ if __name__ == "__main__":
         cp2k_invocation=hpc_config.cp2k_cmd,
         run_dir=run_dir / 'cp2k-runs'
     )
+    cp2k_fun = partial(cp2k_runner.run_single_point, structure_source=('uff', -1))  # Run the last structure from the UFF traj
+    update_wrapper(cp2k_fun, cp2k_runner.run_single_point)
 
     # Launch MongoDB as a subprocess
     mongo_dir = run_dir / 'db'
@@ -642,7 +642,7 @@ if __name__ == "__main__":
             (gen_method, {'executors': hpc_config.ai_executors}),
             (train_func, {'executors': hpc_config.ai_executors}),
             (md_fun, {'executors': hpc_config.lammps_executors}),
-            (cp2k_runner.run_single_point, {'executors': hpc_config.cp2k_executors}),
+            (cp2k_fun, {'executors': hpc_config.cp2k_executors}),
             (compute_partial_charges, {'executors': hpc_config.helper_executors}),
             (process_ligands, {'executors': hpc_config.helper_executors})
         ],
