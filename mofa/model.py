@@ -188,7 +188,7 @@ class LigandDescription:
     def atoms(self):
         return read_from_string(self.xyz, "xyz")
 
-    def full_ligand_optimization(self, xyz_tol=0.001, force_constant=10000.0, max_iterations=1000):
+    def full_ligand_optimization(self, max_iterations=1000):
         """optimize the ligand while the anchor atoms are constrained
 
         Args:
@@ -206,7 +206,7 @@ class LigandDescription:
         rdDetermineBonds.DetermineConnectivity(mol)
         rdDetermineBonds.DetermineBondOrders(mol)
         AllChem.EmbedMolecule(mol)
-        AllChem.MMFFOptimizeMolecule(mol)
+        AllChem.MMFFOptimizeMolecule(mol, maxIters=max_iterations)
         self.xyz = Chem.MolToXYZBlock(mol)
 
     def anchor_constrained_optimization(self, xyz_tol=0.001, force_constant=10000.0, max_iterations=1000):
