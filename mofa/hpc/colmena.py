@@ -20,7 +20,7 @@ class DiffLinkerInference(PythonGeneratorMethod):
         self.store = store
 
     def __setstate__(self, state):
-        super().__setstate__(state)
+        self.__dict__.update(state)
 
         # Make sure the store is registered
         register_store(self.store, exist_ok=True)
