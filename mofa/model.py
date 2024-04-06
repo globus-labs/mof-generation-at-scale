@@ -262,7 +262,7 @@ class LigandDescription:
                 output.set_chemical_symbols(symbols)
 
                 # Delete the other two atoms (both Oxygen)
-                assert all(symbols[t] == 'O' for t in curr_anchor[1:]), 'The other prompts are not oxygen'
+                assert all(symbols[t] in ['H', 'O'] for t in curr_anchor[1:]), 'The other prompts are not oxygen'
                 to_remove.extend(curr_anchor[1:])
 
             del output[to_remove]
