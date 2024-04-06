@@ -246,7 +246,7 @@ class LigandDescription:
 
             del output[to_remove]
         elif self.anchor_type == "cyano":
-            # Place the dummy atom 2A away from the C, along the direction of C#N bond
+            # Place the dummy atom 2A away from the N, along the direction of C#N bond
             for curr_anchor in self.prompt_atoms:
                 curr_anchor = curr_anchor[-2:]
                 # Check types
@@ -255,8 +255,23 @@ class LigandDescription:
 
                 # Locate the new position
                 c_pos = output.positions[curr_anchor[0], :]
-                bond_dir = output.positions[curr_anchor[1], :] - c_pos
-                dummy_pos = c_pos + bond_dir / np.linalg.norm(bond_dir) * 2
+                n_pos = output.positions[curr_anchor[1], :]
+                vector_dir = n_pos - c_pos
+                dummy_pos = n_pos + vector_dir / np.linalg.norm(vector_dir) * 2
+                output.append(Atom(symbol=self.dummy_element, position=dummy_pos))
+        elif self.anchor_type == "pyridine":
+            # Place the dummy atom 2A away from the N, along the direction of C#N bond
+            for curr_anchor in self.prompt_atoms:
+                curr_anchor = curr_anchor[-2:]
+                # Check types
+                symbols = output.get_chemical_symbols()
+                assert symbols[curr_anchor[0]] == 'C'
+
+                # Locate the new position
+                c_pos = output.positions[curr_anchor[0], :]
+                n_pos = output.positions[curr_anchor[1], :]
+                vector_dir = n_pos - c_pos
+                dummy_pos = n_pos + vector_dir / np.linalg.norm(vector_dir) * 2
                 output.append(Atom(symbol=self.dummy_element, position=dummy_pos))
         else:
             raise NotImplementedError(f'Logic not yet defined for anchor_type={self.anchor_type}')
