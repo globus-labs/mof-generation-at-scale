@@ -2,11 +2,14 @@
 import os
 from pathlib import Path
 
+from pytest import mark
+
 from mofa.hpc.config import configs, PolarisConfig
 
 
-def test_local(tmpdir):
-    config = configs['local']()
+@mark.parametrize('name', ['local', 'localXY'])
+def test_local(tmpdir, name):
+    config = configs[name]()
     assert config.torch_device == 'cuda'
     assert config.num_workers == 3
     parsl_cfg = config.make_parsl_config(Path(tmpdir))
