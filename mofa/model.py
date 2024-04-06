@@ -132,7 +132,10 @@ class LigandTemplate:
             prompt_atoms=prompt_atoms,
             dummy_element=self.dummy_element
         )
-        ld.full_ligand_optimization()
+        try:
+            ld.full_ligand_optimization()
+        except (ValueError, AttributeError,):
+            continue
         return ld
 
     @classmethod
