@@ -424,7 +424,7 @@ if __name__ == "__main__":
     group.add_argument('--molecule-sizes', nargs='+', type=int, default=list(range(6, 21)),
                        help='Sizes of molecules we should generate')
     group.add_argument('--num-samples', type=int, default=16, help='Number of molecules to generate at each size')
-    group.add_argument('--gen-batch-size', type=int, default=4, help='Number of ligands to stream per batch')
+    group.add_argument('--gen-batch-size', type=int, default=16, help='Number of ligands to stream per batch')
 
     group = parser.add_argument_group('Retraining Settings', description='How often to retain, what to train on, etc')
     group.add_argument('--generator-config-path', required=True, help='Path to the generator training configuration')
