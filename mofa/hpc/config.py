@@ -131,6 +131,50 @@ class LocalConfig(HPCConfig):
 
 
 @dataclass(kw_only=True)
+class LocalXYConfig(HPCConfig):
+    """Configuration Xiaoli uses for testing purposes"""
+
+    torch_device = 'cuda'
+    lammps_cmd = "/home/xyan11/software/lmp20230802up3/build-gpu/lmp -sf gpu -pk gpu 1".split()
+    lammps_env = {}
+
+    lammps_executors = ['sim']
+    ai_executors = ['ai']
+    helper_executors = ['helper']
+
+    @property
+    def num_workers(self):
+        return self.num_lammps_workers + self.num_cp2k_workers + self.num_ai_workers
+
+    @property
+    def num_ai_workers(self) -> int:
+        return 1
+
+    @property
+    def num_lammps_workers(self) -> int:
+        return 1
+
+    @property
+    def num_cp2k_workers(self) -> int:
+        return 1
+
+    def launch_monitor_process(self, log_dir: Path, freq: int = 20) -> Popen:
+        return Popen(
+            args=f"monitor_utilization --frequency {freq} {log_dir}".split()
+        )
+
+    def make_parsl_config(self, run_dir: Path) -> Config:
+        return Config(
+            executors=[
+                HighThroughputExecutor(label='sim', max_workers=1),
+                HighThroughputExecutor(label='helper', max_workers=1),
+                HighThroughputExecutor(label='ai', max_workers=1, available_accelerators=1)
+            ],
+            run_dir=str(run_dir / 'runinfo')
+        )
+
+
+@dataclass(kw_only=True)
 class PolarisConfig(HPCConfig):
     """Configuration used on Polaris"""
 
@@ -363,6 +407,7 @@ hostname""",
 
 configs: dict[str, type[HPCConfig]] = {
     'local': LocalConfig,
+    'localXY': LocalXYConfig,
     'polaris': PolarisConfig,
     'sunspot': SunspotConfig
 }
