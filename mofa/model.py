@@ -192,8 +192,6 @@ class LigandDescription:
         """optimize the ligand while the anchor atoms are constrained
 
         Args:
-            xyz_tol: coordinate tolerance for constrained atoms
-            force_constant: the spring force constant to keep the constrained atoms in original position
             max_iterations: maximum number of iterations for optimization
         Returns:
             inplace function, no return
