@@ -232,7 +232,7 @@ class LigandDescription:
             # Place the dummy on the site of the carbon
             to_remove = []
             for curr_anchor in self.prompt_atoms:
-                curr_anchor = curr_anchor[-3:]
+                curr_anchor = curr_anchor[-4:]  # changed from 3 to 4 to test -COOH instead of -COO
                 # Change the carbon atom's type
                 symbols = output.get_chemical_symbols()
                 at_id = curr_anchor[0]
