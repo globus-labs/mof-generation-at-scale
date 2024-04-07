@@ -18,7 +18,8 @@ def test_reversibility(smiles):
     assert start_inchi == end_inchi
 
 
-@mark.parametrize('smiles', ['C', 'c1cnccc1'])
+# changed test case to conjugated sp2 molecules, i.e.: rigid molecules.
+@mark.parametrize('smiles', ['C=CC=C', 'c1cnccc1'])
 def test_from_unsaturated(smiles):
     """Test whether we can infer smiles from unsaturated"""
 
