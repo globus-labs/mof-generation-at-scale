@@ -26,6 +26,6 @@ def test_valid(methane):
 
 
 def test_disconnected(bad_ethane):
-    valid_ligands, records = process_ligands([bad_methane])
+    valid_ligands, records = process_ligands([bad_ethane])
     assert valid_ligands == []
     assert not records[0]['valid']
