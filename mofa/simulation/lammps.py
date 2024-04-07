@@ -38,6 +38,7 @@ class LAMMPSRunner:
         self.lmp_sims_root_path = lmp_sims_root_path
         os.makedirs(self.lmp_sims_root_path, exist_ok=True)
         self.lammps_environ = lammps_environ.copy()
+        self.delete_finished = delete_finished
 
     def prep_molecular_dynamics_single(self, run_name: str, atoms: ase.Atoms, timesteps: int, report_frequency: int, stepsize_fs: float = 0.5) -> str:
         """Use cif2lammps to assign force field to a single MOF and generate input files for lammps simulation
@@ -131,13 +132,17 @@ write_data          relaxing.*.data
         lmp_path = self.prep_molecular_dynamics_single(mof.name, mof.atoms, timesteps, report_frequency)
 
         # Invoke lammps
-        ret = self.invoke_lammps(lmp_path)
-        if ret.returncode != 0:
-            raise ValueError(f'LAMMPS failed. Check the log files in: {lmp_path}')
+        try:
+            ret = self.invoke_lammps(lmp_path)
+            if ret.returncode != 0:
+                raise ValueError('LAMMPS failed.' + ('' if self.delete_finished else f'Check the log files in: {lmp_path}'))
 
-        # Read the output file
-        with open(Path(lmp_path) / 'dump.lammpstrj.all') as fp:
-            return read_lammps_dump_text(fp, slice(None))
+            # Read the output file
+            with open(Path(lmp_path) / 'dump.lammpstrj.all') as fp:
+                return read_lammps_dump_text(fp, slice(None))
+        finally:
+            if self.delete_finished:
+                shutil.rmtree(lmp_path)
 
     def invoke_lammps(self, lmp_path: str | Path) -> CompletedProcess:
         """Invoke LAMMPS in a specific run directory
