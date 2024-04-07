@@ -86,9 +86,9 @@ def unsaturated_xyz_to_xyz(xyz: str, exclude_atoms: Collection[int] = ()) -> str
             nH = OB.GetTypicalValence(obatomicnum, currBO, 0) - currBO
             ndeg = obatom.GetExplicitDegree()
             # to get some extra unsaturation for rigidity
-            if obatomicnum == 6 and ndeg + nH == 4 and nH >= 1:
+            if obatomicnum == 6 and ndeg + nH >= 4 and nH >= 1:
                 nH = nH - 1
-            elif obatomicnum == 7 and ndeg + nH == 3 and nH >= 1:
+            elif obatomicnum == 7 and ndeg + nH >= 3 and nH >= 1:
                 nH = nH - 1
             obatom.SetImplicitHCount(nH)
     obmol.ConvertDativeBonds()
