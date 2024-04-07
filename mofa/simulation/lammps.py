@@ -1,5 +1,4 @@
 """Simulation operations that involve LAMMPS"""
-from tempfile import TemporaryDirectory
 from typing import Sequence
 from subprocess import run, CompletedProcess
 from pathlib import Path
@@ -27,22 +26,25 @@ class LAMMPSRunner:
         lammps_command: Command used to launch LAMMPS
         lmp_sims_root_path: Scratch directory for LAMMPS simulations
         lammps_environ: Additional environment variables to provide to LAMMPS
+        delete_finished: Whether to delete run files once completed
     """
 
     def __init__(self,
                  lammps_command: Sequence[str] = ("lmp_serial",),
                  lmp_sims_root_path: str = "lmp_sims",
-                 lammps_environ: dict[str, str] | None = None):
+                 lammps_environ: dict[str, str] | None = None,
+                 delete_finished: bool = True):
         self.lammps_command = lammps_command
         self.lmp_sims_root_path = lmp_sims_root_path
         os.makedirs(self.lmp_sims_root_path, exist_ok=True)
         self.lammps_environ = lammps_environ.copy()
 
-    def prep_molecular_dynamics_single(self, cif_path: str | Path, timesteps: int, report_frequency: int, stepsize_fs: float = 0.5) -> str:
+    def prep_molecular_dynamics_single(self, run_name: str, atoms: ase.Atoms, timesteps: int, report_frequency: int, stepsize_fs: float = 0.5) -> str:
         """Use cif2lammps to assign force field to a single MOF and generate input files for lammps simulation
 
         Args:
-            cif_path: starting structure's cif file path
+            run_name: Name of the run directory
+            atoms: Starting structure
             timesteps: Number of timesteps to run
             report_frequency: How often to report structures
             stepsize_fs: Timestep size
@@ -51,11 +53,12 @@ class LAMMPSRunner:
         """
 
         # Convert the cif_path to string, as that's what the underlying library uses
-        cif_path = str(cif_path)
-
-        cif_name = os.path.split(cif_path)[-1]
-        lmp_path = os.path.join(self.lmp_sims_root_path, cif_name.replace(".cif", ""))
+        lmp_path = os.path.join(self.lmp_sims_root_path, run_name)
         os.makedirs(lmp_path, exist_ok=True)
+
+        # Write the cif file to disk
+        cif_path = os.path.join(lmp_path, f'{run_name}.cif')
+        atoms.write(cif_path, 'cif')
         try:
             single_conversion(cif_path,
                               force_field=UFF4MOF,
@@ -124,13 +127,8 @@ write_data          relaxing.*.data
             Structures produced at specified intervals
         """
 
-        # Generate a CIF file form the current MOF structure
-        with TemporaryDirectory() as tmpdir:
-            cif_path = Path(tmpdir) / f'{mof.name}.cif'
-            mof.atoms.write(cif_path, 'cif')
-
-            # Generate the input files
-            lmp_path = self.prep_molecular_dynamics_single(cif_path, timesteps, report_frequency)
+        # Generate the input files
+        lmp_path = self.prep_molecular_dynamics_single(mof.name, mof.atoms, timesteps, report_frequency)
 
         # Invoke lammps
         ret = self.invoke_lammps(lmp_path)
