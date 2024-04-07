@@ -137,7 +137,7 @@ class LocalXYConfig(HPCConfig):
     torch_device = 'cuda'
     lammps_cmd = "/home/xyan11/software/lmp20230802up3/build-gpu/lmp -sf gpu -pk gpu 1".split()
     lammps_env = {}
-
+    cp2k_cmd = "OMP_THREADS_NUM=1 mpiexec -np 8 /home/xyan11/software/cp2k-v2024.1/exe/local/cp2k_shell.psmp"
     lammps_executors = ['sim']
     ai_executors = ['ai']
     helper_executors = ['helper']
