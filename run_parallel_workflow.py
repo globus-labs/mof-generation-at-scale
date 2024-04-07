@@ -511,11 +511,13 @@ if __name__ == "__main__":
                        help='Maximum number of attempts to create a MOF')
     group.add_argument('--minimum-ligand-pool', type=int, default=4, help='Minimum number of ligands before MOF assembly')
 
-    group = parser.add_argument_group(title='Simulation Settings Settings', description='Options related to MOF assembly')
+    group = parser.add_argument_group(title='Simulation Settings Settings', description='Options related to property calculations')
     group.add_argument('--md-timesteps', default=100000, help='Number of timesteps for the UFF MD simulation', type=int)
     group.add_argument('--md-snapshots', default=100, help='Maximum number of snapshots during MD simulation', type=int)
+    group.add_argument('--retain-lammps', action='store_true', help='Keep LAMMPS output files after it finishes')
 
     group = parser.add_argument_group(title='Compute Settings', description='Compute environment configuration')
+    group.add_argument('--lammps-on-ramdisk', action='store_true', help='Write LAMMPS outputs to a RAM Disk')
     group.add_argument('--compute-config', default='local', help='Configuration for the HPC system')
     group.add_argument('--ai-fraction', default=0.1, type=float, help='Fraction of workers devoted to AI tasks')
     group.add_argument('--dft-fraction', default=0.1, type=float, help='Fraction of workers devoted to DFT tasks')
@@ -593,8 +595,9 @@ if __name__ == "__main__":
 
     # Make the LAMMPS function
     lmp_runner = LAMMPSRunner(hpc_config.lammps_cmd,
-                              lmp_sims_root_path=str(run_dir / 'lmp_run'),
-                              lammps_environ=hpc_config.lammps_env)
+                              lmp_sims_root_path='/dev/shm/lmp_run' if args.lammps_on_ramdisk else str(run_dir / 'lmp_run'),
+                              lammps_environ=hpc_config.lammps_env,
+                              delete_finished=not args.retain_lammps)
     md_fun = partial(lmp_runner.run_molecular_dynamics, timesteps=args.md_timesteps, report_frequency=max(1, args.md_timesteps / args.md_snapshots))
     update_wrapper(md_fun, lmp_runner.run_molecular_dynamics)
 
