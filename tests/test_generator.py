@@ -33,7 +33,7 @@ def load_size_gnn_model(device, file_dir):
 
 @fixture()
 def example_template(file_dir):
-    return LigandTemplate.from_yaml(file_dir / 'templates' / 'template_COO.yml')
+    return LigandTemplate.from_yaml(file_dir / 'templates' / 'template_carboxyl_benzene_prompt.yml')
 
 
 def test_load_model(load_denoising_model, load_size_gnn_model):

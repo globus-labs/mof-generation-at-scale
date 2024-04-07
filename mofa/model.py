@@ -126,13 +126,17 @@ class LigandTemplate:
         # Add Hydrogens to the molecule
         unsat_xyz = write_to_string(atoms, 'xyz')
         sat_xyz = unsaturated_xyz_to_xyz(unsat_xyz, exclude_atoms=list(itertools.chain(*prompt_atoms)))
-
-        return LigandDescription(
+        ld = LigandDescription(
             xyz=sat_xyz,
             anchor_type=self.anchor_type,
             prompt_atoms=prompt_atoms,
             dummy_element=self.dummy_element
         )
+        try:
+            ld.full_ligand_optimization()
+        except (ValueError, AttributeError,):
+            pass
+        return ld
 
     @classmethod
     def from_yaml(cls, path: Path | str) -> 'LigandTemplate':
@@ -188,6 +192,25 @@ class LigandDescription:
     def atoms(self):
         return read_from_string(self.xyz, "xyz")
 
+    def full_ligand_optimization(self, max_iterations=1000):
+        """optimize the ligand while the anchor atoms are constrained
+
+        Args:
+            max_iterations: maximum number of iterations for optimization
+        Returns:
+            inplace function, no return
+        """
+
+        mol = Chem.MolFromXYZBlock(self.xyz)
+        # all_anchor_atoms = list(itertools.chain(*self.prompt_atoms))
+        charge = 0  # added hydrogen to COO ligand template, so no more charges
+        rdDetermineBonds.DetermineBonds(mol, charge=charge)
+        rdDetermineBonds.DetermineConnectivity(mol)
+        rdDetermineBonds.DetermineBondOrders(mol)
+        AllChem.EmbedMolecule(mol)
+        AllChem.MMFFOptimizeMolecule(mol, maxIters=max_iterations)
+        self.xyz = Chem.MolToXYZBlock(mol)
+
     def anchor_constrained_optimization(self, xyz_tol=0.001, force_constant=10000.0, max_iterations=1000):
         """optimize the ligand while the anchor atoms are constrained
 
@@ -232,7 +255,7 @@ class LigandDescription:
             # Place the dummy on the site of the carbon
             to_remove = []
             for curr_anchor in self.prompt_atoms:
-                curr_anchor = curr_anchor[-3:]
+                curr_anchor = curr_anchor[-4:]  # changed from 3 to 4 to test -COOH instead of -COO
                 # Change the carbon atom's type
                 symbols = output.get_chemical_symbols()
                 at_id = curr_anchor[0]
@@ -241,12 +264,12 @@ class LigandDescription:
                 output.set_chemical_symbols(symbols)
 
                 # Delete the other two atoms (both Oxygen)
-                assert all(symbols[t] == 'O' for t in curr_anchor[1:]), 'The other prompts are not oxygen'
+                assert all(symbols[t] in ['H', 'O'] for t in curr_anchor[1:]), 'The other prompts are not oxygen'
                 to_remove.extend(curr_anchor[1:])
 
             del output[to_remove]
         elif self.anchor_type == "cyano":
-            # Place the dummy atom 2A away from the C, along the direction of C#N bond
+            # Place the dummy atom 2A away from the N, along the direction of C#N bond
             for curr_anchor in self.prompt_atoms:
                 curr_anchor = curr_anchor[-2:]
                 # Check types
@@ -255,8 +278,23 @@ class LigandDescription:
 
                 # Locate the new position
                 c_pos = output.positions[curr_anchor[0], :]
-                bond_dir = output.positions[curr_anchor[1], :] - c_pos
-                dummy_pos = c_pos + bond_dir / np.linalg.norm(bond_dir) * 2
+                n_pos = output.positions[curr_anchor[1], :]
+                vector_dir = n_pos - c_pos
+                dummy_pos = n_pos + vector_dir / np.linalg.norm(vector_dir) * 2
+                output.append(Atom(symbol=self.dummy_element, position=dummy_pos))
+        elif self.anchor_type == "pyridine":
+            # Place the dummy atom 2A away from the N, along the direction of C#N bond
+            for curr_anchor in self.prompt_atoms:
+                curr_anchor = curr_anchor[-2:]
+                # Check types
+                symbols = output.get_chemical_symbols()
+                assert symbols[curr_anchor[0]] == 'C'
+
+                # Locate the new position
+                c_pos = output.positions[curr_anchor[0], :]
+                n_pos = output.positions[curr_anchor[1], :]
+                vector_dir = n_pos - c_pos
+                dummy_pos = n_pos + vector_dir / np.linalg.norm(vector_dir) * 2
                 output.append(Atom(symbol=self.dummy_element, position=dummy_pos))
         else:
             raise NotImplementedError(f'Logic not yet defined for anchor_type={self.anchor_type}')

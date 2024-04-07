@@ -13,9 +13,9 @@ def methane() -> LigandDescription:
 
 
 @fixture()
-def bad_methane() -> LigandDescription:
-    atoms = molecule('CH4')
-    atoms.positions[3, 1] += 10
+def bad_ethane() -> LigandDescription:  # don't use broken H to test disconnectivity because H are removed by default in RDkit
+    atoms = molecule('C2H6')
+    atoms.positions[0, 1] += 10
     return LigandDescription(xyz=write_to_string(atoms, 'xyz'), prompt_atoms=[[0]])
 
 
@@ -25,7 +25,7 @@ def test_valid(methane):
     assert records[0]['smiles'] == 'C'
 
 
-def test_disconnected(bad_methane):
-    valid_ligands, records = process_ligands([bad_methane])
+def test_disconnected(bad_ethane):
+    valid_ligands, records = process_ligands([bad_ethane])
     assert valid_ligands == []
     assert not records[0]['valid']
