@@ -70,7 +70,7 @@ def compute_partial_charges(cp2k_path: Path, threads: int | None = 2) -> ase.Ato
 
     # read output of chargemol
     chargemol_out_fname = "DDEC6_even_tempered_net_atomic_charges.xyz"
-    with open(chargemol_out_fname, "r") as cmresf:
+    with open(cp2k_path / chargemol_out_fname, "r") as cmresf:
         res_lines = cmresf.readlines()
     natoms = int(res_lines[0])
     lat_str = " ".join(res_lines[1].split("unitcell")[1].replace("}", "").replace("{", "").replace("]", "").replace("[", "").replace(",", "").split())
