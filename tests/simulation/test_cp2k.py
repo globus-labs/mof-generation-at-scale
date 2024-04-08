@@ -20,7 +20,7 @@ def test_cp2k_single(cif_name, cif_dir, tmpdir):
     test_file = cif_dir / f'{cif_name}.cif'
     record = MOFRecord.from_file(test_file)
     record.md_trajectory['uff'] = [write_to_string(record.atoms, 'vasp')]
-    cp2k_path = runner.run_single_point(record, structure_source=('uff', -1))
+    atoms, cp2k_path = runner.run_single_point(record, structure_source=('uff', -1))
 
     compute_partial_charges(cp2k_path, threads=2)
 
@@ -38,8 +38,10 @@ def test_cp2k_optimize(cif_name, cif_dir, tmpdir):
     test_file = cif_dir / f'{cif_name}.cif'
     record = MOFRecord.from_file(test_file)
     record.md_trajectory['uff'] = [write_to_string(record.atoms, 'vasp')]
-    cp2k_path = runner.run_optimization(record, steps=2, fmax=0.1)
+    atoms, cp2k_path = runner.run_optimization(record, steps=2, fmax=0.1)
+    assert atoms != record.atoms
     assert cp2k_path.exists()
+    assert cp2k_path.is_absolute()
     assert 'opt' in cp2k_path.name
 
     compute_partial_charges(cp2k_path, threads=2)

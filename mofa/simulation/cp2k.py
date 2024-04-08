@@ -90,7 +90,7 @@ class CP2KRunner:
 
     def run_single_point(self, mof: MOFRecord,
                          level: str = 'pbe',
-                         structure_source: tuple[str, int] | None = None) -> Path:
+                         structure_source: tuple[str, int] | None = None) -> tuple[ase.Atoms, Path]:
         """Perform a single-point computation at a certain level
 
         Args:
@@ -99,17 +99,18 @@ class CP2KRunner:
             structure_source: Name of the MD trajectory and frame ID from which to source the
                 input structure. Default is to use the as-assembled structure
         Returns:
-            Absolute path to the output files
+            - Structure with the
+            - Path to the run directory
         """
 
         atoms = _load_structure(mof, structure_source)
-        return self._run_cp2k(mof.name, atoms, 'single', level).absolute()
+        return self._run_cp2k(mof.name, atoms, 'single', level)
 
     def run_optimization(self, mof: MOFRecord,
                          level: str = 'pbe',
                          structure_source: tuple[str, int] | None = None,
                          steps: int = 8,
-                         fmax: float = 1e-2) -> Path:
+                         fmax: float = 1e-2) -> tuple[ase.Atoms, Path]:
         """Perform a single-point computation at a certain level
 
         Args:
@@ -120,13 +121,14 @@ class CP2KRunner:
             steps: Maximum number of optimization steps
             fmax: Convergence threshold for optimization
         Returns:
-            Absolute path to the output files
+            - Relaxed structure
+            - Path to the run directory
         """
 
         atoms = _load_structure(mof, structure_source)
-        return self._run_cp2k(mof.name, atoms, 'optimize', level, steps, fmax).absolute()
+        return self._run_cp2k(mof.name, atoms, 'optimize', level, steps, fmax)
 
-    def _run_cp2k(self, name: str, atoms: ase.Atoms, action: str, level: str, steps: int = 8, fmax: float = 1e-2) -> Path:
+    def _run_cp2k(self, name: str, atoms: ase.Atoms, action: str, level: str, steps: int = 8, fmax: float = 1e-2) -> tuple[ase.Atoms, Path]:
         """Run CP2K in a special directory
 
         Args:
@@ -137,7 +139,8 @@ class CP2KRunner:
             steps: Number of steps to run
             fmax: Convergence threshold for optimization
         Returns:
-            Path to the run directory
+            - Relaxed structure
+            - Absolute path to the run directory
         """
         # Get the template for this level of computation
         template_file = _file_dir / f'cp2k-{level}-template.inp'
@@ -166,6 +169,7 @@ class CP2KRunner:
                         **options,
                 ) as calc:
                     # Run the calculation
+                    atoms = atoms.copy()
                     atoms.calc = calc
                     if action == 'single':
                         atoms.get_potential_energy()
@@ -186,4 +190,4 @@ class CP2KRunner:
                 raise
             finally:
                 os.chdir(start_dir)
-        return out_dir
+        return atoms, out_dir.absolute()
