@@ -14,7 +14,7 @@ from queue import Queue, Empty
 from platform import node
 from random import shuffle, choice
 from pathlib import Path
-from threading import Event
+from threading import Event, Lock
 import logging
 import hashlib
 import json
@@ -151,6 +151,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
 
         # Output files
         self._output_files: dict[str, Path | TextIO] = {}
+        self.generate_write_lock: Lock = Lock()  # Two threads write to the same generation output
         for name in ['generation-results', 'simulation-results', 'training-results']:
             self._output_files[name] = run_dir / f'{name}.json'
 
@@ -194,14 +195,14 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         if result.method == 'run_generator':
             # Start a new task
             self.rec.release('generation')
+            with self.generate_write_lock:
+                print(result.json(exclude={'inputs', 'value'}), file=self._output_files['generation-results'], flush=False)
         elif result.method == 'process_ligands':
             # Process them asynchronously
             self.ligand_process_queue.put(result)
 
         if not result.success:
             self.logger.warning(f'Generation task failed: {result.failure_info.exception}\nStack: {result.failure_info.traceback}')
-
-        print(result.json(exclude={'inputs', 'value'}), file=self._output_files['generation-results'], flush=False)
 
     @agent()
     def process_ligands(self):
@@ -224,6 +225,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             self.logger.info(f'Received {len(all_records)} {anchor_type} ligands of size {size} from model v{model_version}, '
                              f'{len(valid_ligands)} ({len(valid_ligands) / len(all_records) * 100:.1f}%) are valid. '
                              f'Processing backlog: {self.ligand_process_queue.qsize()}')
+            result.task_info['process_done'] = datetime.now().timestamp()  # TODO (wardlt): exalearn/colmena#135
 
             self.ligand_assembly_queue[anchor_type].extend(valid_ligands)  # Shoves old ligands out of the deque
             self.logger.info(f'Current length of {anchor_type} queue: {len(self.ligand_assembly_queue[anchor_type])}')
@@ -245,6 +247,10 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
                 if first_write:
                     writer.writeheader()
                 writer.writerows(all_records)
+
+            # Write the result file
+            with self.generate_write_lock:
+                print(result.json(exclude={'inputs', 'value'}), file=self._output_files['generation-results'], flush=False)
 
     @event_responder(event_name='make_mofs')
     def assemble_new_mofs(self):
@@ -446,7 +452,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
                 record = MOFRecord(**record)
                 self.queues.send_inputs(
                     record,
-                    method='run_single_point',
+                    method='run_optimization',
                     topic='cp2k',
                     task_info={'mof': record.name}
                 )
@@ -462,16 +468,16 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         """Store the results for the CP2K, submit any post-processing"""
 
         # Trigger new CP2K
-        if result.method == 'run_single_point':
+        if result.method == 'run_optimization':
             self.rec.release('cp2k')
 
         # If it's a failure, report to the user
         mof_name = result.task_info['mof']
         if not result.success:
             self.logger.warning(f'Task {result.method} failed for {mof_name}. Exception: {result.failure_info.exception}')
-        elif result.method == 'run_single_point':
+        elif result.method == 'run_optimization':
             # Submit post-processing to happen
-            cp2k_path = result.value
+            _, cp2k_path = result.value  # Not doing anything with the Atoms yet
             self.queues.send_inputs(cp2k_path, method='compute_partial_charges', task_info=result.task_info, topic='cp2k')
             self.logger.info(f'Completed CP2K computation for {mof_name}. Runtime: {result.time.running:.2f} s. Started partial charge computation')
         elif result.method == 'compute_partial_charges':
@@ -515,6 +521,7 @@ if __name__ == "__main__":
     group.add_argument('--md-timesteps', default=100000, help='Number of timesteps for the UFF MD simulation', type=int)
     group.add_argument('--md-snapshots', default=100, help='Maximum number of snapshots during MD simulation', type=int)
     group.add_argument('--retain-lammps', action='store_true', help='Keep LAMMPS output files after it finishes')
+    group.add_argument('--dft-opt-steps', default=8, help='Maximum number of DFT optimization steps', type=int)
 
     group = parser.add_argument_group(title='Compute Settings', description='Compute environment configuration')
     group.add_argument('--lammps-on-ramdisk', action='store_true', help='Write LAMMPS outputs to a RAM Disk')
@@ -606,8 +613,8 @@ if __name__ == "__main__":
         cp2k_invocation=hpc_config.cp2k_cmd,
         run_dir=run_dir / 'cp2k-runs'
     )
-    cp2k_fun = partial(cp2k_runner.run_single_point, structure_source=('uff', -1))  # Run the last structure from the UFF traj
-    update_wrapper(cp2k_fun, cp2k_runner.run_single_point)
+    cp2k_fun = partial(cp2k_runner.run_optimization, steps=args.dft_opt_steps)  # Optimizes starting from assembled structure
+    update_wrapper(cp2k_fun, cp2k_runner.run_optimization)
 
     # Launch MongoDB as a subprocess
     mongo_dir = run_dir / 'db'
