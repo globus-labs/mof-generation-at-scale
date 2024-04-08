@@ -181,12 +181,13 @@ class UICXYConfig(HPCConfig):
     torch_device = 'cuda'
     lammps_cmd = "/projects/cme_santc/xyan11/software/source/lmp20230802up3/build-gpu/lmp -sf gpu -pk gpu 1".split()
     lammps_env = {}
-	
+
     lammps_executors = ['sim']
     ai_executors = ['ai']
     helper_executors = ['helper']
 
-    cp2k_cmd = "OMP_NUM_THREADS=2 singularity run --nv -B ${PWD}:/host_pwd --pwd /host_pwd /projects/cme_santc/xyan11/software/source/cp2k_v2023.1.sif mpirun -np 4 cp2k_shell.psmp"
+    cp2k_cmd = ("OMP_NUM_THREADS=2 singularity run --nv -B ${PWD}:/host_pwd --pwd /host_pwd "
+	       "/projects/cme_santc/xyan11/software/source/cp2k_v2023.1.sif mpirun -np 4 cp2k_shell.psmp")
 
     @property
     def num_workers(self):
