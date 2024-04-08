@@ -201,7 +201,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         if not result.success:
             self.logger.warning(f'Generation task failed: {result.failure_info.exception}\nStack: {result.failure_info.traceback}')
 
-        print(result.json(exclude={'inputs', 'value'}), file=self._output_files['generation-results'], flush=False)
+        print(result.json(exclude={'inputs', 'value'}), file=self._output_files['generation-results'], flush=True)
 
     @agent()
     def process_ligands(self):
