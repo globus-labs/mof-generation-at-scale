@@ -8,6 +8,7 @@ import sys
 import os
 from io import StringIO
 
+import ase
 from ase.io import read
 from ase.calculators.cp2k import CP2K
 from ase import units
@@ -72,11 +73,8 @@ def compute_partial_charges(cp2k_path: Path, threads: int | None = 2) -> ase.Ato
     with open(chargemol_out_fname, "r") as cmresf:
         res_lines = cmresf.readlines()
     natoms = int(res_lines[0])
-    xyzstr = "".join(res_lines[0:natoms+2])
-    unit_cell = res_lines[1].split("unitcell")[1]
     lat_str = " ".join(res_lines[1].split("unitcell")[1].replace("}", "").replace("{", "").replace("]", "").replace("[", "").replace(",", "").split())
-    extxyzstr = "".join([res_lines[0], '''Lattice="''' + \
-                         lat_str + '''" Properties=species:S:1:pos:R:3:q:R:1\n'''] + res_lines[2:natoms+2])
+    extxyzstr = "".join([res_lines[0], '''Lattice="''' + lat_str + '''" Properties=species:S:1:pos:R:3:q:R:1\n'''] + res_lines[2:natoms+2])
     return read(StringIO(extxyzstr), format='extxyz')
 
 
