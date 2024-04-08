@@ -196,7 +196,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             # Start a new task
             self.rec.release('generation')
             with self.generate_write_lock:
-                print(result.json(exclude={'inputs', 'value'}), file=self._output_files['generation-results'], flush=False)
+                print(result.json(exclude={'inputs', 'value'}), file=self._output_files['generation-results'], flush=True)
         elif result.method == 'process_ligands':
             # Process them asynchronously
             self.ligand_process_queue.put(result)
@@ -250,7 +250,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
 
             # Write the result file
             with self.generate_write_lock:
-                print(result.json(exclude={'inputs', 'value'}), file=self._output_files['generation-results'], flush=False)
+                print(result.json(exclude={'inputs', 'value'}), file=self._output_files['generation-results'], flush=True)
 
     @event_responder(event_name='make_mofs')
     def assemble_new_mofs(self):
