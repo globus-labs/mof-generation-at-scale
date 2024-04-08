@@ -179,7 +179,7 @@ class UICXYConfig(HPCConfig):
     """Configuration Xiaoli uses for uic hpc"""
 
     torch_device = 'cuda'
-    lammps_cmd = "CUDA_VISIBLE_DEVICES=3 /projects/cme_santc/xyan11/software/source/lmp20230802up3/build-gpu/lmp -sf gpu -pk gpu 1".split()
+    lammps_cmd = "CUDA_VISIBLE_DEVICES=3 /projects/cme_santc/xyan11/software/source/lmp20230802up3/build-gpu/lmp -sf gpu -pk gpu 1"
     lammps_env = {}
 
     lammps_executors = ['sim']
