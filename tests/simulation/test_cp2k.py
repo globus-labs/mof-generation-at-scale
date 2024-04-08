@@ -17,4 +17,6 @@ def test_cp2k_runner(cif_name, cif_dir, tmpdir):
     record.md_trajectory['uff'] = [write_to_string(record.atoms, 'vasp')]
     cp2k_path = runner.run_single_point(record, structure_source=('uff', -1))
 
-    compute_partial_charges(cp2k_path, threads=2)
+    charged_mof = compute_partial_charges(cp2k_path, threads=2)
+    assert charged_mof.arrays["q"].shape[0] == charged_mof.arrays["positions"].shape[0]
+    
