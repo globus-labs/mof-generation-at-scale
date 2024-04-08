@@ -179,15 +179,15 @@ class UICXYConfig(HPCConfig):
     """Configuration Xiaoli uses for uic hpc"""
 
     torch_device = 'cuda'
-    lammps_cmd = "CUDA_VISIBLE_DEVICES=3 /projects/cme_santc/xyan11/software/source/lmp20230802up3/build-gpu/lmp -sf gpu -pk gpu 1"
+    lammps_cmd = "/projects/cme_santc/xyan11/software/source/lmp20230802up3/build-gpu/lmp -sf gpu -pk gpu 1"
     lammps_env = {}
 
     lammps_executors = ['sim']
     ai_executors = ['ai']
     helper_executors = ['helper']
 
-    cp2k_cmd = ("CUDA_VISIBLE_DEVICES=0,1,2,3 singularity run --nv -B ${PWD}:/host_pwd --pwd /host_pwd "
-                "/projects/cme_santc/xyan11/software/source/cp2k_v2023.1.sif OMP_NUM_THREADS=2 mpirun -np 4 cp2k_shell.psmp")
+    cp2k_cmd = ("OMP_NUM_THREADS=2 mpirun -np 4 singularity run --nv -B ${PWD}:/host_pwd --pwd /host_pwd "
+                "/projects/cme_santc/xyan11/software/source/cp2k_v2023.1.sif cp2k_shell.psmp")
 
     @property
     def num_workers(self):
@@ -213,9 +213,9 @@ class UICXYConfig(HPCConfig):
     def make_parsl_config(self, run_dir: Path) -> Config:
         return Config(
             executors=[
-                HighThroughputExecutor(label='sim', max_workers=1),
+                HighThroughputExecutor(label='sim', max_workers=4),
                 HighThroughputExecutor(label='helper', max_workers=1),
-                HighThroughputExecutor(label='ai', max_workers=1, available_accelerators=4)
+                HighThroughputExecutor(label='ai', max_workers=1, available_accelerators=1)
             ],
             run_dir=str(run_dir / 'runinfo')
         )
