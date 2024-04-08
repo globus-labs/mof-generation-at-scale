@@ -19,4 +19,3 @@ def test_cp2k_runner(cif_name, cif_dir, tmpdir):
 
     charged_mof = compute_partial_charges(cp2k_path, threads=2)
     assert charged_mof.arrays["q"].shape[0] == charged_mof.arrays["positions"].shape[0]
-    
