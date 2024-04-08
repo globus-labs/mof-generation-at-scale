@@ -199,7 +199,7 @@ class UICXYConfig(HPCConfig):
 
     @property
     def num_lammps_workers(self) -> int:
-        return 1
+        return 3
 
     @property
     def num_cp2k_workers(self) -> int:
