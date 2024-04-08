@@ -23,12 +23,17 @@
          &OUTER_SCF
             MAX_SCF 5
          &END OUTER_SCF
-
-         &MIXING
-            METHOD BROYDEN_MIXING
-            ALPHA 0.4
-            NMIXING 16
-         &END MIXING
+         
+         &OT
+            PRECONDITIONER FULL_SINGLE_INVERSE
+            MINIMIZER DIIS
+         &END OT
+         
+         !&MIXING
+            !METHOD BROYDEN_MIXING
+            !ALPHA 0.4
+            !NMIXING 16
+         !&END MIXING
 
          &PRINT
             &RESTART OFF
