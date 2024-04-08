@@ -213,7 +213,7 @@ class UICXYConfig(HPCConfig):
     def make_parsl_config(self, run_dir: Path) -> Config:
         return Config(
             executors=[
-                HighThroughputExecutor(label='sim', max_workers=4),
+                HighThroughputExecutor(label='sim', max_workers=4, available_accelerators=4),
                 HighThroughputExecutor(label='helper', max_workers=1),
                 HighThroughputExecutor(label='ai', max_workers=1, available_accelerators=1)
             ],
