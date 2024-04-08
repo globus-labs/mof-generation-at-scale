@@ -195,7 +195,7 @@ class UICXYConfig(HPCConfig):
 
     @property
     def num_ai_workers(self) -> int:
-        return 1
+        return 2
 
     @property
     def num_lammps_workers(self) -> int:
@@ -215,7 +215,7 @@ class UICXYConfig(HPCConfig):
             executors=[
                 HighThroughputExecutor(label='sim', max_workers=1),
                 HighThroughputExecutor(label='helper', max_workers=1),
-                HighThroughputExecutor(label='ai', max_workers=1, available_accelerators=1)
+                HighThroughputExecutor(label='ai', max_workers=1, available_accelerators=4)
             ],
             run_dir=str(run_dir / 'runinfo')
         )
