@@ -7,8 +7,12 @@ import time
 import sys
 import os
 
+import ase
 from ase.calculators.cp2k import CP2K
 from ase import units
+from ase.filters import UnitCellFilter
+from ase.io import Trajectory
+from ase.optimize import LBFGS
 
 from mofa.model import MOFRecord
 from mofa.utils.conversions import read_from_string
@@ -29,6 +33,16 @@ _cp2k_options = {
 _atomic_density_folder_path = str(Path(sys.prefix) / "share" / "chargemol" / "atomic_densities")
 if not _atomic_density_folder_path.endswith("/"):
     _atomic_density_folder_path = _atomic_density_folder_path + "/"
+
+
+# Utility functions
+def _load_structure(mof: MOFRecord, structure_source: tuple[str, int] | None):
+    """Read the appropriate input structure"""
+    if structure_source is None:
+        return mof.atoms
+    else:
+        traj, ind = structure_source
+        return read_from_string(mof.md_trajectory[traj][ind], 'vasp')
 
 
 def compute_partial_charges(cp2k_path: Path, threads: int | None = 2):
@@ -85,9 +99,46 @@ class CP2KRunner:
             structure_source: Name of the MD trajectory and frame ID from which to source the
                 input structure. Default is to use the as-assembled structure
         Returns:
-            Path to the output files
+            Absolute path to the output files
         """
 
+        atoms = _load_structure(mof, structure_source)
+        return self._run_cp2k(mof.name, atoms, 'single', level).absolute()
+
+    def run_optimization(self, mof: MOFRecord,
+                         level: str = 'pbe',
+                         structure_source: tuple[str, int] | None = None,
+                         steps: int = 8,
+                         fmax: float = 1e-2) -> Path:
+        """Perform a single-point computation at a certain level
+
+        Args:
+            mof: Structure to be run
+            level: Name of the level of DFT computation to perform
+            structure_source: Name of the MD trajectory and frame ID from which to source the
+                input structure. Default is to use the as-assembled structure
+            steps: Maximum number of optimization steps
+            fmax: Convergence threshold for optimization
+        Returns:
+            Absolute path to the output files
+        """
+
+        atoms = _load_structure(mof, structure_source)
+        return self._run_cp2k(mof.name, atoms, 'optimize', level, steps, fmax).absolute()
+
+    def _run_cp2k(self, name: str, atoms: ase.Atoms, action: str, level: str, steps: int = 8, fmax: float = 1e-2) -> Path:
+        """Run CP2K in a special directory
+
+        Args:
+            name: Name used for the start of the directory
+            atoms: Starting structure to use
+            action: Which action to perform (single, opt)
+            level: Level of accuracy to use
+            steps: Number of steps to run
+            fmax: Convergence threshold for optimization
+        Returns:
+            Path to the run directory
+        """
         # Get the template for this level of computation
         template_file = _file_dir / f'cp2k-{level}-template.inp'
         if not template_file.is_file():
@@ -98,16 +149,9 @@ class CP2KRunner:
             raise ValueError(f'No presents for {level}')
         options = _cp2k_options[level]
 
-        # Determine which structure to pull
-        if structure_source is None:
-            atoms = mof.atoms
-        else:
-            traj, ind = structure_source
-            atoms = read_from_string(mof.md_trajectory[traj][ind], 'vasp')
-
         # Open then move to the output directory
-        # CP2K does not like long directory names in input files, so we move to the local directory
-        out_dir = self.run_dir / f'{mof.name}-single-{level}'
+        #  CP2K does not like long directory names in input files, so we move to the local directory
+        out_dir = self.run_dir / f'{name}-{action}-{level}'
         start_dir = Path().cwd()
         out_dir.mkdir(parents=True, exist_ok=True)
         (out_dir / 'cp2k.out').write_text('')  # Clear old content
@@ -121,10 +165,19 @@ class CP2KRunner:
                         max_scf=128,
                         **options,
                 ) as calc:
-
                     # Run the calculation
                     atoms.calc = calc
-                    atoms.get_potential_energy()
+                    if action == 'single':
+                        atoms.get_potential_energy()
+                    elif action == 'optimize':
+                        ecf = UnitCellFilter(atoms, hydrostatic_strain=False)
+                        with Trajectory('relax.traj', mode='w') as traj:
+                            dyn = LBFGS(ecf,
+                                        logfile='relax.log',
+                                        trajectory=traj)
+                            dyn.run(fmax=fmax, steps=steps)
+                    else:
+                        raise ValueError(f'Action not supported: {action}')
 
                     # Write the result to disk for easy retrieval
                     atoms.write('atoms.json')
@@ -133,4 +186,4 @@ class CP2KRunner:
                 raise
             finally:
                 os.chdir(start_dir)
-        return out_dir.absolute()
+        return out_dir
