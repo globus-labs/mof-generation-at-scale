@@ -224,32 +224,37 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             anchor_type = self.generator_config.templates[ligand_id].anchor_type
 
             # Put ligands in the assembly queue
-            valid_ligands, all_records = result.value
-            self.logger.info(f'Received {len(all_records)} {anchor_type} ligands of size {size} from model v{model_version}, '
-                             f'{len(valid_ligands)} ({len(valid_ligands) / len(all_records) * 100:.1f}%) are valid. '
-                             f'Processing backlog: {self.ligand_process_queue.qsize()}')
-            result.task_info['process_done'] = datetime.now().timestamp()  # TODO (wardlt): exalearn/colmena#135
+            if result.success:
+                # Resolve the result file
+                valid_ligands, all_records = result.value
+                self.logger.info(f'Received {len(all_records)} {anchor_type} ligands of size {size} from model v{model_version}, '
+                                 f'{len(valid_ligands)} ({len(valid_ligands) / len(all_records) * 100:.1f}%) are valid. '
+                                 f'Processing backlog: {self.ligand_process_queue.qsize()}')
+                result.task_info['process_done'] = datetime.now().timestamp()  # TODO (wardlt): exalearn/colmena#135
 
-            self.ligand_assembly_queue[anchor_type].extend(valid_ligands)  # Shoves old ligands out of the deque
-            self.logger.info(f'Current length of {anchor_type} queue: {len(self.ligand_assembly_queue[anchor_type])}')
+                # Add the model version to the ligand identity
+                for record in all_records:
+                    record['model_version'] = model_version
+                for ligand in valid_ligands:
+                    ligand.metadata['model_version'] = model_version
 
-            # Signal that we're ready for more MOFs
-            if len(valid_ligands) > 0:
-                self.make_mofs.set()
+                # Append the ligands to the task queue
+                self.ligand_assembly_queue[anchor_type].extend(valid_ligands)  # Shoves old ligands out of the deque
+                self.logger.info(f'Current length of {anchor_type} queue: {len(self.ligand_assembly_queue[anchor_type])}')
 
-            # Add the model version to the ligand identity
-            for record in all_records:
-                record['model_version'] = model_version
+                # Signal that we're ready for more MOFs
+                if len(valid_ligands) > 0:
+                    self.make_mofs.set()
 
-            # Store the generated ligands
-            record_file = self.out_dir / 'all_ligands.csv'
-            first_write = not record_file.is_file()
+                # Store the generated ligands
+                record_file = self.out_dir / 'all_ligands.csv'
+                first_write = not record_file.is_file()
 
-            with record_file.open('a') as fp:
-                writer = DictWriter(fp, all_records[0].keys())
-                if first_write:
-                    writer.writeheader()
-                writer.writerows(all_records)
+                with record_file.open('a') as fp:
+                    writer = DictWriter(fp, all_records[0].keys())
+                    if first_write:
+                        writer.writeheader()
+                    writer.writerows(all_records)
 
             # Write the result file
             with self.generate_write_lock:
