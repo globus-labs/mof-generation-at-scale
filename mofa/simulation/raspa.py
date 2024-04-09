@@ -318,6 +318,7 @@ _atom_site_charge
             shutil.rmtree(raspa_path)
             raise e
 
+        # parse output
         read_str = None
         with io.open(os.path.join(raspa_path, data_file_rename), "r") as rf2:
             read_str = rf2.read()
@@ -338,12 +339,13 @@ _atom_site_charge
         atom_df = pd.concat([atom_df[['id', 'mol', 'type', 'q', 'x', 'y', 'z', '#']].reset_index(
             drop=True), _atom_df.reset_index(drop=True)], axis=1)
 
-    atom_fname = write_pseudo_atoms_def(
-        raspa_path, ff_style_dict, mass_df, atom_df)
-    mix_fname = write_force_field_mixing_rules_def(
-        raspa_path, ff_style_dict, pair_coeff_df, atom_df)
+        atom_fname = write_pseudo_atoms_def(
+            raspa_path, ff_style_dict, mass_df, atom_df)
+        mix_fname = write_force_field_mixing_rules_def(
+            raspa_path, ff_style_dict, pair_coeff_df, atom_df)
 
-    def run_He_void_single(self, mof_ase_atoms: ase.Atoms, run_name: str, timesteps: int, report_frequency: int, temperature_K: float) -> float:
+    def run_GCMC_single(self, mof_ase_atoms: ase.Atoms, run_name: str, temperature_K: float = 300., pressure_Pa: float = 1e4,
+                        timesteps: int = 200000, report_frequency: int = 1000, cell_rep: list[int] = [2, 2, 2]) -> float:
         """Use cif2lammps to assign force field to a single MOF and generate input files for raspa simulation
 
         Args:
@@ -359,7 +361,7 @@ _atom_site_charge
         # Convert the cif_path to string, as that's what the underlying library uses
         raspa_path = os.path.join(self.raspa_sims_root_path, run_name)
         os.makedirs(raspa_path, exist_ok=True)
-        self.prep_common_files(raspa_path, mof_ase_atoms)
+        self.prep_common_files(run_name, raspa_path, mof_ase_atoms)
         with open(Path(raspa_path) / "helium.def", "w") as wf:
             wf.write("""# critical constants: Temperature [T], Pressure [Pa], and Acentric factor [-]
 5.2
@@ -391,8 +393,8 @@ PrintPropertiesEvery                 """ + str(report_frequency) + """
 Forcefield                           local
 
 Framework 0
-FrameworkName mof
-UnitCells 2 2 2
+FrameworkName """ + f'{run_name}' + """
+UnitCells """ + "%d" % cell_rep[0] + " " + "%d" % cell_rep[1] + " " + "%d" % cell_rep[2] + """
 ExternalTemperature """ + "%.2f" % temperature_K + """
 
 Component 0 MoleculeName             helium
@@ -401,6 +403,7 @@ Component 0 MoleculeName             helium
             CreateNumberOfMolecules  0
 """)
         # run He void calcultion
+        # Invoke raspa        
         with open(raspa_path / 'stdout_he_void.raspa', 'w') as fp, open(raspa_path / 'stderr_he_void.raspa', 'w') as fe:
             env = None
             if self.raspa_environ is not None:
@@ -416,6 +419,68 @@ Component 0 MoleculeName             helium
         with open(outfile, "r", newline="\\n") as rf:
             outstr = rf.read()
         He_Void_Faction = float(outstr.split("[helium] Average Widom Rosenbluth-weight:")[1].split("+/-")[0])
+
+        with open(Path(raspa_path) / "CO2.def", "w") as wf:
+            wf.write("""SimulationType                MonteCarlo
+NumberOfCycles                """ + "%d" % timesteps + """
+NumberOfInitializationCycles  """ + "%d" % (timesteps / 10) + """
+PrintEvery                    """ + "%d" % report_frequency + """
+PrintPropertiesEvery          """ + "%d" % report_frequency + """
+RestartFile                   no
+
+ChargeMethod                  Ewald
+CutOff                        12.0
+Forcefield                    local
+UseChargesFromCIFFile         yes
+EwaldPrecision                1e-6
+TimeStep                      """ + str(stepsize_fs / 1000) + """
+
+Framework 0
+FrameworkName """ + f'{run_name}' + """
+UnitCells """ + "%d" % cell_rep[0] + " " + "%d" % cell_rep[1] + " " + "%d" % cell_rep[2] + """
+HeliumVoidFraction """ + str(He_Void_Faction) + """
+ExternalTemperature """ + "%.2f" % temperature_K + """
+ExternalPressure """ + "%.2f" % pressure_Pa + """
+
+Component 0 MoleculeName              CO2
+    MoleculeDefinition        local
+    IdealGasRosenbluthWeight  1.0
+    TranslationProbability    1.0
+    RotationProbability       1.0
+    ReinsertionProbability    1.0
+    SwapProbability           1.0
+    CreateNumberOfMolecules   0
+
+""")
+
+        with open(Path(raspa_path) / "CO2.def", "w") as wf:
+            wf.write("""# critical constants: Temperature [T], Pressure [Pa], and Acentric factor [-]
+304.1282
+7377300.0
+0.22394
+#Number Of Atoms
+3
+# Number of groups
+1
+# CO2-group
+rigid
+# number of atoms
+3
+# atomic positions
+0 O_co2     0.0           0.0           1.149
+1 C_co2     0.0           0.0           0.0
+2 O_co2     0.0           0.0          -1.149
+# Chiral centers Bond  BondDipoles Bend  UrayBradley InvBend  Torsion Imp. Torsion Bond/Bond""" + " " + \
+          """Stretch/Bend Bend/Bend Stretch/Torsion Bend/Torsion IntraVDW IntraCoulomb
+             0    2            0    0            0       0        0            0         0""" + "            " + \
+          """0         0               0            0        0            0
+# Bond stretch: atom n1-n2, type, parameters
+0 1 RIGID_BOND
+1 2 RIGID_BOND
+# Number of config moves
+0
+""")
+        
         return He_Void_Faction
 
     def run_gcmc(self, mof: MOFRecord, timesteps: int, report_frequency: int) -> list[ase.Atoms]:
