@@ -398,7 +398,7 @@ flexible
         # He void fraction input
         with open(Path(raspa_path) / "simulation.input", "w") as wf:
             wf.write("""SimulationType                       MonteCarlo
-NumberOfCycles                       """ + str(timesteps) + """
+NumberOfCycles                       """ + str(int(timesteps / 5)) + """
 PrintEvery                           """ + str(report_frequency) + """
 PrintPropertiesEvery                 """ + str(report_frequency) + """
 
