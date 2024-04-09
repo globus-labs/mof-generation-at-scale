@@ -3,6 +3,7 @@ from typing import Sequence
 from subprocess import run, CompletedProcess
 from pathlib import Path
 import os
+import sys
 
 import ase
 import io
@@ -10,6 +11,7 @@ import shutil
 import logging
 import pandas as pd
 from ase.io.lammpsrun import read_lammps_dump_text
+from ase.geometry.cell import cell_to_cellpar
 
 from .cif2lammps.main_conversion import single_conversion
 from .cif2lammps.UFF4MOF_construction import UFF4MOF
@@ -40,7 +42,103 @@ class RASPARunner:
         self.raspa_environ = raspa_environ.copy()
         self.delete_finished = delete_finished
 
-    def prep_molecular_dynamics_single(self, run_name: str, atoms: ase.Atoms, timesteps: int, report_frequency: int, stepsize_fs: float = 0.5) -> str:
+    def prep_common_files(self, run_dir: str | Path, mof_ase_atoms: ase.Atoms):
+        cifdf = pd.DataFrame(mof_ase_atoms.get_scaled_positions(), columns=["xs", "ys", "zs"])
+        cifdf["q"] = mof_ase_atoms.arrays["q"]
+        cifdf["el"] = mof_ase_atoms.symbols
+        a, b, c, alpha, beta, gamma = cell_to_cellpar(mof_ase_atoms.cell)
+        
+        label_map = {}
+        for val, subdf in cifdf.groupby('el'):
+            newmap = dict(zip(subdf.index.tolist(), subdf["el"] + [str(x) for x in range(0, len(subdf))]))
+            if type(label_map) == type(None):
+                label_map = dict(newmap)
+            else:
+                label_map.update(newmap)
+        cifdf["label"] = cifdf.index.map(label_map)
+        cifdf = cifdf[["label", "el", "xs", "ys", "zs", "q"]]
+        cifstr = """
+_audit_author_name 'xyan11@uic.edu'
+
+_cell_length_a       """ + "%.8f" % a + """
+_cell_length_b       """ + "%.8f" % b + """
+_cell_length_c       """ + "%.8f" % c + """
+_cell_angle_alpha    """ + "%.8f" % alpha + """
+_cell_angle_beta     """ + "%.8f" % beta + """
+_cell_angle_gamma    """ + "%.8f" % gamma + """
+_cell_volume         """ + "%.8f" % mof_ase_atoms.cell.volume + """
+
+_symmetry_cell_setting             triclinic
+_symmetry_space_group_name_Hall    'P 1'
+_symmetry_space_group_name_H-M     'P 1'
+_symmetry_Int_Tables_number        1
+
+loop_
+_symmetry_equiv_pos_as_xyz
+ 'x,y,z'
+
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+_atom_site_charge
+""" + cifdf.to_string(header=None, index=None) + "\n"
+
+        with open(Path(run_dir) / "raspa.cif", "w") as wf:
+            wf.write(cifstr)
+
+        with open(Path(run_dir) / "simulation.input", "w") as wf:
+            wf.write("""SimulationType                       MonteCarlo
+NumberOfCycles                       40000
+PrintEvery                           1000
+PrintPropertiesEvery                 1000
+
+Forcefield                           local
+
+Framework 0
+FrameworkName mof
+UnitCells 2 2 2
+ExternalTemperature 300.0
+
+Component 0 MoleculeName             helium
+            MoleculeDefinition       local
+            WidomProbability         1.0
+            CreateNumberOfMolecules  0
+""")
+
+        with open(Path(run_dir) / "force_field.def", "w") as wf:
+            wf.write("""# rules to overwrite
+0
+# number of defined interactions
+0
+# mixing rules to overwrite
+0
+""")
+
+        with open(Path(run_dir) / "helium.def", "w") as wf:
+            wf.write("""# critical constants: Temperature [T], Pressure [Pa], and Acentric factor [-]
+5.2
+228000.0
+-0.39
+# Number Of Atoms
+1
+# Number Of Groups
+1
+# Alkane-group
+flexible
+# number of atoms
+1
+# atomic positions
+0 He
+# Chiral centers Bond  BondDipoles Bend  UrayBradley InvBend  Torsion Imp. Torsion Bond/Bond Stretch/Bend Bend/Bend Stretch/Torsion Bend/Torsion IntraVDW IntraCoulomb
+               0    0            0    0            0       0        0            0         0            0         0               0            0        0            0
+# Number of config moves
+0
+""")
+
+    def prep_He_void_single(self, run_name: str, atoms: ase.Atoms, timesteps: int, report_frequency: int, stepsize_fs: float = 0.5) -> str:
         """Use cif2lammps to assign force field to a single MOF and generate input files for raspa simulation
 
         Args:
@@ -87,7 +185,7 @@ class RASPARunner:
 
         return raspa_path
 
-    def run_molecular_dynamics(self, mof: MOFRecord, timesteps: int, report_frequency: int) -> list[ase.Atoms]:
+    def run_gcmc(self, mof: MOFRecord, timesteps: int, report_frequency: int) -> list[ase.Atoms]:
         """Run a molecular dynamics trajectory
 
         Args:
@@ -99,7 +197,7 @@ class RASPARunner:
         """
 
         # Generate the input files
-        raspa_path = self.prep_molecular_dynamics_single(mof.name, mof.atoms, timesteps, report_frequency)
+        raspa_path = self.prep_gcmc_single(mof.name, mof.atoms, timesteps, report_frequency)
 
         # Invoke raspa
         try:
