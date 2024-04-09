@@ -271,7 +271,7 @@ class PolarisConfig(HPCConfig):
 module load kokkos
 module load nvhpc/23.3
 module list
-source activate /lus/eagle/projects/ExaMol/mofa/mof-generation-at-scale/env-polaris
+source /home/lward/miniconda3/bin/activate /lus/eagle/projects/ExaMol/mofa/mof-generation-at-scale/env-polaris
 which python
 hostname"""
 
@@ -311,7 +311,7 @@ hostname"""
             ),
             HighThroughputExecutor(
                 label='lammps',
-                max_workers=self.gpus_per_node,
+                max_workers=len(lammps_accel),
                 cpu_affinity='list:' + ":".join(sim_cores),
                 available_accelerators=lammps_accel,
                 provider=LocalProvider(
@@ -333,9 +333,8 @@ hostname"""
             ),
             HighThroughputExecutor(
                 label='helper',
-                max_workers=helpers_per_worker * self.gpus_per_node,
+                max_workers=len(helper_cores),
                 cpu_affinity='list:' + ":".join(helper_cores),
-                available_accelerators=4,
                 provider=LocalProvider(
                     launcher=WrappedLauncher(
                         f"mpiexec -n {len(self.lammps_hosts)} --ppn 1 --hostfile {lammps_nodefile} --depth=64 --cpu-bind depth"

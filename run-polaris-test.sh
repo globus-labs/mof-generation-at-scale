@@ -6,11 +6,15 @@
 #PBS -N mofa-test
 #PBS -A examol
 
+hostname
+
 # Change to working directory
 cd ${PBS_O_WORKDIR}
+pwd
 
 # Activate the environment
 conda activate /lus/eagle/projects/ExaMol/mofa/mof-generation-at-scale/env-polaris
+which python
 
 # Launch MPS on each node
 NNODES=`wc -l < $PBS_NODEFILE`
