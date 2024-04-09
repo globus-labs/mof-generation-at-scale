@@ -25,6 +25,7 @@ _cp2k_options = {
         'basis_set_file': "BASIS_MOLOPT",
         'pseudo_potential': "GTH-PBE",
         'potential_file': "GTH_POTENTIALS",
+        'xc': None,
         'cutoff': 600 * units.Ry
     }
 }
