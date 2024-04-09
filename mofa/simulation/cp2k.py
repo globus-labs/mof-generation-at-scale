@@ -75,7 +75,7 @@ def compute_partial_charges(cp2k_path: Path, threads: int | None = 2) -> ase.Ato
     natoms = int(res_lines[0])
     lat_str = " ".join(res_lines[1].split("unitcell")[1].replace("}", "").replace("{", "").replace("]", "").replace("[", "").replace(",", "").split())
     extxyzstr = "".join([res_lines[0], '''Lattice="''' + lat_str + '''" Properties=species:S:1:pos:R:3:q:R:1\n'''] + res_lines[2:natoms+2])
-    return read(StringIO(extxyzstr), format='extxyz')
+    return read_from_string(extxyzstr, format='extxyz')
 
 
 @dataclass
