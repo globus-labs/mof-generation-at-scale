@@ -3,6 +3,7 @@ from mofa.simulation.raspa import RASPARunner
 from ase.io import read
 from pathlib import Path
 
+
 @mark.parametrize('extxyz_name', ['test-zn'])
 def test_raspa_runner(extxyz_name, cif_dir, tmpdir):
     # Make a RASPA simulator that reads and writes to a temporary directory
