@@ -1,6 +1,6 @@
 """Simulation operations that involve RASPA"""
 from typing import Sequence
-from subprocess import run, CompletedProcess
+from subprocess import run
 from pathlib import Path
 import os
 import sys
@@ -10,15 +10,14 @@ import io
 import shutil
 import logging
 import pandas as pd
-from ase.io.lammpsrun import read_lammps_dump_text
 from ase.geometry.cell import cell_to_cellpar
 
 from .cif2lammps.main_conversion import single_conversion
 from .cif2lammps.UFF4MOF_construction import UFF4MOF
 
-from mofa.model import MOFRecord
 
 logger = logging.getLogger(__name__)
+
 
 def read_lmp_sec_str2df(df_str, comment_char="#"):
     df_str_list = list(filter(None, df_str.split("\n")))
@@ -29,6 +28,7 @@ def read_lmp_sec_str2df(df_str, comment_char="#"):
     df[comment_char] = comment_char
     df["comment"] = comments
     return df.reset_index(drop=True)
+
 
 def write_pseudo_atoms_def(
         raspa_path: str,
@@ -117,6 +117,7 @@ C      yes  C  C  0  12.0        0.0      0.0    1.0   1.00   0     0   relative
 
     with io.open(os.path.join(raspa_path, "pseudo_atoms.def"), "w", newline="\n") as wf:
         wf.write(pseudo_atoms_str)
+
 
 def write_force_field_mixing_rules_def(
         raspa_path: str,
@@ -210,6 +211,7 @@ yes
     with io.open(os.path.join(raspa_path, "force_field_mixing_rules.def"), "w", newline="\n") as wf:
         wf.write(force_field_mixing_rules_str)
 
+
 class RASPARunner:
     """Interface for running pre-defined RASPA workflows
 
@@ -221,7 +223,7 @@ class RASPARunner:
     """
 
     def __init__(self,
-                 raspa_command: Sequence[str] = (pathlib.Path(sys.prefix) / "bin" / "simulate",),
+                 raspa_command: Sequence[str] = (Path(sys.prefix) / "bin" / "simulate",),
                  raspa_sims_root_path: str = "raspa_sims",
                  raspa_environ: dict[str, str] | None = None,
                  delete_finished: bool = True):
@@ -230,6 +232,7 @@ class RASPARunner:
         os.makedirs(self.raspa_sims_root_path, exist_ok=True)
         self.raspa_environ = raspa_environ.copy()
         self.delete_finished = delete_finished
+
 
     def prep_common_files(self, run_name: str, raspa_path: str | Path, mof_ase_atoms: ase.Atoms):
         # MOF cif file with partial charge and labeled in RASPA convention
@@ -241,7 +244,7 @@ class RASPARunner:
         label_map = {}
         for val, subdf in cifdf.groupby('el'):
             newmap = dict(zip(subdf.index.tolist(), subdf["el"] + [str(x) for x in range(0, len(subdf))]))
-            if type(label_map) == type(None):
+            if isinstance(label_map, type(None)):
                 label_map = dict(newmap)
             else:
                 label_map.update(newmap)
@@ -290,7 +293,7 @@ _atom_site_charge
 """)
 
         cif_path = os.path.join(raspa_path, f'{run_name}.cif')
-        atoms.write(cif_path, 'cif')
+        mof_ase_atoms.write(cif_path, 'cif')
         try:
             single_conversion(cif_path,
                               force_field=UFF4MOF,
@@ -308,9 +311,6 @@ _atom_site_charge
             logger.info("Reading data file for element list: " + os.path.join(raspa_path, data_file_name))
             with io.open(os.path.join(raspa_path, data_file_name), "r") as rf:
                 df = pd.read_csv(io.StringIO(rf.read().split("Masses")[1].split("Pair Coeffs")[0]), sep=r"\s+", header=None)
-                element_list = df[3].to_list()
-            os.remove(os.path.join(raspa_path, in_file_name))
-            os.remove(os.path.join(raspa_path, data_file_name))
 
         except Exception as e:
             shutil.rmtree(raspa_path)
@@ -318,13 +318,12 @@ _atom_site_charge
 
         # parse output
         read_str = None
-        with io.open(os.path.join(raspa_path, data_file_rename), "r") as rf2:
+        with io.open(os.path.join(raspa_path, data_file_name), "r") as rf2:
             read_str = rf2.read()
         mass_df = read_lmp_sec_str2df(read_str.split(
             "Masses")[1].split("Pair Coeffs")[0].strip())
         pair_coeff_df = read_lmp_sec_str2df(read_str.split(
             "Pair Coeffs")[1].split("Bond Coeffs")[0].strip())
-        cifbox = read_str.split("Atoms")[1].split("$$$atoms$$$")[0].strip()
         atom_df = read_lmp_sec_str2df(read_str.split("$$$atoms$$$")[
             1].split("Bonds")[0].strip())
         atom_df.columns = [
@@ -337,10 +336,25 @@ _atom_site_charge
         atom_df = pd.concat([atom_df[['id', 'mol', 'type', 'q', 'x', 'y', 'z', '#']].reset_index(
             drop=True), _atom_df.reset_index(drop=True)], axis=1)
 
-        atom_fname = write_pseudo_atoms_def(
+        ff_style_dict = None
+        with io.open(os.path.join(raspa_path, in_file_name), "r") as rf1:
+            ff_style_str = rf1.read()
+            ff_style_list = list(filter(None, [x.strip() for x in ff_style_str.split("\n")]))
+            ff_style_list = [
+                pd.read_csv(
+                    io.StringIO(x),
+                    header=None,
+                    sep=r"\s+").values.tolist()[0] for x in ff_style_list]
+            ff_style_list = [[x[0], x[1:]] for x in ff_style_list]
+            ff_style_dict = dict(zip(*list(map(list, zip(*ff_style_list)))))
+
+        write_pseudo_atoms_def(
             raspa_path, ff_style_dict, mass_df, atom_df)
-        mix_fname = write_force_field_mixing_rules_def(
+        write_force_field_mixing_rules_def(
             raspa_path, ff_style_dict, pair_coeff_df, atom_df)
+        os.remove(os.path.join(raspa_path, in_file_name))
+        os.remove(os.path.join(raspa_path, data_file_name))
+
 
     def run_GCMC_single(self, mof_ase_atoms: ase.Atoms, run_name: str, temperature_K: float = 300., pressure_Pa: float = 1e4,
                         timesteps: int = 200000, report_frequency: int = 1000, cell_rep: list[int] = [2, 2, 2]) -> float:
