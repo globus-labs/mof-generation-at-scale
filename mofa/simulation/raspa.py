@@ -422,7 +422,7 @@ Component 0 MoleculeName             helium
         # parse output
         outdir = os.path.join(raspa_path, "Output")
         outdir = os.path.join(outdir, os.listdir(outdir)[0])
-        outfile = os.path.join(outdir, [x for x in os.listdir(outdir) if "output_mof" in x and x.endswith(".data")][0])
+        outfile = os.path.join(outdir, [x for x in os.listdir(outdir) if "output_" in x and x.endswith(".data")][0])
         outstr = None
         with open(outfile, "r", newline="\\n") as rf:
             outstr = rf.read()
@@ -503,7 +503,7 @@ rigid
         # parse output
         outdir = os.path.join(raspa_path, "Output")
         outdir = os.path.join(outdir, os.listdir(outdir)[0])
-        outfile = os.path.join(outdir, [x for x in os.listdir(outdir) if "output_mof" in x and x.endswith(".data")][0])
+        outfile = os.path.join(outdir, [x for x in os.listdir(outdir) if "output_" in x and x.endswith(".data")][0])
         outstr = None
         with open(outfile, "r", newline="\\n") as rf:
             outstr = rf.read()
