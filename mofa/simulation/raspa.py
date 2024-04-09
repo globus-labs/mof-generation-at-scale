@@ -289,7 +289,6 @@ _atom_site_charge
 """)
 
         cif_path = os.path.join(raspa_path, f'{run_name}.cif')
-        mof_ase_atoms.write(cif_path, 'cif')
         try:
             single_conversion(cif_path,
                               force_field=UFF4MOF,
