@@ -117,7 +117,6 @@ C      yes  C  C  0  12.0        0.0      0.0    1.0   1.00   0     0   relative
 
     with io.open(os.path.join(raspa_path, "pseudo_atoms.def"), "w", newline="\n") as wf:
         wf.write(pseudo_atoms_str)
-    return "pseudo_atoms.def"
 
 def write_force_field_mixing_rules_def(
         raspa_path: str,
@@ -210,7 +209,6 @@ yes
 """
     with io.open(os.path.join(raspa_path, "force_field_mixing_rules.def"), "w", newline="\n") as wf:
         wf.write(force_field_mixing_rules_str)
-    return "force_field_mixing_rules.def"
 
 class RASPARunner:
     """Interface for running pre-defined RASPA workflows
@@ -403,24 +401,29 @@ Component 0 MoleculeName             helium
             CreateNumberOfMolecules  0
 """)
         # run He void calcultion
-        # Invoke raspa        
         with open(raspa_path / 'stdout_he_void.raspa', 'w') as fp, open(raspa_path / 'stderr_he_void.raspa', 'w') as fe:
             env = None
             if self.raspa_environ is not None:
                 env = os.environ.copy()
                 env.update(self.raspa_environ)
-            return run(list(self.raspa_command), cwd=raspa_path, stdout=fp, stderr=fe, env=env)
+            run(list(self.raspa_command), cwd=raspa_path, stdout=fp, stderr=fe, env=env)
 
         # parse output
         outdir = os.path.join(raspa_path, "Output")
         outdir = os.path.join(outdir, os.listdir(outdir)[0])
-        outfile = os.path.join(outdir, [x for x in os.listdir(outdir) if "output_mof" in x][0])
+        outfile = os.path.join(outdir, [x for x in os.listdir(outdir) if "output_mof" in x and x.endswith(".data")][0])
         outstr = None
         with open(outfile, "r", newline="\\n") as rf:
             outstr = rf.read()
         He_Void_Faction = float(outstr.split("[helium] Average Widom Rosenbluth-weight:")[1].split("+/-")[0])
 
-        with open(Path(raspa_path) / "CO2.def", "w") as wf:
+        os.rename(Path(raspa_path) / "simulation.input", Path(raspa_path) / "simulation-He-void.input")
+        os.rename(Path(raspa_path) / "Movies", Path(raspa_path) / "Movies-He-void")
+        os.rename(Path(raspa_path) / "Output", Path(raspa_path) / "Output-He-void")
+        os.rename(Path(raspa_path) / "Restart", Path(raspa_path) / "Restart-He-void")
+        os.rename(Path(raspa_path) / "VTK", Path(raspa_path) / "VTK-He-void")
+
+        with open(Path(raspa_path) / "simulation.input", "w") as wf:
             wf.write("""SimulationType                MonteCarlo
 NumberOfCycles                """ + "%d" % timesteps + """
 NumberOfInitializationCycles  """ + "%d" % (timesteps / 10) + """
@@ -480,69 +483,26 @@ rigid
 # Number of config moves
 0
 """)
-        
-        return He_Void_Faction
+        # run CO2 GCMC
+        with open(raspa_path / 'stdout_CO2_gcmc.raspa', 'w') as fp, open(raspa_path / 'stderr_CO2_gcmc.raspa', 'w') as fe:
+            env = None
+            if self.raspa_environ is not None:
+                env = os.environ.copy()
+                env.update(self.raspa_environ)
+            run(list(self.raspa_command), cwd=raspa_path, stdout=fp, stderr=fe, env=env)
+        os.rename(Path(raspa_path) / "simulation.input", Path(raspa_path) / "simulation-CO2-gcmc.input")
 
-    def run_gcmc(self, mof: MOFRecord, timesteps: int, report_frequency: int) -> list[ase.Atoms]:
-        """Run a molecular dynamics trajectory
+        # parse output
+        outdir = os.path.join(raspa_path, "Output")
+        outdir = os.path.join(outdir, os.listdir(outdir)[0])
+        outfile = os.path.join(outdir, [x for x in os.listdir(outdir) if "output_mof" in x and x.endswith(".data")][0])
+        outstr = None
+        with open(outfile, "r", newline="\\n") as rf:
+            outstr = rf.read()
+        gas_ads_info = read_str.split("Average loading excess [mol/kg framework]")[1].strip().split("[-]")[0].strip()
+        gas_ads_mean, gas_ads_std = [float(x) for x in gas_ads_info.split("+/-")]
+        return gas_ads_mean, gas_ads_std
 
-        Args:
-            mof: Record describing the MOF. Includes the structure in CIF format, which includes the bonding information used by UFF
-            timesteps: Number of timesteps to run
-            report_frequency: How often to report structures
-        Returns:
-            Structures produced at specified intervals
-        """
 
-        # Generate the input files
-        raspa_path = self.prep_gcmc_single(mof.name, mof.atoms, timesteps, report_frequency)
-        with open(Path(raspa_path) / "CO2.def", "w") as wf:
-            wf.write("""# critical constants: Temperature [T], Pressure [Pa], and Acentric factor [-]
-304.1282
-7377300.0
-0.22394
-#Number Of Atoms
-3
-# Number of groups
-1
-# CO2-group
-rigid
-# number of atoms
-3
-# atomic positions
-0 O_co2     0.0           0.0           1.149
-1 C_co2     0.0           0.0           0.0
-2 O_co2     0.0           0.0          -1.149
-# Chiral centers Bond  BondDipoles Bend  UrayBradley InvBend  Torsion Imp. Torsion Bond/Bond""" + " " + \
-          """Stretch/Bend Bend/Bend Stretch/Torsion Bend/Torsion IntraVDW IntraCoulomb
-             0    2            0    0            0       0        0            0         0""" + "            " + \
-          """0         0               0            0        0            0
-# Bond stretch: atom n1-n2, type, parameters
-0 1 RIGID_BOND
-1 2 RIGID_BOND
-# Number of config moves
-0
-""")
-        # Invoke raspa
-        try:
-            ret = self.invoke_raspa(raspa_path)
-            if ret.returncode != 0:
-                raise ValueError('RASPA failed.' + ('' if self.delete_finished else f'Check the log files in: {raspa_path}'))
-
-            # Read the output file
-            with open(Path(raspa_path) / 'dump.lammpstrj.all') as fp:
-                return read_lammps_dump_text(fp, slice(None))
-        finally:
-            if self.delete_finished:
-                shutil.rmtree(raspa_path)
-
-    def invoke_raspa(self, raspa_path: str | Path) -> CompletedProcess:
-        """Invoke RASPA in a specific run directory
-
-        Args:
-            raspa_path: Path to the RASPA run directory
-        Returns:
-            Log from the completed process
-        """
 
         
