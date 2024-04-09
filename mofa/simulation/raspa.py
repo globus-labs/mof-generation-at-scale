@@ -288,7 +288,6 @@ _atom_site_charge
 0
 """)
 
-        cif_path = os.path.join(raspa_path, f'{run_name}.cif')
         cif_path_ase = os.path.join(raspa_path, f'{run_name}-ase.cif')
         mof_ase_atoms.write(cif_path_ase, 'cif')
         try:
