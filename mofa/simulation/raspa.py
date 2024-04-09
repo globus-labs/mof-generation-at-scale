@@ -388,8 +388,10 @@ flexible
 1
 # atomic positions
 0 He
-# Chiral centers Bond  BondDipoles Bend  UrayBradley InvBend  Torsion Imp. Torsion Bond/Bond Stretch/Bend Bend/Bend Stretch/Torsion Bend/Torsion IntraVDW IntraCoulomb
-               0    0            0    0            0       0        0            0         0            0         0               0            0        0            0
+# Chiral centers Bond  BondDipoles Bend  UrayBradley InvBend  Torsion Imp. Torsion Bond/Bond """ +
+"""Stretch/Bend Bend/Bend Stretch/Torsion Bend/Torsion IntraVDW IntraCoulomb
+               0    0            0    0            0       0        0            0         0 """ +
+"""           0         0               0            0        0            0
 # Number of config moves
 0
 """)
