@@ -309,7 +309,7 @@ hostname"""
                 available_accelerators=4,
                 provider=LocalProvider(
                     launcher=WrappedLauncher(
-                        f"mpiexec -n {len(self.ai_hosts) - 1} --ppn 1 --host {ai_nodefile} --depth=64 --cpu-bind depth"
+                        f"mpiexec -n {len(self.ai_hosts) - 1} --ppn 1 --hostfile {ai_nodefile} --depth=64 --cpu-bind depth"
                     ),
                     worker_init=worker_init,
                     min_blocks=1,
@@ -317,7 +317,7 @@ hostname"""
                 )
             ),
             HighThroughputExecutor(
-                label='traub',
+                label='train',
                 max_workers=1,
                 available_accelerators=self.gpus_per_node,
                 provider=LocalProvider(

@@ -32,8 +32,8 @@ python run_parallel_workflow.py \
       --generator-path models/geom-300k/geom_difflinker_epoch=997_new.ckpt \
       --generator-config-path models/geom-300k/config-tf32-a100.yaml \
       --maximum-train-size 8192 \
-      --maximum-strain 0.1 \
-      --retrain-freq 128 \
+      --maximum-strain 0.25 \
+      --retrain-freq 16 \
       --num-epochs 128 \
       --num-samples 1024 \
       --gen-batch-size 128 \
@@ -42,6 +42,7 @@ python run_parallel_workflow.py \
       --md-snapshots 10 \
       --lammps-on-ramdisk \
       --dft-fraction 0.25 \
+      --ai-fraction 0.4 \
       --compute-config polaris
 echo Python done
 
