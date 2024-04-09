@@ -413,7 +413,7 @@ Component 0 MoleculeName             helium
             CreateNumberOfMolecules  0
 """)
         # run He void calcultion
-        with open(raspa_path / 'stdout_he_void.raspa', 'w') as fp, open(raspa_path / 'stderr_he_void.raspa', 'w') as fe:
+        with open(Path(raspa_path) / 'stdout_he_void.raspa', 'w') as fp, open(Path(raspa_path) / 'stderr_he_void.raspa', 'w') as fe:
             env = None
             run(list(self.raspa_command), cwd=raspa_path, stdout=fp, stderr=fe, env=env)
 
@@ -493,7 +493,7 @@ rigid
 0
 """)
         # run CO2 GCMC
-        with open(raspa_path / 'stdout_CO2_gcmc.raspa', 'w') as fp, open(raspa_path / 'stderr_CO2_gcmc.raspa', 'w') as fe:
+        with open(Path(raspa_path) / 'stdout_CO2_gcmc.raspa', 'w') as fp, open(Path(raspa_path) / 'stderr_CO2_gcmc.raspa', 'w') as fe:
             env = None
             run(list(self.raspa_command), cwd=raspa_path, stdout=fp, stderr=fe, env=env)
         os.rename(Path(raspa_path) / "simulation.input", Path(raspa_path) / "simulation-CO2-gcmc.input")
