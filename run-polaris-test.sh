@@ -1,8 +1,8 @@
 #!/bin/bash -le
-#PBS -l select=32:system=polaris
-#PBS -l walltime=02:00:00
+#PBS -l select=6:system=polaris
+#PBS -l walltime=01:00:00
 #PBS -l filesystems=home:grand:eagle
-#PBS -q prod
+#PBS -q debug-scaling
 #PBS -N mofa-test
 #PBS -A examol
 

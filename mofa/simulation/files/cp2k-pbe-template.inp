@@ -14,16 +14,12 @@
       ! command to print cube file, rename cube file to "valance_density.cube" for DDEC Chargemol usage
       &PRINT
          &E_DENSITY_CUBE ON
-            FILENAME valence_density.cube
+            FILENAME =valence_density.cube
             STRIDE 1 1 1
          &END E_DENSITY_CUBE
       &END
 
       &SCF
-         &OUTER_SCF
-            MAX_SCF 5
-         &END OUTER_SCF
-
          &MIXING
             METHOD BROYDEN_MIXING
             ALPHA 0.4
