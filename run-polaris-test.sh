@@ -1,8 +1,8 @@
 #!/bin/bash -le
-#PBS -l select=2:system=polaris
+#PBS -l select=6:system=polaris
 #PBS -l walltime=01:00:00
 #PBS -l filesystems=home:grand:eagle
-#PBS -q debug
+#PBS -q debug-scaling
 #PBS -N mofa-test
 #PBS -A examol
 
@@ -35,6 +35,7 @@ python run_parallel_workflow.py \
       --simulation-budget 32768 \
       --md-timesteps 1000000 \
       --md-snapshots 10 \
+      --lammps-on-ramdisk \
       --compute-config polaris
 echo Python done
 
