@@ -308,8 +308,6 @@ _atom_site_charge
             in_file_name = [x for x in os.listdir(raspa_path) if x.startswith("in.") and not x.startswith("in.lmp")][0]
             data_file_name = [x for x in os.listdir(raspa_path) if x.startswith("data.") and not x.startswith("data.lmp")][0]
             logger.info("Reading data file for element list: " + os.path.join(raspa_path, data_file_name))
-            with io.open(os.path.join(raspa_path, data_file_name), "r") as rf:
-                df = pd.read_csv(io.StringIO(rf.read().split("Masses")[1].split("Pair Coeffs")[0]), sep=r"\s+", header=None)
 
         except Exception as e:
             shutil.rmtree(raspa_path)
@@ -355,7 +353,8 @@ _atom_site_charge
         os.remove(os.path.join(raspa_path, data_file_name))
 
     def run_GCMC_single(self, mof_ase_atoms: ase.Atoms, run_name: str, temperature_K: float = 300., pressure_Pa: float = 1e4,
-                        timesteps: int = 200000, report_frequency: int = 1000, cell_rep: list[int] = [2, 2, 2]) -> list[float]:
+                        stepsize_fs: float = 0.5, timesteps: int = 200000, report_frequency: int = 1000,
+                        cell_rep: list[int] = [2, 2, 2]) -> list[float]:
         """Use cif2lammps to assign force field to a single MOF and generate input files for raspa simulation
 
         Args:
@@ -389,10 +388,8 @@ flexible
 1
 # atomic positions
 0 He
-# Chiral centers Bond  BondDipoles Bend  UrayBradley InvBend  Torsion Imp. Torsion Bond/Bond """ + 
-"""Stretch/Bend Bend/Bend Stretch/Torsion Bend/Torsion IntraVDW IntraCoulomb
-               0    0            0    0            0       0        0            0         0 """ + 
-"""           0         0               0            0        0            0
+# Chiral centers Bond  BondDipoles Bend  UrayBradley InvBend  Torsion Imp. Torsion Bond/Bond Stretch/Bend Bend/Bend Stretch/Torsion Bend/Torsion IntraVDW IntraCoulomb
+               0    0            0    0            0       0        0            0         0            0         0               0            0        0            0
 # Number of config moves
 0
 """)
@@ -515,6 +512,6 @@ rigid
         outstr = None
         with open(outfile, "r", newline="\\n") as rf:
             outstr = rf.read()
-        gas_ads_info = read_str.split("Average loading excess [mol/kg framework]")[1].strip().split("[-]")[0].strip()
+        gas_ads_info = outstr.split("Average loading excess [mol/kg framework]")[1].strip().split("[-]")[0].strip()
         gas_ads_mean, gas_ads_std = [float(x) for x in gas_ads_info.split("+/-")]
         return [gas_ads_mean, gas_ads_std]
