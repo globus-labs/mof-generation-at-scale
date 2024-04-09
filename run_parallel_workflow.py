@@ -382,21 +382,16 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
 
             # Determine if we should retrain
             self.num_completed += 1
-            if self.num_completed == self.trainer_config.minimum_train_size:
-                self.start_train.set()
-                self.logger.info('Triggered retraining to start')
+            if self.num_completed >= self.trainer_config.minimum_train_size:
+                self.start_train.set()  # Either starts or indicates that we have new data
 
     @event_responder(event_name='start_train')
     def retrain(self):
         """Retrain difflinker. Starts when we first exceed the training set size"""
 
+        self.logger.info('Started to retrain DiffLinker')
+        last_train_size = 0
         while not self.done.is_set():
-            # Determine the run directory
-            self.model_iteration += 1
-            train_dir = self.out_dir / 'retraining' / f'model-v{self.model_iteration}'
-            train_dir.mkdir(parents=True)
-            self.logger.info(f'Preparing to retrain Difflinker in {train_dir}')
-
             # Get the top MOFs
             sort_field = 'structure_stability.uff'
             to_include = min(int(self.collection.estimated_document_count() * self.trainer_config.best_fraction), self.trainer_config.maximum_train_size)
@@ -415,12 +410,20 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
                 record['times'] = {}
                 record['md_trajectory'] = {}
                 examples.append(MOFRecord(**record))
-            if len(examples) == 0:
-                self.logger.warning(f'We have not yet found any MOFs below the stability threshold of {self.trainer_config.maximum_strain:.2f}. '
-                                    'Waiting 60 seconds to attempt retraining again')
-                sleep(60.)
+            if len(examples) == 0 or len(examples) == last_train_size:
+                self.logger.info(f'The number of training examples with strain below {self.trainer_config.maximum_strain:.2f} is the same '
+                                 f'as the last time we trained DiffLinker ({last_train_size}). Waiting for more data')
+                self.start_train.clear()
+                self.start_train.wait()
                 continue
             self.logger.info(f'Gathered the top {len(examples)} records with strain below {self.trainer_config.maximum_strain:.2f} based on stability')
+            last_train_size = len(examples)  # So we know what the training set size was for the next iteration
+
+            # Determine the run directory
+            self.model_iteration += 1
+            train_dir = self.out_dir / 'retraining' / f'model-v{self.model_iteration}'
+            train_dir.mkdir(parents=True)
+            self.logger.info(f'Preparing to retrain Difflinker in {train_dir}')
 
             # Submit training using the latest model
             self.queues.send_inputs(
