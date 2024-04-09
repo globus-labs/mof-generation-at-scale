@@ -35,11 +35,12 @@ python run_parallel_workflow.py \
       --retrain-freq 128 \
       --num-epochs 128 \
       --num-samples 1024 \
-      --gen-batch-size 16 \
+      --gen-batch-size 128 \
       --simulation-budget 32768 \
       --md-timesteps 1000000 \
       --md-snapshots 10 \
       --lammps-on-ramdisk \
+      --dft-fraction 0.25 \
       --compute-config polaris
 echo Python done
 
