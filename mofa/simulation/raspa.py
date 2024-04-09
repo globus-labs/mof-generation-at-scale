@@ -357,7 +357,7 @@ _atom_site_charge
 
 
     def run_GCMC_single(self, mof_ase_atoms: ase.Atoms, run_name: str, temperature_K: float = 300., pressure_Pa: float = 1e4,
-                        timesteps: int = 200000, report_frequency: int = 1000, cell_rep: list[int] = [2, 2, 2]) -> float:
+                        timesteps: int = 200000, report_frequency: int = 1000, cell_rep: list[int] = [2, 2, 2]) -> list[float]:
         """Use cif2lammps to assign force field to a single MOF and generate input files for raspa simulation
 
         Args:
@@ -515,7 +515,7 @@ rigid
             outstr = rf.read()
         gas_ads_info = read_str.split("Average loading excess [mol/kg framework]")[1].strip().split("[-]")[0].strip()
         gas_ads_mean, gas_ads_std = [float(x) for x in gas_ads_info.split("+/-")]
-        return gas_ads_mean, gas_ads_std
+        return [gas_ads_mean, gas_ads_std]
 
 
 
