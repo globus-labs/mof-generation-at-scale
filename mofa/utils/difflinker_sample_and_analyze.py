@@ -1,3 +1,4 @@
+from functools import lru_cache
 from typing import Iterator
 import os
 
@@ -5,6 +6,10 @@ import os
 import torch
 import numpy as np
 from rdkit import Chem
+try:
+    import intel_extension_for_pytorch as ipex
+except ImportError:
+    ipex = None
 
 from mofa.model import LigandTemplate, LigandDescription
 from mofa.utils.src import const
@@ -45,6 +50,12 @@ def generate_animation(ddpm, chain_batch, node_mask, n_mol):
         visualize_chain(chain_output, wandb=None, mode=name, is_geom=ddpm.is_geom)  # set wandb None for now!
 
 
+@lru_cache(maxsize=1)  # Keep only one model in memory
+def load_model(path, device) -> DDPM:
+    """Load the DDPM model from disk"""
+    return DDPM.load_from_checkpoint(path, torch_device=device).eval().to(device)
+
+
 def main_run(templates: list[LigandTemplate],
              model, output_dir, n_samples, n_steps, linker_size,
              device: str = 'cpu') -> Iterator[LigandDescription]:
@@ -68,7 +79,12 @@ def main_run(templates: list[LigandTemplate],
             sizes = torch.tensor(sizes, device=samples.device, dtype=const.TORCH_INT)
             return sizes
 
-    ddpm = DDPM.load_from_checkpoint(model, torch_device=device).eval().to(device)
+    # Pull the model from disk, evicting the old one if needed
+    ddpm = load_model(model, device)
+
+    # If xpu, optimize
+    if device == "xpu":
+        ddpm = ipex.optimize(ddpm)
 
     if n_steps is not None:
         ddpm.edm.T = n_steps  # otherwise, ddpm.edm.T = 1000 default
@@ -87,7 +103,7 @@ def main_run(templates: list[LigandTemplate],
                 'Please pass anchor atoms indices '
                 'or use another DiffLinker model that does not require information about anchors'
             )
-        
+
         one_hot = np.array([get_one_hot(s, atom2idx) for s in symbols])
         charges = np.array([charges_dict[s] for s in symbols])
         fragment_mask = np.ones_like(charges)

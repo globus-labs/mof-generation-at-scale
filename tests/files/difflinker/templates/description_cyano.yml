@@ -36,7 +36,7 @@ xyz: |
   H         -7.22147       -3.08215       -5.02639
   H         -7.33524       -1.31351       -3.35215
 anchor_type: cyano
-anchor_atoms:
+prompt_atoms:
   - [0, 1]
   - [20, 21]
 dummy_element: Fr

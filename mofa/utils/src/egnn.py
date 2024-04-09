@@ -148,10 +148,6 @@ class EquivariantBlock(nn.Module):
                                                        coords_range=self.coords_range_layer,
                                                        normalization_factor=self.normalization_factor,
                                                        aggregation_method=self.aggregation_method))
-        if torch.cuda.is_available():
-            self.to(self.device)
-        else:
-            self.to('cpu')
 
     def forward(self, h, x, edge_index, node_mask=None, linker_mask=None, edge_mask=None, edge_attr=None):
         # Edit Emiel: Remove velocity as input
@@ -254,11 +250,6 @@ class GNN(nn.Module):
                 aggregation_method=aggregation_method,
                 edges_in_d=in_edge_nf, activation=activation,
                 attention=attention, normalization=normalization))
-
-        if torch.cuda.is_available():
-            self.to(self.device)
-        else:
-            self.to('cpu')
 
     def forward(self, h, edges, edge_attr=None, node_mask=None, edge_mask=None):
         # Edit Emiel: Remove velocity as input

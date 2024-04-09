@@ -1,9 +1,13 @@
 """Functions pertaining to training and running the generative model"""
+import gzip
+import json
+import shutil
+from dataclasses import asdict
 from tempfile import TemporaryDirectory
 from typing import Iterator
 from pathlib import Path
 
-from mofa.model import LigandDescription, LigandTemplate
+from mofa.model import LigandDescription, LigandTemplate, MOFRecord
 from mofa.utils.difflinker_sample_and_analyze import main_run
 from mofa.difflinker_train import get_args, main
 import yaml
@@ -13,14 +17,14 @@ def train_generator(
         starting_model: str | Path | None,
         run_directory: Path,
         config_path: str | Path,
-        examples: Path,
+        examples: list[MOFRecord],
         num_epochs: int = 10,
         device: str = 'cpu',
 ) -> Path:
     """Retrain a generative model for MOFs
 
     Args:
-        starting_model: Path to the starting weights of the model
+        starting_model: Path to the starting weights of the model. ``None`` to start from scratch
         run_directory: Directory in which to run training
         config_path: Path to the model configuration file
         examples: Path to examples used to train the generator. Should be a directory which contains SDF,
@@ -45,14 +49,30 @@ def train_generator(
             arg_dict[key] = value
     args.config = args.config.name
 
-    # Write the training data to a temporary directory, formatted as needed by difflinker
-    args.data = examples
-    args.val_data_prefix = 'hMOF_frag'
-    args.train_data_prefix = 'hMOF_frag'
+    # Save the current model into the checkpoint directory, which is where difflinker will look for starting weights
+    run_directory = Path(run_directory)
+    run_directory.mkdir(exist_ok=True)
+    chkpt_dir = run_directory / 'chkpt'
+    if starting_model is not None:
+        chkpt_dir.mkdir()
+        shutil.copyfile(starting_model, chkpt_dir / 'difflinker_epoch=00.ckpt')
+        args.resume = 'yes'
+
+    # Write the training data to run directory, formatted as needed by difflinker
+    #  TODO (wardlt): Include example molecules from GEOM?
+    with gzip.open(run_directory / 'mofa_train.json.gz', 'wt') as fp:
+        for example in examples:
+            print(json.dumps(asdict(example)), file=fp)
+    args.data = run_directory
+    args.val_data_prefix = 'mofa_train'  # TODO (wardlt): Use separate data for validation?
+    args.train_data_prefix = 'mofa_train'
+    args.dataset_override = 'MOFA'
 
     # Overwrite the options provided by the Python function
     args.n_epochs = num_epochs
+    args.test_epochs = num_epochs * 2  # Turn off testing during workflow training
     args.device = device
+
     return main(args=args, run_directory=run_directory)
 
 

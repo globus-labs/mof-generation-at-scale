@@ -1,0 +1,5 @@
+#! /bin/bash
+
+module load xpu-smi
+source activate /lus/gila/projects/CSC249ADCD08_CNDA/mof-generation-at-scale/env
+monitor_utilization $@

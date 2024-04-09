@@ -2,13 +2,60 @@ import argparse
 import os
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
+from typing import Any
 
+import torch
 from pytorch_lightning import Trainer, callbacks
+from pytorch_lightning.accelerators import Accelerator
 from pytorch_lightning.callbacks import TQDMProgressBar
 
 from mofa.utils.src.const import NUMBER_OF_ATOM_TYPES, GEOM_NUMBER_OF_ATOM_TYPES
 from mofa.utils.src.lightning import DDPM
 from mofa.utils.src.utils import disable_rdkit_logging
+
+
+def _intel_on_train_start(trainer: Trainer):
+    """Hook for optimizing the model and optimizer before training"""
+    import intel_extension_for_pytorch as ipex
+    assert len(trainer.optimizers) == 1, 'We only support one optimizer for now'
+    trainer.model, trainer.optimizers[0] = ipex.optimize(trainer.model, optimizer=trainer.optimizers[0])
+
+
+# Placeholder until XPU support merged: https://github.com/Lightning-AI/pytorch-lightning/pull/17700
+class XPUAccelerator(Accelerator):
+    """Shim for XPU support"""
+
+    # See: https://lightning.ai/docs/pytorch/stable/extensions/accelerator.html#create-a-custom-accelerator
+
+    def setup(self, trainer: Trainer) -> None:
+        pass
+
+    def setup_device(self, device: torch.device) -> None:
+        return
+
+    def teardown(self) -> None:
+        return
+
+    @staticmethod
+    def parse_devices(devices: Any) -> Any:
+        return devices
+
+    @staticmethod
+    def get_parallel_devices(devices: Any) -> Any:
+        return [torch.device("xpu", idx) for idx in devices]
+
+    @staticmethod
+    def auto_device_count() -> int:
+        # Return a value for auto-device selection when `Trainer(devices="auto")`
+        raise NotImplementedError()
+
+    @staticmethod
+    def is_available() -> bool:
+        return True
+
+    def get_device_stats(self, device: str | torch.device) -> dict[str, Any]:
+        # Return optional device statistics for loggers
+        return {}
 
 
 def get_args(args: list[str]) -> argparse.Namespace:
@@ -88,9 +135,10 @@ def get_args(args: list[str]) -> argparse.Namespace:
     p.add_argument('--aggregation_method', type=str, default='sum', help='"sum" or "mean"')
     p.add_argument('--normalization', type=str, default='batch_norm', help='batch_norm')
     p.add_argument('--wandb_entity', type=str, default='geometric', help='Entity (project) name')
-    p.add_argument('--center_of_mass', type=str, default='fragments', help='Where to center the data: fragments | anchors')
+    p.add_argument('--center_of_mass', type=str, default='fragments', help='Where to center the data: fragments | prompts')
     p.add_argument('--inpainting', action='store_true', default=False, help='Inpainting mode (full generation)')
     p.add_argument('--remove_anchors_context', action='store_true', default=False, help='Remove anchors context')
+    p.add_argument('--dataset_override', type=str, default="", help="Dataset override flag - set to MOFA for retraining")
     disable_rdkit_logging()
 
     return p.parse_args(args)
@@ -129,7 +177,7 @@ def main(
     with (run_directory / 'stdout.txt').open('w') as fo, (run_directory / 'stderr.txt').open('w') as fe:
         with redirect_stderr(fe), redirect_stdout(fo):
             # Determine the number of atom types
-            is_geom = ('geom' in args.train_data_prefix) or ('MOAD' in args.train_data_prefix)
+            is_geom = ('geom' in args.train_data_prefix) or ('MOAD' in args.train_data_prefix) or (args.dataset_override == "MOFA")
             number_of_atoms = GEOM_NUMBER_OF_ATOM_TYPES if is_geom else NUMBER_OF_ATOM_TYPES
             in_node_nf = number_of_atoms + args.include_charges
             anchors_context = not args.remove_anchors_context
@@ -137,43 +185,14 @@ def main(
             if '.' in args.train_data_prefix:
                 context_node_nf += 1
 
-            ddpm = DDPM(
-                data_path=args.data,
-                train_data_prefix=args.train_data_prefix,
-                val_data_prefix=args.val_data_prefix,
-                in_node_nf=in_node_nf,
-                n_dims=3,
-                context_node_nf=context_node_nf,
-                hidden_nf=args.nf,
-                activation=args.activation,
-                n_layers=args.n_layers,
-                attention=args.attention,
-                tanh=args.tanh,
-                norm_constant=args.norm_constant,
-                inv_sublayers=args.inv_sublayers,
-                sin_embedding=args.sin_embedding,
-                normalization_factor=args.normalization_factor,
-                aggregation_method=args.aggregation_method,
-                diffusion_steps=args.diffusion_steps,
-                diffusion_noise_schedule=args.diffusion_noise_schedule,
-                diffusion_noise_precision=args.diffusion_noise_precision,
-                diffusion_loss_type=args.diffusion_loss_type,
-                normalize_factors=args.normalize_factors,
-                include_charges=args.include_charges,
-                lr=args.lr,
-                batch_size=args.batch_size,
-                torch_device=args.device,
-                model=args.model,
-                test_epochs=args.test_epochs,
-                n_stability_samples=args.n_stability_samples,
-                normalization=args.normalization,
-                log_iterations=args.log_iterations,
-                samples_dir=None,
-                data_augmentation=args.data_augmentation,
-                center_of_mass=args.center_of_mass,
-                inpainting=args.inpainting,
-                anchors_context=anchors_context,
-            )
+            # Make an XPU acceleator, if needed
+            if 'xpu' in args.device:
+                pl_device = XPUAccelerator()
+                devices = [0]
+            else:
+                pl_device = args.device
+                devices = "auto"
+
             checkpoint_callback = [callbacks.ModelCheckpoint(
                 dirpath=checkpoints_dir,
                 filename='difflinker_{epoch:02d}',
@@ -185,54 +204,100 @@ def main(
                 default_root_dir=log_directory,
                 max_epochs=args.n_epochs,
                 callbacks=checkpoint_callback,
-                accelerator=args.device,
-                devices="auto",
+                accelerator=pl_device,
+                devices=devices,
                 num_sanity_val_steps=0,
                 enable_progress_bar=args.enable_progress_bar,
             )
 
+            # Add a callback for fit setup
+            if args.device == "xpu":
+                trainer.on_train_start = _intel_on_train_start
+
+            # Get the model
             if args.resume is None:
-                last_checkpoint = None
+                # Create the model from scratch
+                ddpm = DDPM(
+                    data_path=args.data,
+                    train_data_prefix=args.train_data_prefix,
+                    val_data_prefix=args.val_data_prefix,
+                    in_node_nf=in_node_nf,
+                    n_dims=3,
+                    context_node_nf=context_node_nf,
+                    hidden_nf=args.nf,
+                    activation=args.activation,
+                    n_layers=args.n_layers,
+                    attention=args.attention,
+                    tanh=args.tanh,
+                    norm_constant=args.norm_constant,
+                    inv_sublayers=args.inv_sublayers,
+                    sin_embedding=args.sin_embedding,
+                    normalization_factor=args.normalization_factor,
+                    aggregation_method=args.aggregation_method,
+                    diffusion_steps=args.diffusion_steps,
+                    diffusion_noise_schedule=args.diffusion_noise_schedule,
+                    diffusion_noise_precision=args.diffusion_noise_precision,
+                    diffusion_loss_type=args.diffusion_loss_type,
+                    normalize_factors=args.normalize_factors,
+                    include_charges=args.include_charges,
+                    lr=args.lr,
+                    batch_size=args.batch_size,
+                    torch_device=args.device,
+                    model=args.model,
+                    test_epochs=args.test_epochs,
+                    n_stability_samples=args.n_stability_samples,
+                    normalization=args.normalization,
+                    log_iterations=args.log_iterations,
+                    samples_dir=None,
+                    data_augmentation=args.data_augmentation,
+                    center_of_mass=args.center_of_mass,
+                    inpainting=args.inpainting,
+                    anchors_context=anchors_context,
+                    dataset_override=args.dataset_override
+                )
             else:
                 last_checkpoint = find_last_checkpoint(checkpoints_dir)
-                ddpm = DDPM.load_from_checkpoint(last_checkpoint, strict=False,
-                                                 data_path=args.data,
-                                                 train_data_prefix=args.train_data_prefix,
-                                                 val_data_prefix=args.val_data_prefix,
-                                                 in_node_nf=in_node_nf,
-                                                 n_dims=3,
-                                                 context_node_nf=context_node_nf,
-                                                 hidden_nf=args.nf,
-                                                 activation=args.activation,
-                                                 n_layers=args.n_layers,
-                                                 attention=args.attention,
-                                                 tanh=args.tanh,
-                                                 norm_constant=args.norm_constant,
-                                                 inv_sublayers=args.inv_sublayers,
-                                                 sin_embedding=args.sin_embedding,
-                                                 normalization_factor=args.normalization_factor,
-                                                 aggregation_method=args.aggregation_method,
-                                                 diffusion_steps=args.diffusion_steps,
-                                                 diffusion_noise_schedule=args.diffusion_noise_schedule,
-                                                 diffusion_noise_precision=args.diffusion_noise_precision,
-                                                 diffusion_loss_type=args.diffusion_loss_type,
-                                                 normalize_factors=args.normalize_factors,
-                                                 include_charges=args.include_charges,
-                                                 lr=args.lr,
-                                                 batch_size=args.batch_size,
-                                                 torch_device=args.device,
-                                                 model=args.model,
-                                                 test_epochs=args.test_epochs,
-                                                 n_stability_samples=args.n_stability_samples,
-                                                 normalization=args.normalization,
-                                                 log_iterations=args.log_iterations,
-                                                 samples_dir=None,
-                                                 data_augmentation=args.data_augmentation,
-                                                 center_of_mass=args.center_of_mass,
-                                                 inpainting=args.inpainting,
-                                                 anchors_context=anchors_context, )
+                ddpm = DDPM.load_from_checkpoint(
+                    last_checkpoint,
+                    strict=False,
+                    data_path=args.data,
+                    train_data_prefix=args.train_data_prefix,
+                    val_data_prefix=args.val_data_prefix,
+                    in_node_nf=in_node_nf,
+                    n_dims=3,
+                    context_node_nf=context_node_nf,
+                    hidden_nf=args.nf,
+                    activation=args.activation,
+                    n_layers=args.n_layers,
+                    attention=args.attention,
+                    tanh=args.tanh,
+                    norm_constant=args.norm_constant,
+                    inv_sublayers=args.inv_sublayers,
+                    sin_embedding=args.sin_embedding,
+                    normalization_factor=args.normalization_factor,
+                    aggregation_method=args.aggregation_method,
+                    diffusion_steps=args.diffusion_steps,
+                    diffusion_noise_schedule=args.diffusion_noise_schedule,
+                    diffusion_noise_precision=args.diffusion_noise_precision,
+                    diffusion_loss_type=args.diffusion_loss_type,
+                    normalize_factors=args.normalize_factors,
+                    include_charges=args.include_charges,
+                    lr=args.lr,
+                    batch_size=args.batch_size,
+                    torch_device=args.device,
+                    model=args.model,
+                    test_epochs=args.test_epochs,
+                    n_stability_samples=args.n_stability_samples,
+                    normalization=args.normalization,
+                    log_iterations=args.log_iterations,
+                    samples_dir=None,
+                    data_augmentation=args.data_augmentation,
+                    center_of_mass=args.center_of_mass,
+                    inpainting=args.inpainting,
+                    anchors_context=anchors_context,
+                    dataset_override=args.dataset_override)
 
-            trainer.fit(model=ddpm)
+            trainer.fit(model=ddpm)  # TODO (wardlt): Separate the data loader from the model code
 
             # Save the last model
             trained_path = run_directory / 'model.ckpt'
