@@ -37,7 +37,9 @@ class HPCConfig:
     """Which executors are available for simulation tasks"""
     cp2k_executors: Literal['all'] | list[str] = 'all'
     """Which executors to use for CP2K tasks"""
-    ai_executors: Literal['all'] | list[str] = 'all'
+    inference_executors: Literal['all'] | list[str] = 'all'
+    """Which executors are available for AI tasks"""
+    train_executors: Literal['all'] | list[str] = 'all'
     """Which executors are available for AI tasks"""
     helper_executors: Literal['all'] | list[str] = 'all'
     """Which executors are available for processing tasks"""
@@ -45,11 +47,11 @@ class HPCConfig:
     @property
     def num_workers(self) -> int:
         """Total number of workers"""
-        return self.num_lammps_workers + self.num_cp2k_workers + self.num_ai_workers
+        return self.num_lammps_workers + self.num_cp2k_workers + self.number_inf_workers
 
     @property
-    def num_ai_workers(self) -> int:
-        """Number of workers set aside for AI"""
+    def number_inf_workers(self) -> int:
+        """Number of workers set aside for AI inference tasks"""
         raise NotImplementedError
 
     @property
@@ -95,15 +97,16 @@ class LocalConfig(HPCConfig):
     lammps_env = {}
 
     lammps_executors = ['sim']
-    ai_executors = ['ai']
+    inference_executors = ['ai']
+    train_executors = ['ai']
     helper_executors = ['helper']
 
     @property
     def num_workers(self):
-        return self.num_lammps_workers + self.num_cp2k_workers + self.num_ai_workers
+        return self.num_lammps_workers + self.num_cp2k_workers + self.number_inf_workers
 
     @property
-    def num_ai_workers(self) -> int:
+    def number_inf_workers(self) -> int:
         return 1
 
     @property
@@ -139,15 +142,16 @@ class LocalXYConfig(HPCConfig):
     lammps_env = {}
 
     lammps_executors = ['sim']
-    ai_executors = ['ai']
+    inference_executors = ['ai']
+    train_executors = ['ai']
     helper_executors = ['helper']
 
     @property
     def num_workers(self):
-        return self.num_lammps_workers + self.num_cp2k_workers + self.num_ai_workers
+        return self.num_lammps_workers + self.num_cp2k_workers + self.number_inf_workers
 
     @property
-    def num_ai_workers(self) -> int:
+    def number_inf_workers(self) -> int:
         return 1
 
     @property
@@ -202,7 +206,8 @@ class PolarisConfig(HPCConfig):
     """Number of GPUs per compute node"""
 
     lammps_executors = ['lammps']
-    ai_executors = ['ai']
+    inference_executors = ['inf']
+    train_executors = ['train']
     cp2k_executors = ['cp2k']
     helper_executors = ['helper']
 
@@ -226,6 +231,8 @@ class PolarisConfig(HPCConfig):
         # Determine the number of nodes to use for AI
         num_ai_hosts = max(1, min(int(self.ai_fraction * len(hosts)), len(hosts) - self.nodes_per_cp2k - 1))
         self.ai_hosts = hosts[:num_ai_hosts]
+        if num_ai_hosts < 2:
+            raise ValueError('We need at least two AI workers. Increase node count or ai_fraction')
 
         # Determine the number of hosts to use for simulation
         sim_hosts = hosts[num_ai_hosts:]
@@ -237,8 +244,8 @@ class PolarisConfig(HPCConfig):
         return hosts
 
     @property
-    def num_ai_workers(self):
-        return len(self.ai_hosts) * self.gpus_per_node
+    def number_inf_workers(self):
+        return (len(self.ai_hosts) - 1) * self.gpus_per_node
 
     @property
     def num_lammps_workers(self):
@@ -260,7 +267,7 @@ class PolarisConfig(HPCConfig):
 
         # Write the nodefiles
         ai_nodefile = run_dir / 'ai.hosts'
-        ai_nodefile.write_text('\n'.join(self.ai_hosts))
+        ai_nodefile.write_text('\n'.join(self.ai_hosts[1:]))  # First is used for training
         lammps_nodefile = run_dir / 'lammps.hosts'
         lammps_nodefile.write_text('\n'.join(self.lammps_hosts))
         cp2k_nodefile = run_dir / 'cp2k.hosts'
@@ -296,13 +303,26 @@ hostname"""
         # Launch 4 workers per node, one per GPU
         return Config(executors=[
             HighThroughputExecutor(
-                label='ai',
+                label='inf',
                 max_workers=4,
                 cpu_affinity='list:' + ":".join(ai_cores),
                 available_accelerators=4,
                 provider=LocalProvider(
                     launcher=WrappedLauncher(
-                        f"mpiexec -n {len(self.ai_hosts)} --ppn 1 --hostfile {ai_nodefile} --depth=64 --cpu-bind depth"
+                        f"mpiexec -n {len(self.ai_hosts) - 1} --ppn 1 --host {ai_nodefile} --depth=64 --cpu-bind depth"
+                    ),
+                    worker_init=worker_init,
+                    min_blocks=1,
+                    max_blocks=1
+                )
+            ),
+            HighThroughputExecutor(
+                label='traub',
+                max_workers=1,
+                available_accelerators=self.gpus_per_node,
+                provider=LocalProvider(
+                    launcher=WrappedLauncher(
+                        f"mpiexec -n 1 --ppn 1 --host {self.ai_hosts[0]} --depth=64 --cpu-bind depth"
                     ),
                     worker_init=worker_init,
                     min_blocks=1,
@@ -328,7 +348,9 @@ hostname"""
                 max_workers=self.num_cp2k_workers,
                 cores_per_worker=1e-6,
                 provider=LocalProvider(
-                    launcher=SimpleLauncher()  # Places a single worker on the launch node
+                    launcher=SimpleLauncher(),  # Places a single worker on the launch node
+                    min_blocks=1,
+                    max_blocks=1
                 )
             ),
             HighThroughputExecutor(

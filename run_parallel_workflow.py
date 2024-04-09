@@ -2,6 +2,7 @@
 from contextlib import AbstractContextManager
 from functools import partial, update_wrapper, cached_property
 from subprocess import Popen
+from time import sleep
 from typing import TextIO
 from csv import DictWriter
 from argparse import ArgumentParser
@@ -74,7 +75,7 @@ class TrainingConfig:
 
     num_epochs: int
     """Number of epochs to use for training"""
-    retrain_freq: int
+    minimum_train_size: int
     """Trigger retraining after these many computations have completed successfully"""
     maximum_train_size: int
     """How many of the top MOFs to train on"""
@@ -129,7 +130,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         self.database: dict[str, MOFRecord] = {}
 
         # Set aside one GPU for generation
-        self.rec.reallocate(None, 'generation', self.hpc_config.num_ai_workers)
+        self.rec.reallocate(None, 'generation', self.hpc_config.number_inf_workers)
         self.rec.reallocate(None, 'lammps', self.hpc_config.num_lammps_workers)
         self.rec.reallocate(None, 'cp2k', self.hpc_config.num_cp2k_workers)
 
@@ -381,64 +382,66 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
 
             # Determine if we should retrain
             self.num_completed += 1
-            if self.num_completed % self.trainer_config.retrain_freq == 0:
+            if self.num_completed == self.trainer_config.minimum_train_size:
                 self.start_train.set()
-                self.logger.info('Triggered retraining')
+                self.logger.info('Triggered retraining to start')
 
     @event_responder(event_name='start_train')
     def retrain(self):
-        """Retrain difflinker"""
+        """Retrain difflinker. Starts when we first exceed the training set size"""
 
-        # Determine the run directory
-        self.model_iteration += 1
-        train_dir = self.out_dir / 'retraining' / f'model-v{self.model_iteration}'
-        train_dir.mkdir(parents=True)
-        self.logger.info(f'Preparing to retrain Difflinker in {train_dir}')
+        while not self.done.is_set():
+            # Determine the run directory
+            self.model_iteration += 1
+            train_dir = self.out_dir / 'retraining' / f'model-v{self.model_iteration}'
+            train_dir.mkdir(parents=True)
+            self.logger.info(f'Preparing to retrain Difflinker in {train_dir}')
 
-        # Get the top MOFs
-        sort_field = 'structure_stability.uff'
-        to_include = min(int(self.collection.estimated_document_count() * self.trainer_config.best_fraction), self.trainer_config.maximum_train_size)
-        self.collection.create_index(sort_field)
-        cursor = (
-            self.collection.find(
-                {sort_field: {'$exists': True, '$lt': self.trainer_config.maximum_strain}},
-                {'md_trajectory': 0}  # Filter out the trajectory to save I/O
+            # Get the top MOFs
+            sort_field = 'structure_stability.uff'
+            to_include = min(int(self.collection.estimated_document_count() * self.trainer_config.best_fraction), self.trainer_config.maximum_train_size)
+            self.collection.create_index(sort_field)
+            cursor = (
+                self.collection.find(
+                    {sort_field: {'$exists': True, '$lt': self.trainer_config.maximum_strain}},
+                    {'md_trajectory': 0}  # Filter out the trajectory to save I/O
+                )
+                .sort(sort_field, pymongo.ASCENDING)
+                .limit(to_include)
             )
-            .sort(sort_field, pymongo.ASCENDING)
-            .limit(to_include)
-        )
-        examples = []
-        for record in cursor:
-            record.pop("_id")
-            record['times'] = {}
-            record['md_trajectory'] = {}
-            examples.append(MOFRecord(**record))
-        if len(examples) == 0:
-            self.logger.warning(f'We have not yet found any MOFs below the stability threshold of {self.trainer_config.maximum_strain:.2f}. '
-                                'Skipping training')
-            return
-        self.logger.info(f'Gathered the top {len(examples)} records with strain below {self.trainer_config.maximum_strain:.2f} based on stability')
+            examples = []
+            for record in cursor:
+                record.pop("_id")
+                record['times'] = {}
+                record['md_trajectory'] = {}
+                examples.append(MOFRecord(**record))
+            if len(examples) == 0:
+                self.logger.warning(f'We have not yet found any MOFs below the stability threshold of {self.trainer_config.maximum_strain:.2f}. '
+                                    'Waiting 60 seconds to attempt retraining again')
+                sleep(60.)
+                continue
+            self.logger.info(f'Gathered the top {len(examples)} records with strain below {self.trainer_config.maximum_strain:.2f} based on stability')
 
-        # Submit training using the latest model
-        self.queues.send_inputs(
-            self.initial_weights,
-            input_kwargs={'examples': examples, 'run_directory': train_dir},
-            method='train_generator',
-            topic='training',
-            task_info={'train_size': len(examples)}
-        )
-        self.logger.info('Submitted task for execution on any worker. Waiting until complete')
+            # Submit training using the latest model
+            self.queues.send_inputs(
+                self.initial_weights,
+                input_kwargs={'examples': examples, 'run_directory': train_dir},
+                method='train_generator',
+                topic='training',
+                task_info={'train_size': len(examples)}
+            )
+            self.logger.info('Submitted training. Waiting until complete')
 
-        # Update the model
-        result = self.queues.get_result(topic='training')
-        result.task_info['train_size'] = len(examples)
-        if result.success:
-            self.generator_config.generator_path = result.value
-            self.logger.info(f'Received training result. Updated generator path to {result.value}')
-        else:
-            self.logger.warning(f'Training failed: {result.failure_info.exception} - {result.failure_info.traceback}')
+            # Update the model
+            result = self.queues.get_result(topic='training')
+            result.task_info['train_size'] = len(examples)
+            if result.success:
+                self.generator_config.generator_path = result.value
+                self.logger.info(f'Received training result. Updated generator path to {result.value}')
+            else:
+                self.logger.warning(f'Training failed: {result.failure_info.exception} - {result.failure_info.traceback}')
 
-        print(result.json(exclude={'inputs', 'value'}), file=self._output_files['training-results'], flush=True)
+            print(result.json(exclude={'inputs', 'value'}), file=self._output_files['training-results'], flush=True)
 
     @task_submitter(task_type='cp2k')
     def submit_cp2k(self):
@@ -607,7 +610,7 @@ if __name__ == "__main__":
     trainer = TrainingConfig(
         maximum_train_size=args.maximum_train_size,
         num_epochs=args.num_epochs,
-        retrain_freq=args.retrain_freq,
+        minimum_train_size=args.retrain_freq,
         best_fraction=args.best_fraction,
         maximum_strain=args.maximum_strain
     )
@@ -664,8 +667,8 @@ if __name__ == "__main__":
     # Launch the thinker and task server
     doer = ParslTaskServer(
         methods=[
-            (gen_method, {'executors': hpc_config.ai_executors}),
-            (train_func, {'executors': hpc_config.ai_executors}),
+            (gen_method, {'executors': hpc_config.inference_executors}),
+            (train_func, {'executors': hpc_config.train_executors}),
             (md_fun, {'executors': hpc_config.lammps_executors}),
             (cp2k_fun, {'executors': hpc_config.cp2k_executors}),
             (compute_partial_charges, {'executors': hpc_config.helper_executors}),
