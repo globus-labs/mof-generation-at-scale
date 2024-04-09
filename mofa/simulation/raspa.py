@@ -218,19 +218,16 @@ class RASPARunner:
     Args:
         raspa_command: Command used to launch RASPA
         raspa_sims_root_path: Scratch directory for RASPA simulations
-        raspa_environ: Additional environment variables to provide to RASPA
         delete_finished: Whether to delete run files once completed
     """
 
     def __init__(self,
                  raspa_command: Sequence[str] = (Path(sys.prefix) / "bin" / "simulate",),
                  raspa_sims_root_path: str = "raspa_sims",
-                 raspa_environ: dict[str, str] | None = None,
                  delete_finished: bool = True):
         self.raspa_command = raspa_command
         self.raspa_sims_root_path = raspa_sims_root_path
         os.makedirs(self.raspa_sims_root_path, exist_ok=True)
-        self.raspa_environ = raspa_environ.copy()
         self.delete_finished = delete_finished
 
     def prep_common_files(self, run_name: str, raspa_path: str | Path, mof_ase_atoms: ase.Atoms):
@@ -418,9 +415,6 @@ Component 0 MoleculeName             helium
         # run He void calcultion
         with open(raspa_path / 'stdout_he_void.raspa', 'w') as fp, open(raspa_path / 'stderr_he_void.raspa', 'w') as fe:
             env = None
-            if self.raspa_environ is not None:
-                env = os.environ.copy()
-                env.update(self.raspa_environ)
             run(list(self.raspa_command), cwd=raspa_path, stdout=fp, stderr=fe, env=env)
 
         # parse output
@@ -501,9 +495,6 @@ rigid
         # run CO2 GCMC
         with open(raspa_path / 'stdout_CO2_gcmc.raspa', 'w') as fp, open(raspa_path / 'stderr_CO2_gcmc.raspa', 'w') as fe:
             env = None
-            if self.raspa_environ is not None:
-                env = os.environ.copy()
-                env.update(self.raspa_environ)
             run(list(self.raspa_command), cwd=raspa_path, stdout=fp, stderr=fe, env=env)
         os.rename(Path(raspa_path) / "simulation.input", Path(raspa_path) / "simulation-CO2-gcmc.input")
 
