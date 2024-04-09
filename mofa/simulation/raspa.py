@@ -500,8 +500,7 @@ rigid
 0
 """)
         # run CO2 GCMC
-        with open(raspa_path / 'stdout_CO2_gcmc.raspa', 'w') as fp,
-             open(raspa_path / 'stderr_CO2_gcmc.raspa', 'w') as fe:
+        with open(raspa_path / 'stdout_CO2_gcmc.raspa', 'w') as fp, open(raspa_path / 'stderr_CO2_gcmc.raspa', 'w') as fe:
             env = None
             if self.raspa_environ is not None:
                 env = os.environ.copy()
