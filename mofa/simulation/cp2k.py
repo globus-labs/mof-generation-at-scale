@@ -6,10 +6,8 @@ from pathlib import Path
 import time
 import sys
 import os
-from io import StringIO
 
 import ase
-from ase.io import read
 from ase.calculators.cp2k import CP2K
 from ase import units
 
