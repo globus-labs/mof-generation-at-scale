@@ -9,6 +9,7 @@ from typing import NoReturn
 
 import psutil
 import pynvml
+import sys
 from gpustat import GPUStatCollection
 
 
@@ -32,10 +33,12 @@ def get_utilization() -> dict:
             output['disk'][disk] = stats._asdict()
 
     # Temperatures
-    output['temperatures'] = {}
-    for k, temp_lst in psutil.sensors_temperatures().items():
-        temp_lst = [v._asdict() for v in temp_lst]
-        output['temperatures'][k] = temp_lst
+    if sys.platform == "linux" or sys.platform == "linux2":
+        # This attribute from `psutil` is only available on Linux.
+        output['temperatures'] = {}
+        for k, temp_lst in psutil.sensors_temperatures().items():
+            temp_lst = [v._asdict() for v in temp_lst]
+            output['temperatures'][k] = temp_lst
 
     # GPU Utilization
     try:
