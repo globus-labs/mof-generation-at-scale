@@ -319,7 +319,6 @@ hostname"""
             HighThroughputExecutor(
                 label='train',
                 max_workers=1,
-                available_accelerators=self.gpus_per_node,
                 provider=LocalProvider(
                     launcher=WrappedLauncher(
                         f"mpiexec -n 1 --ppn 1 --host {self.ai_hosts[0]} --depth=64 --cpu-bind depth"
