@@ -80,6 +80,8 @@ class TrainingConfig:
     """How many of the top MOFs to train on"""
     best_fraction: float
     """Percentile of top MOFs to include in training set"""
+    maximum_strain: float
+    """Only use MOFs with strains below this value in training set"""
 
 
 class MOFAThinker(BaseThinker, AbstractContextManager):
@@ -138,6 +140,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
 
         # Settings related for training
         self.start_train = Event()
+        self.initial_weights = self.generator_config.generator_path  # Store the starting weights, which we'll always use as a starting point for training
         self.num_completed = 0  # Number of MOFs which have finished training
         self.model_iteration = 0  # Which version of the model we used for generating a ligand
 
@@ -393,7 +396,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         self.collection.create_index(sort_field)
         cursor = (
             self.collection.find(
-                {sort_field: {'$exists': True}},
+                {sort_field: {'$exists': True, '$lt': self.trainer_config.maximum_strain}},
                 {'md_trajectory': 0}  # Filter out the trajectory to save I/O
             )
             .sort(sort_field, pymongo.ASCENDING)
@@ -405,14 +408,19 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             record['times'] = {}
             record['md_trajectory'] = {}
             examples.append(MOFRecord(**record))
-        self.logger.info(f'Gathered the top {len(examples)} records based on stability')
+        if len(examples) == 0:
+            self.logger.warning(f'We have not yet found any MOFs below the stability threshold of {self.trainer_config.maximum_strain:.2f}. '
+                                'Skipping training')
+            return
+        self.logger.info(f'Gathered the top {len(examples)} records with strain below {self.trainer_config.maximum_strain:.2f} based on stability')
 
         # Submit training using the latest model
         self.queues.send_inputs(
-            self.generator_config.generator_path,
+            self.initial_weights,
             input_kwargs={'examples': examples, 'run_directory': train_dir},
             method='train_generator',
             topic='training',
+            task_info={'train_size': len(examples)}
         )
         self.logger.info('Submitted task for execution on any worker. Waiting until complete')
 
@@ -511,6 +519,7 @@ if __name__ == "__main__":
     group.add_argument('--maximum-train-size', type=int, default=256, help='Maximum number of MOFs to use for retraining')
     group.add_argument('--num-epochs', type=int, default=128, help='Number of training epochs')
     group.add_argument('--best-fraction', type=float, default=0.5, help='What percentile of MOFs to include in training')
+    group.add_argument('--maximum-strain', type=float, default=0.5, help='Maximum strain allowed MOF used in training set')
 
     group = parser.add_argument_group(title='Assembly Settings', description='Options related to MOF assembly')
     group.add_argument('--max-assemble-attempts', default=100,
@@ -594,7 +603,8 @@ if __name__ == "__main__":
         maximum_train_size=args.maximum_train_size,
         num_epochs=args.num_epochs,
         retrain_freq=args.retrain_freq,
-        best_fraction=args.best_fraction
+        best_fraction=args.best_fraction,
+        maximum_strain=args.maximum_strain
     )
     train_func = partial(train_generator, config_path=args.generator_config_path,
                          num_epochs=trainer.num_epochs, device=hpc_config.torch_device)
