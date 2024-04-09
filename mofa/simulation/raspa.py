@@ -42,7 +42,7 @@ class RASPARunner:
         self.raspa_environ = raspa_environ.copy()
         self.delete_finished = delete_finished
 
-    def prep_common_files(self, run_dir: str | Path, mof_ase_atoms: ase.Atoms):
+    def prep_common_files(self, run_name: str, raspa_path: str | Path, mof_ase_atoms: ase.Atoms):
         # MOF cif file with partial charge and labeled in RASPA convention
         cifdf = pd.DataFrame(mof_ase_atoms.get_scaled_positions(), columns=["xs", "ys", "zs"])
         cifdf["q"] = mof_ase_atoms.arrays["q"]
@@ -86,11 +86,12 @@ _atom_site_fract_y
 _atom_site_fract_z
 _atom_site_charge
 """ + cifdf.to_string(header=None, index=None) + "\n"
-        with open(Path(run_dir) / "raspa.cif", "w") as wf:
+        # Write the cif file to disk
+        with open(Path(raspa_path) / f'{run_name}.cif', "w") as wf:
             wf.write(cifstr)
 
         # meta information about force field
-        with open(Path(run_dir) / "force_field.def", "w") as wf:
+        with open(Path(raspa_path) / "force_field.def", "w") as wf:
             wf.write("""# rules to overwrite
 0
 # number of defined interactions
@@ -99,7 +100,69 @@ _atom_site_charge
 0
 """)
 
-        
+        cif_path = os.path.join(raspa_path, f'{run_name}.cif')
+        atoms.write(cif_path, 'cif')
+        try:
+            single_conversion(cif_path,
+                              force_field=UFF4MOF,
+                              ff_string='UFF4MOF',
+                              small_molecule_force_field=None,
+                              outdir=raspa_path,
+                              charges=False,
+                              parallel=False,
+                              replication='2x2x2',
+                              read_cifs_pymatgen=True,
+                              add_molecule=None,
+                              small_molecule_file=None)
+            in_file_name = [x for x in os.listdir(raspa_path) if x.startswith("in.") and not x.startswith("in.lmp")][0]
+            data_file_name = [x for x in os.listdir(raspa_path) if x.startswith("data.") and not x.startswith("data.lmp")][0]
+            logger.info("Reading data file for element list: " + os.path.join(raspa_path, data_file_name))
+            with io.open(os.path.join(raspa_path, data_file_name), "r") as rf:
+                df = pd.read_csv(io.StringIO(rf.read().split("Masses")[1].split("Pair Coeffs")[0]), sep=r"\s+", header=None)
+                element_list = df[3].to_list()
+            os.remove(os.path.join(raspa_path, in_file_name))
+            os.remove(os.path.join(raspa_path, data_file_name))
+
+        except Exception as e:
+            shutil.rmtree(raspa_path)
+            raise e
+
+        read_str = None
+        with io.open(os.path.join(raspa_path, data_file_rename), "r") as rf2:
+            read_str = rf2.read()
+        mass_df = read_lmp_sec_str2df(read_str.split(
+            "Masses")[1].split("Pair Coeffs")[0].strip())
+        pair_coeff_df = read_lmp_sec_str2df(read_str.split(
+            "Pair Coeffs")[1].split("Bond Coeffs")[0].strip())
+        bond_coeff_df = read_lmp_sec_str2df(read_str.split(
+            "Bond Coeffs")[1].split("Angle Coeffs")[0].strip())
+        angle_coeff_df = read_lmp_sec_str2df(read_str.split(
+            "Angle Coeffs")[1].split("Dihedral Coeffs")[0].strip())
+        dihedral_coeff_df = read_lmp_sec_str2df(read_str.split("Dihedral Coeffs")[
+            1].split("Improper Coeffs")[0].strip())
+        improper_coeff_df = read_lmp_sec_str2df(
+            read_str.split("Improper Coeffs")[1].split("Atoms")[0].strip())
+        cifbox = read_str.split("Atoms")[1].split("$$$atoms$$$")[0].strip()
+        atom_df = read_lmp_sec_str2df(read_str.split("$$$atoms$$$")[
+            1].split("Bonds")[0].strip())
+        atom_df.columns = [
+            'id', 'mol', 'type', 'q', 'x', 'y', 'z', '#', "comment"]
+        _atom_df = pd.read_csv(
+            io.StringIO(
+                "\n".join(
+                    atom_df["comment"].to_list())), sep=r"\s+", header=None, index_col=None, names=[
+                "comment", "fx", "fy", "fz"])
+        atom_df = pd.concat([atom_df[['id', 'mol', 'type', 'q', 'x', 'y', 'z', '#']].reset_index(
+            drop=True), _atom_df.reset_index(drop=True)], axis=1)
+        bond_df = read_lmp_sec_str2df(
+            read_str.split("Bonds")[1].split("Angles")[0].strip())
+        angle_df = read_lmp_sec_str2df(read_str.split(
+            "Angles")[1].split("Dihedrals")[0].strip())
+        dihedral_df = read_lmp_sec_str2df(read_str.split(
+            "Dihedrals")[1].split("Impropers")[0].strip())
+        improper_df = read_lmp_sec_str2df(
+            read_str.split("Impropers")[1].strip())
+
 
     def run_He_void_single(self, run_name: str, atoms: ase.Atoms, timesteps: int, report_frequency: int, mof_ase_atoms) -> str:
         """Use cif2lammps to assign force field to a single MOF and generate input files for raspa simulation
@@ -118,7 +181,7 @@ _atom_site_charge
         raspa_path = os.path.join(self.raspa_sims_root_path, run_name)
         os.makedirs(raspa_path, exist_ok=True)
         self.prep_common_files(raspa_path, mof_ase_atoms)
-        with open(Path(run_dir) / "helium.def", "w") as wf:
+        with open(Path(raspa_path) / "helium.def", "w") as wf:
             wf.write("""# critical constants: Temperature [T], Pressure [Pa], and Acentric factor [-]
 5.2
 228000.0
@@ -142,7 +205,7 @@ flexible
         
         
         # He void fraction input
-        with open(Path(run_dir) / "simulation.input", "w") as wf:
+        with open(Path(raspa_path) / "simulation.input", "w") as wf:
             wf.write("""SimulationType                       MonteCarlo
 NumberOfCycles                       40000
 PrintEvery                           1000
@@ -161,33 +224,7 @@ Component 0 MoleculeName             helium
             CreateNumberOfMolecules  0
 """)
 
-        # Write the cif file to disk
-        cif_path = os.path.join(raspa_path, f'{run_name}.cif')
-        atoms.write(cif_path, 'cif')
-        try:
-            single_conversion(cif_path,
-                              force_field=UFF4MOF,
-                              ff_string='UFF4MOF',
-                              small_molecule_force_field=None,
-                              outdir=raspa_path,
-                              charges=False,
-                              parallel=False,
-                              replication='2x2x2',
-                              read_cifs_pymatgen=True,
-                              add_molecule=None,
-                              small_molecule_file=None)
-            in_file_name = [x for x in os.listdir(raspa_path) if x.startswith("in.") and not x.startswith("in.lmp")][0]
-            data_file_name = [x for x in os.listdir(raspa_path) if x.startswith("data.") and not x.startswith("data.lmp")][0]
-            logger.info("Reading data file for element list: " + os.path.join(raspa_path, data_file_name))
-            with io.open(os.path.join(raspa_path, data_file_name), "r") as rf:
-                df = pd.read_csv(io.StringIO(rf.read().split("Masses")[1].split("Pair Coeffs")[0]), sep=r"\s+", header=None)
-                element_list = df[3].to_list()
-            os.remove(os.path.join(raspa_path, in_file_name))
-
-
-        except Exception as e:
-            shutil.rmtree(raspa_path)
-            raise e
+        
 
         return raspa_path
 
@@ -204,7 +241,7 @@ Component 0 MoleculeName             helium
 
         # Generate the input files
         raspa_path = self.prep_gcmc_single(mof.name, mof.atoms, timesteps, report_frequency)
-        with open(Path(run_dir) / "CO2.def", "w") as wf:
+        with open(Path(raspa_path) / "CO2.def", "w") as wf:
             wf.write("""# critical constants: Temperature [T], Pressure [Pa], and Acentric factor [-]
 304.1282
 7377300.0
