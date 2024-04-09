@@ -351,7 +351,7 @@ _atom_site_charge
         os.remove(cif_path_ase)
 
     def run_GCMC_single(self, mof_ase_atoms: ase.Atoms, run_name: str, temperature_K: float = 300., pressure_Pa: float = 1e4,
-                        stepsize_fs: float = 0.5, timesteps: int = 200000, report_frequency: int = 1000,
+                        stepsize_fs: float = 0.5, timesteps: int = 400000, report_frequency: int = 1000,
                         cell_rep: list[int] = [2, 2, 2]) -> list[float]:
         """Use cif2lammps to assign force field to a single MOF and generate input files for raspa simulation
 
