@@ -233,14 +233,13 @@ class RASPARunner:
         self.raspa_environ = raspa_environ.copy()
         self.delete_finished = delete_finished
 
-
     def prep_common_files(self, run_name: str, raspa_path: str | Path, mof_ase_atoms: ase.Atoms):
         # MOF cif file with partial charge and labeled in RASPA convention
         cifdf = pd.DataFrame(mof_ase_atoms.get_scaled_positions(), columns=["xs", "ys", "zs"])
         cifdf["q"] = mof_ase_atoms.arrays["q"]
         cifdf["el"] = mof_ase_atoms.symbols
         a, b, c, alpha, beta, gamma = cell_to_cellpar(mof_ase_atoms.cell)
-        
+
         label_map = {}
         for val, subdf in cifdf.groupby('el'):
             newmap = dict(zip(subdf.index.tolist(), subdf["el"] + [str(x) for x in range(0, len(subdf))]))
@@ -355,17 +354,18 @@ _atom_site_charge
         os.remove(os.path.join(raspa_path, in_file_name))
         os.remove(os.path.join(raspa_path, data_file_name))
 
-
     def run_GCMC_single(self, mof_ase_atoms: ase.Atoms, run_name: str, temperature_K: float = 300., pressure_Pa: float = 1e4,
                         timesteps: int = 200000, report_frequency: int = 1000, cell_rep: list[int] = [2, 2, 2]) -> list[float]:
         """Use cif2lammps to assign force field to a single MOF and generate input files for raspa simulation
 
         Args:
+            mof_ase_atoms: ase.Atoms object with charge information
             run_name: Name of the run directory
-            atoms: Starting structure
+            temperature_K: Temperature
+            pressure_Pa: Pressure
             timesteps: Number of timesteps to run
             report_frequency: How often to report structures
-            stepsize_fs: Timestep size
+            cell_rep: replicate unit cell
         Returns:
             raspa_path: a directory with the raspa simulation input files
         """
