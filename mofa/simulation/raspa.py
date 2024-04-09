@@ -487,10 +487,10 @@ rigid
 0 O_co2     0.0           0.0           1.149
 1 C_co2     0.0           0.0           0.0
 2 O_co2     0.0           0.0          -1.149
-# Chiral centers Bond  BondDipoles Bend  UrayBradley InvBend  Torsion Imp. Torsion Bond/Bond""" + " " + \
-          """Stretch/Bend Bend/Bend Stretch/Torsion Bend/Torsion IntraVDW IntraCoulomb
-             0    2            0    0            0       0        0            0         0""" + "            " + \
-          """0         0               0            0        0            0
+# Chiral centers Bond  BondDipoles Bend  UrayBradley InvBend  Torsion Imp. Torsion Bond/Bond""" + " " +
+                     """Stretch/Bend Bend/Bend Stretch/Torsion Bend/Torsion IntraVDW IntraCoulomb
+             0    2            0    0            0       0        0            0         0""" + "            " +
+                     """0         0               0            0        0            0
 # Bond stretch: atom n1-n2, type, parameters
 0 1 RIGID_BOND
 1 2 RIGID_BOND
@@ -516,7 +516,3 @@ rigid
         gas_ads_info = read_str.split("Average loading excess [mol/kg framework]")[1].strip().split("[-]")[0].strip()
         gas_ads_mean, gas_ads_std = [float(x) for x in gas_ads_info.split("+/-")]
         return [gas_ads_mean, gas_ads_std]
-
-
-
-        
