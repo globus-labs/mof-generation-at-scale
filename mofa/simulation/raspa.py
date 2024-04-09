@@ -43,6 +43,7 @@ class RASPARunner:
         self.delete_finished = delete_finished
 
     def prep_common_files(self, run_dir: str | Path, mof_ase_atoms: ase.Atoms):
+        # MOF cif file with partial charge and labeled in RASPA convention
         cifdf = pd.DataFrame(mof_ase_atoms.get_scaled_positions(), columns=["xs", "ys", "zs"])
         cifdf["q"] = mof_ase_atoms.arrays["q"]
         cifdf["el"] = mof_ase_atoms.symbols
@@ -85,29 +86,10 @@ _atom_site_fract_y
 _atom_site_fract_z
 _atom_site_charge
 """ + cifdf.to_string(header=None, index=None) + "\n"
-
         with open(Path(run_dir) / "raspa.cif", "w") as wf:
             wf.write(cifstr)
 
-        with open(Path(run_dir) / "simulation.input", "w") as wf:
-            wf.write("""SimulationType                       MonteCarlo
-NumberOfCycles                       40000
-PrintEvery                           1000
-PrintPropertiesEvery                 1000
-
-Forcefield                           local
-
-Framework 0
-FrameworkName mof
-UnitCells 2 2 2
-ExternalTemperature 300.0
-
-Component 0 MoleculeName             helium
-            MoleculeDefinition       local
-            WidomProbability         1.0
-            CreateNumberOfMolecules  0
-""")
-
+        # meta information about force field
         with open(Path(run_dir) / "force_field.def", "w") as wf:
             wf.write("""# rules to overwrite
 0
@@ -117,6 +99,25 @@ Component 0 MoleculeName             helium
 0
 """)
 
+        
+
+    def run_He_void_single(self, run_name: str, atoms: ase.Atoms, timesteps: int, report_frequency: int, mof_ase_atoms) -> str:
+        """Use cif2lammps to assign force field to a single MOF and generate input files for raspa simulation
+
+        Args:
+            run_name: Name of the run directory
+            atoms: Starting structure
+            timesteps: Number of timesteps to run
+            report_frequency: How often to report structures
+            stepsize_fs: Timestep size
+        Returns:
+            raspa_path: a directory with the raspa simulation input files
+        """
+
+        # Convert the cif_path to string, as that's what the underlying library uses
+        raspa_path = os.path.join(self.raspa_sims_root_path, run_name)
+        os.makedirs(raspa_path, exist_ok=True)
+        self.prep_common_files(raspa_path, mof_ase_atoms)
         with open(Path(run_dir) / "helium.def", "w") as wf:
             wf.write("""# critical constants: Temperature [T], Pressure [Pa], and Acentric factor [-]
 5.2
@@ -138,22 +139,27 @@ flexible
 0
 """)
 
-    def prep_He_void_single(self, run_name: str, atoms: ase.Atoms, timesteps: int, report_frequency: int, stepsize_fs: float = 0.5) -> str:
-        """Use cif2lammps to assign force field to a single MOF and generate input files for raspa simulation
+        
+        
+        # He void fraction input
+        with open(Path(run_dir) / "simulation.input", "w") as wf:
+            wf.write("""SimulationType                       MonteCarlo
+NumberOfCycles                       40000
+PrintEvery                           1000
+PrintPropertiesEvery                 1000
 
-        Args:
-            run_name: Name of the run directory
-            atoms: Starting structure
-            timesteps: Number of timesteps to run
-            report_frequency: How often to report structures
-            stepsize_fs: Timestep size
-        Returns:
-            raspa_path: a directory with the raspa simulation input files
-        """
+Forcefield                           local
 
-        # Convert the cif_path to string, as that's what the underlying library uses
-        raspa_path = os.path.join(self.raspa_sims_root_path, run_name)
-        os.makedirs(raspa_path, exist_ok=True)
+Framework 0
+FrameworkName mof
+UnitCells 2 2 2
+ExternalTemperature 300.0
+
+Component 0 MoleculeName             helium
+            MoleculeDefinition       local
+            WidomProbability         1.0
+            CreateNumberOfMolecules  0
+""")
 
         # Write the cif file to disk
         cif_path = os.path.join(raspa_path, f'{run_name}.cif')
@@ -198,7 +204,33 @@ flexible
 
         # Generate the input files
         raspa_path = self.prep_gcmc_single(mof.name, mof.atoms, timesteps, report_frequency)
-
+        with open(Path(run_dir) / "CO2.def", "w") as wf:
+            wf.write("""# critical constants: Temperature [T], Pressure [Pa], and Acentric factor [-]
+304.1282
+7377300.0
+0.22394
+#Number Of Atoms
+3
+# Number of groups
+1
+# CO2-group
+rigid
+# number of atoms
+3
+# atomic positions
+0 O_co2     0.0           0.0           1.149
+1 C_co2     0.0           0.0           0.0
+2 O_co2     0.0           0.0          -1.149
+# Chiral centers Bond  BondDipoles Bend  UrayBradley InvBend  Torsion Imp. Torsion Bond/Bond""" + " " + \
+          """Stretch/Bend Bend/Bend Stretch/Torsion Bend/Torsion IntraVDW IntraCoulomb
+             0    2            0    0            0       0        0            0         0""" + "            " + \
+          """0         0               0            0        0            0
+# Bond stretch: atom n1-n2, type, parameters
+0 1 RIGID_BOND
+1 2 RIGID_BOND
+# Number of config moves
+0
+""")
         # Invoke raspa
         try:
             ret = self.invoke_raspa(raspa_path)
