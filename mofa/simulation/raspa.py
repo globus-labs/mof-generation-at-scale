@@ -299,8 +299,8 @@ _atom_site_charge
                               outdir=raspa_path,
                               charges=False,
                               parallel=False,
-                              replication='2x2x2',
-                              read_cifs_pymatgen=False,
+                              replication='1x1x1',
+                              read_cifs_pymatgen=True,
                               add_molecule=None,
                               small_molecule_file=None)
             in_file_name = [x for x in os.listdir(raspa_path) if x.startswith("in.") and not x.startswith("in.lmp")][0]
