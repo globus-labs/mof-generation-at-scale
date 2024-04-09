@@ -12,6 +12,10 @@ cd ${PBS_O_WORKDIR}
 # Activate the environment
 conda activate /lus/eagle/projects/ExaMol/mofa/mof-generation-at-scale/env-polaris
 
+# Launch MPS on each node
+NNODES=`wc -l < $PBS_NODEFILE`
+mpiexec -n ${NNODES} --ppn 1 ./bin/enable_mps_polaris.sh &
+
 # Start Redis
 redis-server --bind 0.0.0.0 --appendonly no --logfile redis.log &
 redis_pid=$!
@@ -36,3 +40,4 @@ echo Python done
 
 # Shutdown services
 kill $redis_pid
+mpiexec -n ${NNODES} --ppn 1 ./bin/disable_mps_polaris.sh
