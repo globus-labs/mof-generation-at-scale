@@ -25,6 +25,10 @@
             ALPHA 0.4
             NMIXING 16
          &END MIXING
+         &PRINT
+            &RESTART OFF
+            &END RESTART
+         &END PRINT
       &END SCF
 
       &XC
