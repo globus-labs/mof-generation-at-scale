@@ -137,7 +137,7 @@ class LocalXYConfig(HPCConfig):
     torch_device = 'cuda'
     lammps_cmd = "/home/xyan11/software/lmp20230802up3/build-gpu/lmp -sf gpu -pk gpu 1".split()
     lammps_env = {}
-
+    cp2k_cmd = "OMP_NUM_THREADS=1 mpiexec -np 8 /home/xyan11/software/cp2k-v2024.1/exe/local/cp2k_shell.psmp"
     lammps_executors = ['sim']
     ai_executors = ['ai']
     helper_executors = ['helper']
@@ -167,6 +167,53 @@ class LocalXYConfig(HPCConfig):
         return Config(
             executors=[
                 HighThroughputExecutor(label='sim', max_workers=1),
+                HighThroughputExecutor(label='helper', max_workers=1),
+                HighThroughputExecutor(label='ai', max_workers=1, available_accelerators=1)
+            ],
+            run_dir=str(run_dir / 'runinfo')
+        )
+
+
+@dataclass(kw_only=True)
+class UICXYConfig(HPCConfig):
+    """Configuration Xiaoli uses for uic hpc"""
+
+    torch_device = 'cuda'
+    lammps_cmd = "/projects/cme_santc/xyan11/software/source/lmp20230802up3/build-gpu/lmp -sf gpu -pk gpu 1".split()
+    lammps_env = {}
+
+    lammps_executors = ['sim']
+    ai_executors = ['ai']
+    helper_executors = ['helper']
+
+    cp2k_cmd = ("OMP_NUM_THREADS=2 mpirun -np 4 singularity run --nv -B ${PWD}:/host_pwd --pwd /host_pwd "
+                "/projects/cme_santc/xyan11/software/source/cp2k_v2023.1.sif cp2k_shell.psmp")
+
+    @property
+    def num_workers(self):
+        return self.num_lammps_workers + self.num_cp2k_workers + self.num_ai_workers
+
+    @property
+    def num_ai_workers(self) -> int:
+        return 2
+
+    @property
+    def num_lammps_workers(self) -> int:
+        return 3
+
+    @property
+    def num_cp2k_workers(self) -> int:
+        return 1
+
+    def launch_monitor_process(self, log_dir: Path, freq: int = 20) -> Popen:
+        return Popen(
+            args=f"monitor_utilization --frequency {freq} {log_dir}".split()
+        )
+
+    def make_parsl_config(self, run_dir: Path) -> Config:
+        return Config(
+            executors=[
+                HighThroughputExecutor(label='sim', max_workers=4, available_accelerators=4),
                 HighThroughputExecutor(label='helper', max_workers=1),
                 HighThroughputExecutor(label='ai', max_workers=1, available_accelerators=1)
             ],
@@ -412,6 +459,7 @@ hostname""",
 configs: dict[str, type[HPCConfig]] = {
     'local': LocalConfig,
     'localXY': LocalXYConfig,
+    'UICXY': UICXYConfig,
     'polaris': PolarisConfig,
     'sunspot': SunspotConfig
 }

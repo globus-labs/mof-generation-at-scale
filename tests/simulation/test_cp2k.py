@@ -44,4 +44,5 @@ def test_cp2k_optimize(cif_name, cif_dir, tmpdir):
     assert cp2k_path.is_absolute()
     assert 'opt' in cp2k_path.name
 
-    compute_partial_charges(cp2k_path, threads=2)
+    charged_mof = compute_partial_charges(cp2k_path, threads=2)
+    assert charged_mof.arrays["q"].shape[0] == charged_mof.arrays["positions"].shape[0]
