@@ -289,8 +289,10 @@ _atom_site_charge
 """)
 
         cif_path = os.path.join(raspa_path, f'{run_name}.cif')
+        cif_path_ase = os.path.join(raspa_path, f'{run_name}-ase.cif')
+        mof_ase_atoms.write(cif_path_ase, 'cif')
         try:
-            single_conversion(cif_path,
+            single_conversion(cif_path_ase,
                               force_field=UFF4MOF,
                               ff_string='UFF4MOF',
                               small_molecule_force_field=None,
@@ -347,6 +349,7 @@ _atom_site_charge
             raspa_path, ff_style_dict, pair_coeff_df, atom_df)
         os.remove(os.path.join(raspa_path, in_file_name))
         os.remove(os.path.join(raspa_path, data_file_name))
+        os.remove(os.path.join(raspa_path, cif_path_ase))
 
     def run_GCMC_single(self, mof_ase_atoms: ase.Atoms, run_name: str, temperature_K: float = 300., pressure_Pa: float = 1e4,
                         stepsize_fs: float = 0.5, timesteps: int = 200000, report_frequency: int = 1000,
