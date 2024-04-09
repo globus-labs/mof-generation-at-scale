@@ -115,7 +115,7 @@ C      yes  C  C  0  12.0        0.0      0.0    1.0   1.00   0     0   relative
                            pseudo_atoms_df.at[x, "anisotropic-type"],
                            pseudo_atoms_df.at[x, "tinker-type"]) for x in pseudo_atoms_df.index])
 
-    with io.open(os.path.join(raspa_path, "pseudo_atoms.def"), "w", newline="\n") as wf:
+    with open(os.path.join(raspa_path, "pseudo_atoms.def"), "w") as wf:
         wf.write(pseudo_atoms_str)
 
 
@@ -208,7 +208,7 @@ yes
 # general mixing rule for Lennard-Jones
 """ + mixing_method + """
 """
-    with io.open(os.path.join(raspa_path, "force_field_mixing_rules.def"), "w", newline="\n") as wf:
+    with open(os.path.join(raspa_path, "force_field_mixing_rules.def"), "w") as wf:
         wf.write(force_field_mixing_rules_str)
 
 
@@ -424,7 +424,7 @@ Component 0 MoleculeName             helium
         outdir = os.path.join(outdir, os.listdir(outdir)[0])
         outfile = os.path.join(outdir, [x for x in os.listdir(outdir) if "output_" in x and x.endswith(".data")][0])
         outstr = None
-        with open(outfile, "r", newline="\\n") as rf:
+        with open(outfile, "r") as rf:
             outstr = rf.read()
         He_Void_Faction = float(outstr.split("[helium] Average Widom Rosenbluth-weight:")[1].split("+/-")[0])
 
@@ -505,7 +505,7 @@ rigid
         outdir = os.path.join(outdir, os.listdir(outdir)[0])
         outfile = os.path.join(outdir, [x for x in os.listdir(outdir) if "output_" in x and x.endswith(".data")][0])
         outstr = None
-        with open(outfile, "r", newline="\\n") as rf:
+        with open(outfile, "r") as rf:
             outstr = rf.read()
         gas_ads_info = outstr.split("Average loading excess [mol/kg framework]")[1].strip().split("[-]")[0].strip()
         gas_ads_mean, gas_ads_std = [float(x) for x in gas_ads_info.split("+/-")]
