@@ -233,6 +233,8 @@ class PolarisConfig(HPCConfig):
 
     nodes_per_cp2k: int = 2
     """Number of nodes per CP2K task"""
+    lammps_per_gpu: int = 2
+    """Number of LAMMPS to run per GPU"""
 
     ai_hosts: list[str] = field(default_factory=list)
     """Hosts which will run AI tasks"""
@@ -241,7 +243,7 @@ class PolarisConfig(HPCConfig):
     cp2k_hosts: list[str] = field(default_factory=list)
     """Hosts which will run CP2K tasks"""
 
-    cpus_per_node: int = 32
+    cpus_per_node: int = 32  # We choose 32 cores to only use one thread per core
     """Number of CPUs to use per node"""
     gpus_per_node: int = 4
     """Number of GPUs per compute node"""
@@ -287,7 +289,7 @@ class PolarisConfig(HPCConfig):
 
     @property
     def num_lammps_workers(self):
-        return len(self.lammps_hosts) * self.gpus_per_node
+        return len(self.lammps_hosts) * self.gpus_per_node * self.lammps_per_gpu
 
     @property
     def num_cp2k_workers(self):
@@ -316,7 +318,7 @@ class PolarisConfig(HPCConfig):
 module load kokkos
 module load nvhpc/23.3
 module list
-source activate /lus/eagle/projects/ExaMol/mofa/mof-generation-at-scale/env-polaris
+source /home/lward/miniconda3/bin/activate /lus/eagle/projects/ExaMol/mofa/mof-generation-at-scale/env-polaris
 which python
 hostname"""
 
@@ -328,11 +330,14 @@ hostname"""
 
         # Divide CPUs on "sim" such that a from each NUMA affinity are set aside for helpers
         #  See https://docs.alcf.anl.gov/polaris/hardware-overview/machine-overview/#polaris-device-affinity-information
-        cpus_per_worker = self.cpus_per_node // self.gpus_per_node  # Only use one thread per core
+        lammps_per_node = self.gpus_per_node * self.lammps_per_gpu
+        cpus_per_worker = self.cpus_per_node // lammps_per_node
         helpers_per_worker = 1  # One core per worker set aside for "helpers"
-        sim_cores = [f"{i * cpus_per_worker}-{(i + 1) * cpus_per_worker - helpers_per_worker - 1}" for i in range(4)][::-1]  # GPU3 is to cores 0-7
-        helper_cores = [str(i) for w in range(4) for i in range((w + 1) * cpus_per_worker - helpers_per_worker, (w + 1) * cpus_per_worker)]
+        sim_cores = [f"{i * cpus_per_worker}-{(i + 1) * cpus_per_worker - helpers_per_worker - 1}" for i in range(lammps_per_node)][::-1]  # GPU3 ~ c0-7
+        helper_cores = [str(i) for w in range(lammps_per_node) for i in range((w + 1) * cpus_per_worker - helpers_per_worker, (w + 1) * cpus_per_worker)]
+        lammps_accel = [str(i) for i in range(self.gpus_per_node) for _ in range(self.lammps_per_gpu)]
 
+        cpus_per_worker = self.cpus_per_node // self.gpus_per_node
         ai_cores = [f"{i * cpus_per_worker}-{(i + 1) * cpus_per_worker - 1}" for i in range(4)][::-1]  # All CPUs to AI tasks
 
         # Launch 4 workers per node, one per GPU
@@ -353,9 +358,9 @@ hostname"""
             ),
             HighThroughputExecutor(
                 label='lammps',
-                max_workers=self.gpus_per_node,
+                max_workers=len(lammps_accel),
                 cpu_affinity='list:' + ":".join(sim_cores),
-                available_accelerators=4,
+                available_accelerators=lammps_accel,
                 provider=LocalProvider(
                     launcher=WrappedLauncher(
                         f"mpiexec -n {len(self.lammps_hosts)} --ppn 1 --hostfile {lammps_nodefile} --depth=64 --cpu-bind depth"
@@ -375,9 +380,8 @@ hostname"""
             ),
             HighThroughputExecutor(
                 label='helper',
-                max_workers=helpers_per_worker * self.gpus_per_node,
+                max_workers=len(helper_cores),
                 cpu_affinity='list:' + ":".join(helper_cores),
-                available_accelerators=4,
                 provider=LocalProvider(
                     launcher=WrappedLauncher(
                         f"mpiexec -n {len(self.lammps_hosts)} --ppn 1 --hostfile {lammps_nodefile} --depth=64 --cpu-bind depth"

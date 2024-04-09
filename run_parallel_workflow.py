@@ -14,7 +14,7 @@ from queue import Queue, Empty
 from platform import node
 from random import shuffle, choice
 from pathlib import Path
-from threading import Event
+from threading import Event, Lock
 import logging
 import hashlib
 import json
@@ -80,6 +80,8 @@ class TrainingConfig:
     """How many of the top MOFs to train on"""
     best_fraction: float
     """Percentile of top MOFs to include in training set"""
+    maximum_strain: float
+    """Only use MOFs with strains below this value in training set"""
 
 
 class MOFAThinker(BaseThinker, AbstractContextManager):
@@ -138,6 +140,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
 
         # Settings related for training
         self.start_train = Event()
+        self.initial_weights = self.generator_config.generator_path  # Store the starting weights, which we'll always use as a starting point for training
         self.num_completed = 0  # Number of MOFs which have finished training
         self.model_iteration = 0  # Which version of the model we used for generating a ligand
 
@@ -151,6 +154,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
 
         # Output files
         self._output_files: dict[str, Path | TextIO] = {}
+        self.generate_write_lock: Lock = Lock()  # Two threads write to the same generation output
         for name in ['generation-results', 'simulation-results', 'training-results']:
             self._output_files[name] = run_dir / f'{name}.json'
 
@@ -194,14 +198,14 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         if result.method == 'run_generator':
             # Start a new task
             self.rec.release('generation')
+            with self.generate_write_lock:
+                print(result.json(exclude={'inputs', 'value'}), file=self._output_files['generation-results'], flush=True)
         elif result.method == 'process_ligands':
             # Process them asynchronously
             self.ligand_process_queue.put(result)
 
         if not result.success:
             self.logger.warning(f'Generation task failed: {result.failure_info.exception}\nStack: {result.failure_info.traceback}')
-
-        print(result.json(exclude={'inputs', 'value'}), file=self._output_files['generation-results'], flush=False)
 
     @agent()
     def process_ligands(self):
@@ -220,31 +224,41 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             anchor_type = self.generator_config.templates[ligand_id].anchor_type
 
             # Put ligands in the assembly queue
-            valid_ligands, all_records = result.value
-            self.logger.info(f'Received {len(all_records)} {anchor_type} ligands of size {size} from model v{model_version}, '
-                             f'{len(valid_ligands)} ({len(valid_ligands) / len(all_records) * 100:.1f}%) are valid. '
-                             f'Processing backlog: {self.ligand_process_queue.qsize()}')
+            if result.success:
+                # Resolve the result file
+                valid_ligands, all_records = result.value
+                self.logger.info(f'Received {len(all_records)} {anchor_type} ligands of size {size} from model v{model_version}, '
+                                 f'{len(valid_ligands)} ({len(valid_ligands) / len(all_records) * 100:.1f}%) are valid. '
+                                 f'Processing backlog: {self.ligand_process_queue.qsize()}')
+                result.task_info['process_done'] = datetime.now().timestamp()  # TODO (wardlt): exalearn/colmena#135
 
-            self.ligand_assembly_queue[anchor_type].extend(valid_ligands)  # Shoves old ligands out of the deque
-            self.logger.info(f'Current length of {anchor_type} queue: {len(self.ligand_assembly_queue[anchor_type])}')
+                # Add the model version to the ligand identity
+                for record in all_records:
+                    record['model_version'] = model_version
+                for ligand in valid_ligands:
+                    ligand.metadata['model_version'] = model_version
 
-            # Signal that we're ready for more MOFs
-            if len(valid_ligands) > 0:
-                self.make_mofs.set()
+                # Append the ligands to the task queue
+                self.ligand_assembly_queue[anchor_type].extend(valid_ligands)  # Shoves old ligands out of the deque
+                self.logger.info(f'Current length of {anchor_type} queue: {len(self.ligand_assembly_queue[anchor_type])}')
 
-            # Add the model version to the ligand identity
-            for record in all_records:
-                record['model_version'] = model_version
+                # Signal that we're ready for more MOFs
+                if len(valid_ligands) > 0:
+                    self.make_mofs.set()
 
-            # Store the generated ligands
-            record_file = self.out_dir / 'all_ligands.csv'
-            first_write = not record_file.is_file()
+                # Store the generated ligands
+                record_file = self.out_dir / 'all_ligands.csv'
+                first_write = not record_file.is_file()
 
-            with record_file.open('a') as fp:
-                writer = DictWriter(fp, all_records[0].keys())
-                if first_write:
-                    writer.writeheader()
-                writer.writerows(all_records)
+                with record_file.open('a') as fp:
+                    writer = DictWriter(fp, all_records[0].keys())
+                    if first_write:
+                        writer.writeheader()
+                    writer.writerows(all_records)
+
+            # Write the result file
+            with self.generate_write_lock:
+                print(result.json(exclude={'inputs', 'value'}), file=self._output_files['generation-results'], flush=True)
 
     @event_responder(event_name='make_mofs')
     def assemble_new_mofs(self):
@@ -387,7 +401,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         self.collection.create_index(sort_field)
         cursor = (
             self.collection.find(
-                {sort_field: {'$exists': True}},
+                {sort_field: {'$exists': True, '$lt': self.trainer_config.maximum_strain}},
                 {'md_trajectory': 0}  # Filter out the trajectory to save I/O
             )
             .sort(sort_field, pymongo.ASCENDING)
@@ -399,14 +413,19 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             record['times'] = {}
             record['md_trajectory'] = {}
             examples.append(MOFRecord(**record))
-        self.logger.info(f'Gathered the top {len(examples)} records based on stability')
+        if len(examples) == 0:
+            self.logger.warning(f'We have not yet found any MOFs below the stability threshold of {self.trainer_config.maximum_strain:.2f}. '
+                                'Skipping training')
+            return
+        self.logger.info(f'Gathered the top {len(examples)} records with strain below {self.trainer_config.maximum_strain:.2f} based on stability')
 
         # Submit training using the latest model
         self.queues.send_inputs(
-            self.generator_config.generator_path,
+            self.initial_weights,
             input_kwargs={'examples': examples, 'run_directory': train_dir},
             method='train_generator',
             topic='training',
+            task_info={'train_size': len(examples)}
         )
         self.logger.info('Submitted task for execution on any worker. Waiting until complete')
 
@@ -446,7 +465,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
                 record = MOFRecord(**record)
                 self.queues.send_inputs(
                     record,
-                    method='run_single_point',
+                    method='run_optimization',
                     topic='cp2k',
                     task_info={'mof': record.name}
                 )
@@ -462,16 +481,16 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         """Store the results for the CP2K, submit any post-processing"""
 
         # Trigger new CP2K
-        if result.method == 'run_single_point':
+        if result.method == 'run_optimization':
             self.rec.release('cp2k')
 
         # If it's a failure, report to the user
         mof_name = result.task_info['mof']
         if not result.success:
             self.logger.warning(f'Task {result.method} failed for {mof_name}. Exception: {result.failure_info.exception}')
-        elif result.method == 'run_single_point':
+        elif result.method == 'run_optimization':
             # Submit post-processing to happen
-            cp2k_path = result.value
+            _, cp2k_path = result.value  # Not doing anything with the Atoms yet
             self.queues.send_inputs(cp2k_path, method='compute_partial_charges', task_info=result.task_info, topic='cp2k')
             self.logger.info(f'Completed CP2K computation for {mof_name}. Runtime: {result.time.running:.2f} s. Started partial charge computation')
         elif result.method == 'compute_partial_charges':
@@ -505,17 +524,21 @@ if __name__ == "__main__":
     group.add_argument('--maximum-train-size', type=int, default=256, help='Maximum number of MOFs to use for retraining')
     group.add_argument('--num-epochs', type=int, default=128, help='Number of training epochs')
     group.add_argument('--best-fraction', type=float, default=0.5, help='What percentile of MOFs to include in training')
+    group.add_argument('--maximum-strain', type=float, default=0.5, help='Maximum strain allowed MOF used in training set')
 
     group = parser.add_argument_group(title='Assembly Settings', description='Options related to MOF assembly')
     group.add_argument('--max-assemble-attempts', default=100,
                        help='Maximum number of attempts to create a MOF')
     group.add_argument('--minimum-ligand-pool', type=int, default=4, help='Minimum number of ligands before MOF assembly')
 
-    group = parser.add_argument_group(title='Simulation Settings Settings', description='Options related to MOF assembly')
+    group = parser.add_argument_group(title='Simulation Settings Settings', description='Options related to property calculations')
     group.add_argument('--md-timesteps', default=100000, help='Number of timesteps for the UFF MD simulation', type=int)
     group.add_argument('--md-snapshots', default=100, help='Maximum number of snapshots during MD simulation', type=int)
+    group.add_argument('--retain-lammps', action='store_true', help='Keep LAMMPS output files after it finishes')
+    group.add_argument('--dft-opt-steps', default=8, help='Maximum number of DFT optimization steps', type=int)
 
     group = parser.add_argument_group(title='Compute Settings', description='Compute environment configuration')
+    group.add_argument('--lammps-on-ramdisk', action='store_true', help='Write LAMMPS outputs to a RAM Disk')
     group.add_argument('--compute-config', default='local', help='Configuration for the HPC system')
     group.add_argument('--ai-fraction', default=0.1, type=float, help='Fraction of workers devoted to AI tasks')
     group.add_argument('--dft-fraction', default=0.1, type=float, help='Fraction of workers devoted to DFT tasks')
@@ -585,7 +608,8 @@ if __name__ == "__main__":
         maximum_train_size=args.maximum_train_size,
         num_epochs=args.num_epochs,
         retrain_freq=args.retrain_freq,
-        best_fraction=args.best_fraction
+        best_fraction=args.best_fraction,
+        maximum_strain=args.maximum_strain
     )
     train_func = partial(train_generator, config_path=args.generator_config_path,
                          num_epochs=trainer.num_epochs, device=hpc_config.torch_device)
@@ -593,8 +617,9 @@ if __name__ == "__main__":
 
     # Make the LAMMPS function
     lmp_runner = LAMMPSRunner(hpc_config.lammps_cmd,
-                              lmp_sims_root_path=str(run_dir / 'lmp_run'),
-                              lammps_environ=hpc_config.lammps_env)
+                              lmp_sims_root_path='/dev/shm/lmp_run' if args.lammps_on_ramdisk else str(run_dir / 'lmp_run'),
+                              lammps_environ=hpc_config.lammps_env,
+                              delete_finished=not args.retain_lammps)
     md_fun = partial(lmp_runner.run_molecular_dynamics, timesteps=args.md_timesteps, report_frequency=max(1, args.md_timesteps / args.md_snapshots))
     update_wrapper(md_fun, lmp_runner.run_molecular_dynamics)
 
@@ -603,8 +628,8 @@ if __name__ == "__main__":
         cp2k_invocation=hpc_config.cp2k_cmd,
         run_dir=run_dir / 'cp2k-runs'
     )
-    cp2k_fun = partial(cp2k_runner.run_single_point, structure_source=('uff', -1))  # Run the last structure from the UFF traj
-    update_wrapper(cp2k_fun, cp2k_runner.run_single_point)
+    cp2k_fun = partial(cp2k_runner.run_optimization, steps=args.dft_opt_steps)  # Optimizes starting from assembled structure
+    update_wrapper(cp2k_fun, cp2k_runner.run_optimization)
 
     # Launch MongoDB as a subprocess
     mongo_dir = run_dir / 'db'
