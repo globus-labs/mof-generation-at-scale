@@ -2,20 +2,15 @@ from pytest import mark
 
 from mofa.model import MOFRecord
 from mofa.simulation.raspa import RASPARunner
-from mofa.utils.conversions import write_to_string
+from ase.io import read
 
 
-@mark.parametrize('cif_name', ['hMOF-0'])
-def test_cp2k_runner(cif_name, cif_dir, tmpdir):
-    # Make a CP2k simulator that reads and writes to a temporary directory
-    runner = CP2KRunner(
-        cp2k_invocation="cp2k_shell.psmp",
-    )
-
-    test_file = cif_dir / f'{cif_name}.cif'
-    record = MOFRecord.from_file(test_file)
-    record.md_trajectory['uff'] = [write_to_string(record.atoms, 'vasp')]
-    cp2k_path = runner.run_single_point(record, structure_source=('uff', -1))
-
-    charged_mof = compute_partial_charges(cp2k_path, threads=2)
-    assert charged_mof.arrays["q"].shape[0] == charged_mof.arrays["positions"].shape[0]
+@mark.parametrize('extxyz_name', ['znmof74'])
+def test_cp2k_runner(extxyz_name, cif_dir, tmpdir):
+    # Make a RASPA simulator that reads and writes to a temporary directory
+    runner = RASPARunner()
+    test_file = cif_dir / f'{cif_name}.extxyz'
+    ase_atoms = read(test_file)
+    ads_mean, ads_std = runner.run_GCMC_single(ase_atoms, run_name="Zn-MOF-74", timesteps=200, report_frequency=1)
+    assert isinstance(ads_mean, float)
+    assert isinstance(ads_std, float)
