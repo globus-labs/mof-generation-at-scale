@@ -38,11 +38,10 @@ dependencies:
   # PyTorch + IPEX from Intel's Conda channel
   - pytorch==2.1.0
   - intel-extension-for-pytorch==2.1.10
-  - conda-forge::torch-scatter
-  - pyg::pyg
 
   - pip
   - pip:
+    - torch_geometric pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv
     - pytorch-lightning<2
     - git+https://gitlab.com/ase/ase.git
     - git+https://github.com/exalearn/colmena.git  # Fixes for streaming not yet on PyPI
