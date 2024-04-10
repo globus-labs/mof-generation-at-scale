@@ -21,7 +21,7 @@ import numpy as np
 _atom_init_dir = Path(__file__).parent / "files"
 _cgcnn_models_dir = (Path(__file__).parent / ".." / ".." / "models" / "cgcnn-hmof-0.1bar-300k").resolve()
 BACKBONES = {
-    "cgcnn": cgcnn.CrystalGraphConvNet
+    "cgcnn": CrystalGraphConvNet
 }
 BACKBONE_KWARGS = {
     "cgcnn": dict(orig_atom_fea_len=92, nbr_fea_len=41,
