@@ -38,10 +38,10 @@ dependencies:
   # PyTorch + IPEX from Intel's Conda channel
   - pytorch==2.1.0
   - intel-extension-for-pytorch==2.1.10
+  - pyg::pyg
 
   - pip
   - pip:
-    - torch_geometric
     - torch_scatter
     - pytorch-lightning<2
     - git+https://gitlab.com/ase/ase.git
