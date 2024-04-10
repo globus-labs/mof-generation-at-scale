@@ -1,4 +1,5 @@
 """An example of the workflow which runs all aspects of MOF generation in parallel"""
+import shutil
 from contextlib import AbstractContextManager
 from functools import partial, update_wrapper, cached_property
 from subprocess import Popen
@@ -420,8 +421,8 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             last_train_size = len(examples)  # So we know what the training set size was for the next iteration
 
             # Determine the run directory
-            self.model_iteration += 1
-            train_dir = self.out_dir / 'retraining' / f'model-v{self.model_iteration}'
+            attempt_id = self.model_iteration + 1
+            train_dir = self.out_dir / 'retraining' / f'model-v{attempt_id}'
             train_dir.mkdir(parents=True)
             self.logger.info(f'Preparing to retrain Difflinker in {train_dir}')
 
@@ -440,9 +441,11 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             result.task_info['train_size'] = len(examples)
             if result.success:
                 self.generator_config.generator_path = result.value
-                self.logger.info(f'Received training result. Updated generator path to {result.value}')
+                self.model_iteration = attempt_id
+                self.logger.info(f'Received training result. Updated generator path to {result.value}, version number to {self.model_iteration}')
             else:
                 self.logger.warning(f'Training failed: {result.failure_info.exception} - {result.failure_info.traceback}')
+            shutil.rmtree(train_dir)  # Clear training directory when done
 
             print(result.json(exclude={'inputs', 'value'}), file=self._output_files['training-results'], flush=True)
 
