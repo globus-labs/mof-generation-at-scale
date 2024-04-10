@@ -208,7 +208,6 @@ def main(
                 devices=devices,
                 num_sanity_val_steps=0,
                 enable_progress_bar=args.enable_progress_bar,
-                strategy='ddp'
             )
 
             # Add a callback for fit setup
