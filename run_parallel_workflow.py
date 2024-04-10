@@ -2,7 +2,6 @@
 from contextlib import AbstractContextManager
 from functools import partial, update_wrapper, cached_property
 from subprocess import Popen
-from time import sleep
 from typing import TextIO
 from csv import DictWriter
 from argparse import ArgumentParser
