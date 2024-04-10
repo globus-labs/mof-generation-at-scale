@@ -72,6 +72,7 @@ class GCL(nn.Module):
 
     def forward(self, h, edge_index, edge_attr=None, node_attr=None, node_mask=None, edge_mask=None):
         row, col = edge_index
+        row, col = row.to(h).long(), col.to(h).long()
         edge_feat, mij = self.edge_model(h[row], h[col], edge_attr, edge_mask)
         h, agg = self.node_model(h, edge_index, edge_feat, node_attr)
         if node_mask is not None:
@@ -99,6 +100,7 @@ class EquivariantUpdate(nn.Module):
 
     def coord_model(self, h, coord, edge_index, coord_diff, edge_attr, edge_mask, linker_mask):
         row, col = edge_index
+        row, col = row.to(h).long(), col.to(h).long()
         input_tensor = torch.cat([h[row], h[col], edge_attr], dim=1)
         if self.tanh:
             trans = coord_diff * torch.tanh(self.coord_mlp(input_tensor)) * self.coords_range
@@ -280,6 +282,7 @@ class SinusoidsEmbeddingNew(nn.Module):
 
 def coord2diff(x, edge_index, norm_constant=1):
     row, col = edge_index
+    row, col = row.to(x).long(), col.to(x).long()
     coord_diff = x[row] - x[col]
     radial = torch.sum((coord_diff) ** 2, 1).unsqueeze(1)
     norm = torch.sqrt(radial + 1e-8)
@@ -294,12 +297,14 @@ def unsorted_segment_sum(data, segment_ids, num_segments, normalization_factor, 
     result_shape = (num_segments, data.size(1))
     result = data.new_full(result_shape, 0)  # Init empty result tensor.
     segment_ids = segment_ids.unsqueeze(-1).expand(-1, data.size(1))
+    segment_ids = segment_ids.to(data).long()
     result.scatter_add_(0, segment_ids, data)
     if aggregation_method == 'sum':
         result = result / normalization_factor
 
     if aggregation_method == 'mean':
         norm = data.new_zeros(result.shape)
+        segment_ids = segment_ids.to(norm).long()
         norm.scatter_add_(0, segment_ids, data.new_ones(data.shape))
         norm[norm == 0] = 1
         result = result / norm
@@ -326,8 +331,7 @@ class Dynamics(nn.Module):
             self.dynamics = EGNN(
                 in_node_nf=in_node_nf,
                 in_edge_nf=1,
-                hidden_nf=hidden_nf,
-                device=device,
+                hidden_nf=hidden_nf, device=device,
                 activation=activation,
                 n_layers=n_layers,
                 attention=attention,

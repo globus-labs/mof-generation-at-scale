@@ -79,7 +79,6 @@ class SizeGNN(nn.Module):
 
         self.gcl_layers = nn.ModuleList(layers)
         self.embedding_out = nn.Linear(self.hidden_nf, self.out_node_nf)
-        self.to(self.device)
 
     def forward(self, h, edges, distances, node_mask, edge_mask):
         h = self.embedding_in(h)
