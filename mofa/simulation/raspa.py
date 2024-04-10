@@ -15,7 +15,6 @@ from ase.geometry.cell import cell_to_cellpar
 from .cif2lammps.main_conversion import single_conversion
 from .cif2lammps.UFF4MOF_construction import UFF4MOF
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -170,8 +169,8 @@ C              lennard-jones     0.8      6.38         // idem
     pair_coeff_df["eps(K)"] = [
         "%.4f" %
         x for x in (
-            pair_coeff_df["eps(kCal/mol)"] *
-            lammps2raspa_energy)]
+                pair_coeff_df["eps(kCal/mol)"] *
+                lammps2raspa_energy)]
     pair_coeff_df["sig(Ang)"] = ["%.4f" %
                                  x for x in pair_coeff_df["sig(Ang)"]]
     atom_df["eps(K)"] = atom_df["type"].map(
@@ -319,7 +318,7 @@ _atom_site_charge
         pair_coeff_df = read_lmp_sec_str2df(read_str.split(
             "Pair Coeffs")[1].split("Bond Coeffs")[0].strip())
         atom_df = read_lmp_sec_str2df(read_str.split("$$$atoms$$$")[
-            1].split("Bonds")[0].strip())
+                                          1].split("Bonds")[0].strip())
         atom_df.columns = [
             'id', 'mol', 'type', 'q', 'x', 'y', 'z', '#', "comment"]
         _atom_df = pd.read_csv(
@@ -352,7 +351,7 @@ _atom_site_charge
 
     def run_GCMC_single(self, mof_ase_atoms: ase.Atoms, run_name: str, temperature_K: float = 300., pressure_Pa: float = 1e4,
                         stepsize_fs: float = 0.5, timesteps: int = 400000, report_frequency: int = 1000,
-                        cell_rep: list[int] = [2, 2, 2]) -> list[float]:
+                        cell_rep: Sequence[int] = (2, 2, 2)) -> list[float]:
         """Use cif2lammps to assign force field to a single MOF and generate input files for raspa simulation
 
         Args:
