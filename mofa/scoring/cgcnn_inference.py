@@ -466,8 +466,9 @@ def infer(ase_mofs, mof_names, opt=None):
         opt.name = name
         model = call_model(opt, mean, std)
         models.append(model)
-    model = lambda *inp: (torch.cat([models[0](*inp), models[1](*inp), models[2](*inp)], dim=-1).mean(dim=-1),
-                          torch.cat([models[0](*inp), models[1](*inp), models[2](*inp)], dim=-1).std(dim=-1))
+    def model(*inp):
+        return (torch.cat([models[0](*inp), models[1](*inp), models[2](*inp)], dim=-1).mean(dim=-1),
+                torch.cat([models[0](*inp), models[1](*inp), models[2](*inp)], dim=-1).std(dim=-1))
     if opt.dataset in ["cifdata"]:
         df = infer_for_crystal(opt, train_loader, model)
     return df
