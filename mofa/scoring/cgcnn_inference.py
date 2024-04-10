@@ -316,12 +316,12 @@ class DataModuleCrystal(abc.ABC):
                 0) > 0,
             'batch_size': opt.batch_size}
         if self.opt.dataset not in ["cifdata"]:
-            self.ds_train, self.ds_val, self.ds_test = torch.utils.data.random_split(full_dataset, 
+            self.ds_train, self.ds_val, self.ds_test = torch.utils.data.random_split(full_dataset,
                                                                                      _get_split_sizes(self.opt.train_frac, full_dataset),
                                                                                      generator=torch.Generator().manual_seed(0))
         else:
 
-            self.ds_train, self.ds_val, self.ds_test = torch.utils.data.random_split(full_dataset, 
+            self.ds_train, self.ds_val, self.ds_test = torch.utils.data.random_split(full_dataset,
                                                                                      _get_split_sizes(self.opt.train_frac, full_dataset),
                                                                                      generator=torch.Generator().manual_seed(0))
 
