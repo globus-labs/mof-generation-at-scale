@@ -34,7 +34,7 @@ dependencies:
   - pytorch::pytorch-cuda=11.7
   - nvidia::cudatoolkit=11.7
   - conda-forge::torch-scatter
-  - pyg::pyg
+  - pyg::pyg=*=*cu*
 
   # Services used by the workflow
   - redis==5.*
