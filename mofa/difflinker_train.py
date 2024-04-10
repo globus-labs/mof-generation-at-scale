@@ -208,6 +208,7 @@ def main(
                 devices=devices,
                 num_sanity_val_steps=0,
                 enable_progress_bar=args.enable_progress_bar,
+                strategy='ddp'
             )
 
             # Add a callback for fit setup
@@ -297,7 +298,11 @@ def main(
                     anchors_context=anchors_context,
                     dataset_override=args.dataset_override)
 
-            trainer.fit(model=ddpm)  # TODO (wardlt): Separate the data loader from the model code
+            # Force loading of the dataset now before we start distributed training
+            #  There might be issues in each training rank writing to disk at the same time
+            # TODO (wardlt): Separate the data loader from the model code so it's clearer how to set up
+            ddpm.setup('fit')
+            trainer.fit(model=ddpm)
 
             # Save the last model
             trained_path = run_directory / 'model.ckpt'
