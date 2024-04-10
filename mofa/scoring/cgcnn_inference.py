@@ -20,6 +20,7 @@ import numpy as np
 
 
 _atom_init_dir = Path(__file__).parent / "files"
+_cgcnn_models_dir = (Path(__file__).parent / ".." / ".." / "models" / "cgcnn-hmof-0.1bar-300k").resolve()
 
 class Opt:
     def __init__(self, **entries):
@@ -530,7 +531,7 @@ def run_cgcnn_pred_wrapper_serial(mofs: list[ase.Atoms], run_name="some_random_s
         "batch_size": manual_batch_size,
         "num_workers": ncpus_to_load_data,
         "backbone": 'cgcnn',
-        "load_ckpt_path": 'models',
+        "load_ckpt_path": _cgcnn_models_dir,
         "dropnan": False,
     }
     opt = Opt(**opt)
