@@ -139,9 +139,10 @@ class CP2KRunner:
         """
 
         atoms = _load_structure(mof, structure_source)
-        return self._run_cp2k(mof.name, atoms, 'optimize', level, steps, fmax)
+        return self._run_cp2k(mof.name, atoms, 'optimize', level, steps, fmax, ignore_failure=True)
 
-    def _run_cp2k(self, name: str, atoms: ase.Atoms, action: str, level: str, steps: int = 8, fmax: float = 1e-2) -> tuple[ase.Atoms, Path]:
+    def _run_cp2k(self, name: str, atoms: ase.Atoms, action: str, level: str,
+                  steps: int = 8, fmax: float = 1e-2, ignore_failure: bool = False) -> tuple[ase.Atoms, Path]:
         """Run CP2K in a special directory
 
         Args:
@@ -151,6 +152,7 @@ class CP2KRunner:
             level: Level of accuracy to use
             steps: Number of steps to run
             fmax: Convergence threshold for optimization
+            ignore_failure: Whether to ignore failures
         Returns:
             - Relaxed structure
             - Absolute path to the run directory
@@ -159,6 +161,10 @@ class CP2KRunner:
         template_file = _file_dir / f'cp2k-{level}-template.inp'
         if not template_file.is_file():
             raise ValueError(f'Template not found for {level}')
+        inp = template_file.read_text()
+        if ignore_failure:
+            # Does not work with CP2K<2024.1, which is what we're running on Polaris but not what comes with Ubuntu
+            inp = inp.replace("&SCF\n", "&SCF\n         IGNORE_CONVERGENCE_FAILURE\n")
 
         # Get the other settings
         if level not in _cp2k_options:
@@ -177,7 +183,7 @@ class CP2KRunner:
                 with CP2K(
                         command=self.cp2k_invocation,
                         directory=".",
-                        inp=template_file.read_text(),
+                        inp=inp,
                         max_scf=128,
                         **options,
                 ) as calc:
