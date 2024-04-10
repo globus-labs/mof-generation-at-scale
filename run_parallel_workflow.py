@@ -411,8 +411,8 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
                 record['times'] = {}
                 record['md_trajectory'] = {}
                 examples.append(MOFRecord(**record))
-            if len(examples) == 0 or len(examples) == last_train_size:
-                self.logger.info(f'The number of training examples with strain below {self.trainer_config.maximum_strain:.2f} is the same '
+            if (len(examples) == 0 or len(examples) == last_train_size) and len(examples) < self.trainer_config.maximum_train_size:
+                self.logger.info(f'The number of training examples for {sort_field} with strain below {self.trainer_config.maximum_strain:.2f} ({len(examples)} is the same '
                                  f'as the last time we trained DiffLinker ({last_train_size}). Waiting for more data')
                 self.start_train.clear()
                 self.start_train.wait()

@@ -2,7 +2,7 @@
 #PBS -l select=6:system=polaris
 #PBS -l walltime=01:00:00
 #PBS -l filesystems=home:grand:eagle
-#PBS -q debug-scaling
+#PBS -q preemptable
 #PBS -N mofa-test
 #PBS -A examol
 
@@ -33,7 +33,7 @@ python run_parallel_workflow.py \
       --generator-config-path models/geom-300k/config-tf32-a100.yaml \
       --maximum-train-size 8192 \
       --maximum-strain 0.5 \
-      --retrain-freq 16 \
+      --retrain-freq 1 \
       --num-epochs 128 \
       --num-samples 1024 \
       --gen-batch-size 128 \
@@ -42,6 +42,7 @@ python run_parallel_workflow.py \
       --md-snapshots 10 \
       --raspa-timesteps 10000 \
       --lammps-on-ramdisk \
+      --dft-opt-steps 2 \
       --dft-fraction 0.25 \
       --ai-fraction 0.4 \
       --compute-config polaris
