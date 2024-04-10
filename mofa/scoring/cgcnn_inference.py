@@ -409,10 +409,15 @@ def infer_for_crystal(opt, dataloader, model):
 
 
 def load_state(model: nn.Module,
-               path_and_name: Union[Path, str], model_only=False):
-    ckpt = torch.load(
-        path_and_name, map_location={
-            'cuda:0': f'cuda:{get_local_rank()}'})
+               path_and_name: Union[Path, str], model_only=False, opt=None):
+    if opt.gpu:
+        ckpt = torch.load(
+            path_and_name, map_location={
+                'cuda:0': f'cuda:{get_local_rank()}'})
+    else:
+        ckpt = torch.load(
+            path_and_name, map_location={
+                'cpu': None})
     try:
         if isinstance(model, DistributedDataParallel):
             model.module.load_state_dict(ckpt['model'])
