@@ -150,7 +150,6 @@ class EquivariantBlock(nn.Module):
                                                        coords_range=self.coords_range_layer,
                                                        normalization_factor=self.normalization_factor,
                                                        aggregation_method=self.aggregation_method))
-        self.to(self.device)
 
     def forward(self, h, x, edge_index, node_mask=None, linker_mask=None, edge_mask=None, edge_attr=None):
         # Edit Emiel: Remove velocity as input
@@ -208,7 +207,6 @@ class EGNN(nn.Module):
                                                                sin_embedding=self.sin_embedding,
                                                                normalization_factor=self.normalization_factor,
                                                                aggregation_method=self.aggregation_method))
-        self.to(self.device)
 
     def forward(self, h, x, edge_index, node_mask=None, linker_mask=None, edge_mask=None):
         # Edit Emiel: Remove velocity as input
@@ -254,8 +252,6 @@ class GNN(nn.Module):
                 aggregation_method=aggregation_method,
                 edges_in_d=in_edge_nf, activation=activation,
                 attention=attention, normalization=normalization))
-
-        self.to(self.device)
 
     def forward(self, h, edges, edge_attr=None, node_mask=None, edge_mask=None):
         # Edit Emiel: Remove velocity as input
