@@ -39,6 +39,5 @@ dependencies:
 
   - pip
   - pip:
-    - torch_scatter -f https://data.pyg.org/whl/torch-1.13.1+cpu.html
     - git+https://gitlab.com/ase/ase.git
     - -e ..[test]
