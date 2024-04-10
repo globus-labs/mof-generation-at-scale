@@ -2,7 +2,10 @@ import abc
 import typing as t
 
 from collections import UserList
+from collections.abc import Collection
 from heapq import heappush, heappop
+
+from mofa.scoring.graph import AbsoluteScorer, RelativeScorer
 
 T = t.TypeVar("T")
 
@@ -42,12 +45,12 @@ class PriorityBuffer(abc.ABC, UserList[T]):
         if len(self.data) > self.maxlen:
             self._prune()
 
-    def extend(self, items: t.Iterable[T]):
+    def extend(self, items: Collection[T]):
         """
         Calls the standard `list.extend` function and then prunes if `maxlen` is exceeded.
 
         Args:
-            items (t.Iterable[T]): Data items to be added to the list.
+            items (Collection[T]): Data items to be added to the list.
         """
         super().extend(items)
         if len(self.data) > self.maxlen:
@@ -77,7 +80,7 @@ class AbsolutePriorityBuffer(PriorityBuffer):
     individually and independently.
     """
 
-    def __init__(self, heuristic: t.Callable[[T], float], maxlen: int | None = None):
+    def __init__(self, heuristic: AbsoluteScorer, maxlen: int | None = None):
         """Initializes a Python list with a user-provided list for ranking data items and a maximum length.
 
         Args:
@@ -101,27 +104,27 @@ class RelativePriorityBuffer(PriorityBuffer):
 
     def __init__(
             self,
-            heuristic: t.Callable[[t.Iterable[T]], t.Iterable[float]],
+            heuristic: RelativeScorer,
             maxlen: int | None = None,
     ):
         """Initializes a Python list with a user-provided list for ranking data items and a maximum length.
 
         Args:
-            heuristic (t.Callable[[t.Iterable[T]], t.Iterable[float]]): User-defined heuristic that takes
+            heuristic (t.Callable[[Collection[T]], Collection[float]]): User-defined heuristic that takes
                 an iterable of data items and returns an iterable of floats.
             maxlen (int | None): Maximum number of items that can be held in the cache. Defaults to `None`.
         """
         super().__init__(heuristic, maxlen)
 
-    def _ranked_queue(self) -> list[T]:
+    def _ranked_items(self) -> list[T]:
         ranks = self.heuristic(self.data)
         ranked_queue = [(rank, item) for (rank, item) in zip(ranks, self.data)]
         return ranked_queue
 
 
 if __name__ == "__main__":
-    largest_str_fn = lambda txt: len(txt)  # Heuristic that ranks strings by length.
-    q = AbsolutePriorityBuffer(largest_str_fn, maxlen=2)
+    longest_str_fn = lambda txt: len(txt)  # Heuristic that ranks strings by length.
+    q = AbsolutePriorityBuffer(longest_str_fn, maxlen=2)
     q.extend(["very_long_string", "short_str", "str", "medium_str"])
     print(q)
     # >>> ['very_long_string', 'medium_str']
