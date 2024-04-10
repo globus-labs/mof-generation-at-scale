@@ -4,6 +4,7 @@ name: mofa
 channels:
   - defaults
   - conda-forge
+  - pyg
 dependencies:
   - python==3.10.*
 
