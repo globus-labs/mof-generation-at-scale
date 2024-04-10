@@ -1,5 +1,3 @@
-import os
-import ase
 from pymatgen.io.ase import AseAtomsAdaptor
 import torch.nn as nn
 import torch.distributed as dist
@@ -9,7 +7,9 @@ from torch.utils.data import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel
 from typing import Union
 from pathlib import Path
-from models import cgcnn, CrystalGraphConvNet
+from mofa.models.cgcnn import CrystalGraphConvNet
+import os
+import ase
 import abc
 import json
 import torch
