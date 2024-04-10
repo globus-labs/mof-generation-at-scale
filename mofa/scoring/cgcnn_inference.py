@@ -31,6 +31,10 @@ BACKBONE_KWARGS = {
 }
 
 
+def get_local_rank() -> int:
+    return int(os.environ.get('LOCAL_RANK', 0))
+
+
 class Opt:
     def __init__(self, **entries):
         self.__dict__.update(entries)
@@ -468,8 +472,6 @@ def call_model(opt: Opt, mean: float,
 
 
 def infer(ase_mofs, mof_names, opt=None):
-    init_distributed()
-    get_local_rank()
     train_loader, val_loader, test_loader, mean, std = call_loader(
         ase_mofs, mof_names, opt)
     print("mean", mean, "std", std)
