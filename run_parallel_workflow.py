@@ -439,10 +439,14 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             # Update the model
             result = self.queues.get_result(topic='training')
             result.task_info['train_size'] = len(examples)
+            model_dir = Path(run_dir / 'models')
+            model_dir.mkdir(exist_ok=True)
             if result.success:
-                self.generator_config.generator_path = result.value
                 self.model_iteration = attempt_id
-                self.logger.info(f'Received training result. Updated generator path to {result.value}, version number to {self.model_iteration}')
+                new_model_path = model_dir / f'model-v{self.model_iteration}.ckpt'
+                shutil.copyfile(result.value, new_model_path)
+                self.generator_config.generator_path = new_model_path
+                self.logger.info(f'Received training result. Updated generator path to {new_model_path}, version number to {self.model_iteration}')
             else:
                 self.logger.warning(f'Training failed: {result.failure_info.exception} - {result.failure_info.traceback}')
             shutil.rmtree(train_dir)  # Clear training directory when done
