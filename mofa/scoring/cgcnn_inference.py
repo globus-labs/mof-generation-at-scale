@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch.distributed as dist
 from torch_geometric.loader import DataLoader
 from torch_geometric.data import Data, Dataset
+from torch.utils.data import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel
 from typing import Union
 from pathlib import Path
@@ -15,12 +16,14 @@ import os
 import abc
 import json
 import torch
+import pickle
+import warnings
 import pandas as pd
 import numpy as np
 
-
 _atom_init_dir = Path(__file__).parent / "files"
 _cgcnn_models_dir = (Path(__file__).parent / ".." / ".." / "models" / "cgcnn-hmof-0.1bar-300k").resolve()
+
 
 class Opt:
     def __init__(self, **entries):
@@ -306,15 +309,12 @@ class DataModuleCrystal(abc.ABC):
                 'num_workers',
                 0) > 0,
             'batch_size': opt.batch_size}
-        if not self.opt.dataset in ["cifdata"]:
+        if self.opt.dataset not in ["cifdata"]:
             self.ds_train, self.ds_val, self.ds_test = torch.utils.data.random_split(full_dataset, _get_split_sizes(self.opt.train_frac, full_dataset),
                                                                                      generator=torch.Generator().manual_seed(0))
         else:
-            if not opt.num_oversample == 0:
-                self.ds_train, self.ds_val, self.ds_test = data_augmentation(
-                    opt, full_dataset)
-            else:
-                self.ds_train, self.ds_val, self.ds_test = torch.utils.data.random_split(full_dataset, _get_split_sizes(self.opt.train_frac, full_dataset),
+
+            self.ds_train, self.ds_val, self.ds_test = torch.utils.data.random_split(full_dataset, _get_split_sizes(self.opt.train_frac, full_dataset),
                                                                                          generator=torch.Generator().manual_seed(0))
 
         self._mean = None
@@ -527,7 +527,6 @@ def run_cgcnn_pred_wrapper_serial(mofs: list[ase.Atoms], run_name="some_random_s
         "data_dir_crystal": _atom_init_dir,
         "pin_memory": False,
         "save_to_pickle": None,
-        "num_oversample": 0,
         "batch_size": manual_batch_size,
         "num_workers": ncpus_to_load_data,
         "backbone": 'cgcnn',
