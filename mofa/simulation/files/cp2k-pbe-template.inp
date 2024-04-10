@@ -20,6 +20,10 @@
       &END
 
       &SCF
+         &PRINT
+            &RESTART OFF
+            &END RESTART
+         &END PRINT
          &MIXING
             METHOD BROYDEN_MIXING
             ALPHA 0.4

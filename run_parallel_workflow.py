@@ -2,7 +2,6 @@
 from contextlib import AbstractContextManager
 from functools import partial, update_wrapper, cached_property
 from subprocess import Popen
-from time import sleep
 from typing import TextIO
 from csv import DictWriter
 from argparse import ArgumentParser
@@ -42,6 +41,7 @@ from mofa.model import MOFRecord, NodeDescription, LigandTemplate, LigandDescrip
 from mofa.scoring.geometry import LatticeParameterChange
 from mofa.simulation.cp2k import CP2KRunner, compute_partial_charges
 from mofa.simulation.lammps import LAMMPSRunner
+from mofa.simulation.raspa import RASPARunner
 from mofa.utils.conversions import write_to_string
 from mofa.hpc.colmena import DiffLinkerInference
 from mofa import db as mofadb
@@ -500,7 +500,20 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             self.queues.send_inputs(cp2k_path, method='compute_partial_charges', task_info=result.task_info, topic='cp2k')
             self.logger.info(f'Completed CP2K computation for {mof_name}. Runtime: {result.time.running:.2f} s. Started partial charge computation')
         elif result.method == 'compute_partial_charges':
-            self.logger.info(f'Partial charges are complete for {mof_name}')
+            atoms_with_charge = result.value
+            self.queues.send_inputs(
+                atoms_with_charge, mof_name,
+                method='run_GCMC_single',
+                topic='cp2k',
+                task_info=result.task_info
+            )
+            self.logger.info(f'Partial charges are complete for {mof_name}. Submitted RASPA')
+        elif result.method == 'run_GCMC_single':
+            storage_mean, storage_std = result.value
+            record = mofadb.get_records(self.collection, [mof_name])[0]
+            record.gas_storage['CO2'] = (1e4, storage_mean)
+            mofadb.update_records(self.collection, [record])
+            self.logger.info(f'Stored gas storage capacity for {mof_name}: {storage_mean:.3e} +/- {storage_std:.3e}')
         else:
             raise ValueError(f'Method not supported: {result.method}')
         print(result.json(exclude={'inputs', 'value'}), file=self._output_files['simulation-results'], flush=True)
@@ -542,6 +555,7 @@ if __name__ == "__main__":
     group.add_argument('--md-snapshots', default=100, help='Maximum number of snapshots during MD simulation', type=int)
     group.add_argument('--retain-lammps', action='store_true', help='Keep LAMMPS output files after it finishes')
     group.add_argument('--dft-opt-steps', default=8, help='Maximum number of DFT optimization steps', type=int)
+    group.add_argument('--raspa-timesteps', default=400000, help='Number of timesteps for GCMC computation', type=int)
 
     group = parser.add_argument_group(title='Compute Settings', description='Compute environment configuration')
     group.add_argument('--lammps-on-ramdisk', action='store_true', help='Write LAMMPS outputs to a RAM Disk')
@@ -637,6 +651,13 @@ if __name__ == "__main__":
     cp2k_fun = partial(cp2k_runner.run_optimization, steps=args.dft_opt_steps)  # Optimizes starting from assembled structure
     update_wrapper(cp2k_fun, cp2k_runner.run_optimization)
 
+    # Make the RASPA function
+    raspa_runner = RASPARunner(
+        raspa_sims_root_path=run_dir / 'raspa-runs'
+    )
+    raspa_fun = partial(raspa_runner.run_GCMC_single, timesteps=args.raspa_timesteps)
+    update_wrapper(raspa_fun, raspa_runner.run_GCMC_single)
+
     # Launch MongoDB as a subprocess
     mongo_dir = run_dir / 'db'
     mongo_dir.mkdir(parents=True)
@@ -675,7 +696,8 @@ if __name__ == "__main__":
             (md_fun, {'executors': hpc_config.lammps_executors}),
             (cp2k_fun, {'executors': hpc_config.cp2k_executors}),
             (compute_partial_charges, {'executors': hpc_config.helper_executors}),
-            (process_ligands, {'executors': hpc_config.helper_executors})
+            (process_ligands, {'executors': hpc_config.helper_executors}),
+            (raspa_fun, {'executors': hpc_config.helper_executors})
         ],
         queues=queues,
         config=config
