@@ -1,7 +1,6 @@
 import os
 import ase
 from pymatgen.io.ase import AseAtomsAdaptor
-from train.dist_utils import get_local_rank, init_distributed
 import torch.nn as nn
 import torch.distributed as dist
 from torch_geometric.loader import DataLoader
