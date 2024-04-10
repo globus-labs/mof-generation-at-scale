@@ -33,7 +33,7 @@ def test_cp2k_optimize(cif_name, cif_dir, tmpdir):
 
     # Make a CP2k simulator that reads and writes to a temporary directory
     runner = CP2KRunner(
-        cp2k_invocation="cp2k_shell.psmp",
+        cp2k_invocation="cp2k_shell",  # Maps to the 2024.1 CP2K on wardlt's machine (another reason I skip it on CI)
     )
 
     test_file = cif_dir / f'{cif_name}.cif'
@@ -44,6 +44,9 @@ def test_cp2k_optimize(cif_name, cif_dir, tmpdir):
     assert cp2k_path.exists()
     assert cp2k_path.is_absolute()
     assert 'opt' in cp2k_path.name
+
+    # Make sure IGNORE_CONVERGENCE was turned on
+    assert 'IGNORE_CONVER' in (cp2k_path / 'cp2k.inp').read_text()
 
     charged_mof = compute_partial_charges(cp2k_path, threads=2)
     assert charged_mof.arrays["q"].shape[0] == charged_mof.arrays["positions"].shape[0]
