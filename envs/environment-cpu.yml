@@ -27,6 +27,8 @@ dependencies:
   - scikit-learn==1.3.0
   - conda-forge::chargemol
   - conda-forge::raspa2
+  - conda-forge::torch-scatter
+  - pyg::pyg
 
   # Tools used for simulation
   - lammps
