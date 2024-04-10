@@ -1,4 +1,3 @@
-from pytest import mark
 import os
 from mofa.scoring.cgcnn_inference import run_cgcnn_pred_wrapper_serial
 from ase.io import read
