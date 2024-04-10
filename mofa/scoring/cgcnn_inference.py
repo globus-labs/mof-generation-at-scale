@@ -7,7 +7,7 @@ from torch.utils.data import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel
 from typing import Union
 from pathlib import Path
-from mofa.models.cgcnn import CrystalGraphConvNet
+from mofa.scoring.cgcnn import CrystalGraphConvNet
 import os
 import ase
 import abc
