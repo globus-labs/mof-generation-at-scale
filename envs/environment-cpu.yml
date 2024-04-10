@@ -34,10 +34,10 @@ dependencies:
 
   # Use Conda PyTorch to avoid OpenMP disagreement with other libraries
   - pytorch==1.13.*=*cpu*
-  - conda-forge::torch-scatter
   - pyg::pyg
 
   - pip
   - pip:
+    - https://data.pyg.org/whl/torch-1.13.0+cpu/torch_scatter-2.1.1+pt113cpu-cp310-cp310-linux_x86_64.whl
     - git+https://gitlab.com/ase/ase.git
     - -e ..[test]
