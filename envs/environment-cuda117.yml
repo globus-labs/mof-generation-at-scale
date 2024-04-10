@@ -43,7 +43,7 @@ dependencies:
 
   - pip
   - pip:
-    - torch_scatter -f https://data.pyg.org/whl/torch-1.13.1+cu117.html
+    - https://data.pyg.org/whl/torch-1.13.0+cu117/torch_scatter-2.1.1+pt113cu117-cp310-cp310-linux_x86_64.whl
     - git+https://gitlab.com/ase/ase.git
     - git+https://github.com/exalearn/colmena.git  # Fixes for streaming not yet on PyPI
     - -e ..[test]
