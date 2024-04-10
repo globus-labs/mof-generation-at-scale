@@ -37,18 +37,18 @@ class GraphFeatureScorer:
         # and then calculate the delta of each graph's feature score from the mean. These deltas
         # are used
         graph_feature_scores = self._score_graph_features(graphs)
-        feature_means = graph_feature_scores.mean(axis=0)
-        feature_deltas = np.array([
-            np.abs(score - feature_means)
-            for score in graph_feature_scores
-        ])
+        # feature_means = graph_feature_scores.mean(axis=0)
+        # feature_deltas = np.array([
+        #     np.abs(score - feature_means)
+        #     for score in graph_feature_scores
+        # ])
 
         # Use KMeans to cluster all the graphs based on their features. This essentially
         # acts as our measurement of the metric space which we will use for diverse sampling.
         try:
-            clustering = KMeans(n_clusters=self.n_clusters).fit(feature_deltas)
+            clustering = KMeans(n_clusters=self.n_clusters).fit(graph_feature_scores)
         except ValueError:
-            clustering = KMeans(n_clusters=len(graphs)).fit(feature_deltas)
+            clustering = KMeans(n_clusters=len(graphs)).fit(graph_feature_scores)
 
         clusters = defaultdict(list)
         for g, label in enumerate(clustering.labels_):

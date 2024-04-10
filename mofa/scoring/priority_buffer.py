@@ -118,7 +118,9 @@ class RelativePriorityBuffer(PriorityBuffer):
 
     def _ranked_items(self) -> list[T]:
         ranks = self.heuristic(self.data)
-        ranked_queue = [(rank, item) for (rank, item) in zip(ranks, self.data)]
+        ranked_queue = []
+        for rank, item in zip(ranks, self.data):
+            heappush(ranked_queue, (rank, item))
         return ranked_queue
 
 
