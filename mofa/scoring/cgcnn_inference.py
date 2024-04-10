@@ -496,7 +496,7 @@ def run_cgcnn_pred(mofs: list[ase.Atoms], names: list[str], opt: Opt):
 
 
 def run_cgcnn_pred_wrapper_serial(mofs: list[ase.Atoms], run_name="some_random_string",
-                                  manual_batch_size: int = 64, ncpus_to_load_data: int = 1) -> list[float]:
+                                  manual_batch_size: int = 64, ncpus_to_load_data: int = 1, use_gpu=True) -> list[float]:
     if len(mofs) == 0:
         return []
     # put mofs into manual batches
@@ -524,7 +524,7 @@ def run_cgcnn_pred_wrapper_serial(mofs: list[ase.Atoms], run_name="some_random_s
     opt = {
         "name": run_name,
         "ensemble_names": ['cgcnn_pub_hmof_0.1', 'cgcnn_pub_hmof_0.1_dgx', 'cgcnn_pub_hmof_0.1_v2'],
-        "gpu": True,
+        "gpu": use_gpu,
         "data_norm": False,
         "dataset": 'cifdata',
         "train_frac": 1,
