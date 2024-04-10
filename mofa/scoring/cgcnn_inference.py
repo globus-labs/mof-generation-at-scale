@@ -468,7 +468,7 @@ def call_model(opt: Opt, mean: float,
     load_state(
         model,
         path_and_name=path_and_name,
-        model_only=True)
+        model_only=True, opt=opt)
     if torch.__version__.startswith('2.0'):
         model = torch.compile(model)
         print("PyTorch model has been compiled...")
