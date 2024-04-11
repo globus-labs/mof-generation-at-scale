@@ -22,6 +22,7 @@ def process_ligands(ligands: list[LigandDescription]) -> tuple[list[LigandDescri
 
         # Store the ligand information for debugging purposes
         record = {"anchor_type": ligand.anchor_type,
+                  "name": ligand.name,
                   "smiles": None,
                   "xyz": ligand.xyz,
                   "prompt_atoms": ligand.prompt_atoms,
