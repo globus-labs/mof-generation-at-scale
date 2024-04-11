@@ -115,7 +115,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         self.hpc_config = hpc_config
 
         # Set up the queues
-        self.mof_queue = deque(maxlen=200)  # Starts empty
+        self.mof_queue = deque(maxlen=8 * self.hpc_config.num_lammps_workers)  # Starts empty
 
         self.generate_queue = deque()  # Starts with one of each task (ligand, size)
         tasks = list(product(range(len(generator_config.templates)), generator_config.atom_counts))
@@ -123,7 +123,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         self.generate_queue.extend(tasks)
 
         self.ligand_process_queue: Queue[Result] = Queue()  # Ligands ready to be stored in queues
-        self.ligand_assembly_queue = defaultdict(lambda: deque(maxlen=200))  # Starts empty
+        self.ligand_assembly_queue = defaultdict(lambda: deque(maxlen=50 * self.hpc_config.number_inf_workers))  # Starts empty
 
         self.post_md_queue: Queue[Result] = Queue()  # Holds MD results ready to be stored
 
@@ -384,7 +384,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
 
             # Determine if we should retrain
             self.num_lammps_completed += 1
-            if self.num_lammps_completed >= self.trainer_config.minimum_train_size:
+            if self.num_lammps_completed >= self.trainer_config.minimum_train_size and self.num_raspa_completed < self.trainer_config.minimum_train_size:
                 self.start_train.set()  # Either starts or indicates that we have new data
 
     @event_responder(event_name='start_train')
@@ -581,7 +581,7 @@ if __name__ == "__main__":
     group.add_argument('--md-snapshots', default=100, help='Maximum number of snapshots during MD simulation', type=int)
     group.add_argument('--retain-lammps', action='store_true', help='Keep LAMMPS output files after it finishes')
     group.add_argument('--dft-opt-steps', default=8, help='Maximum number of DFT optimization steps', type=int)
-    group.add_argument('--raspa-timesteps', default=400000, help='Number of timesteps for GCMC computation', type=int)
+    group.add_argument('--raspa-timesteps', default=100000, help='Number of timesteps for GCMC computation', type=int)
 
     group = parser.add_argument_group(title='Compute Settings', description='Compute environment configuration')
     group.add_argument('--lammps-on-ramdisk', action='store_true', help='Write LAMMPS outputs to a RAM Disk')
