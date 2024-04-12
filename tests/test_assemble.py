@@ -4,7 +4,7 @@ from io import StringIO
 from pytest import mark
 from ase.io import read
 
-from mofa.assembly.assemble import assemble_pillaredPaddleWheel_pcuMOF, assemble_mof
+from mofa.assembly.assemble import assemble_pillaredPaddleWheel_pcuMOF, assemble_mof, assemble_many
 from mofa.model import NodeDescription, LigandDescription
 
 _files_dir = Path(__file__).parent / 'files' / 'assemble'
@@ -58,3 +58,7 @@ def test_assemble(node_name, topology, ligand_counts, file_path):
     for ligand in mof_record.ligands:
         assert ligand.xyz is not None
     assert mof_record.name is not None
+
+    # Test making many assemblies
+    records = assemble_many(ligands, [node], 4, 1)
+    assert len(records) == 4

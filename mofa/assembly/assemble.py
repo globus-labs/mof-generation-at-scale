@@ -2,6 +2,7 @@
 from tempfile import TemporaryDirectory
 from typing import Sequence
 from pathlib import Path
+from random import choice
 import itertools
 import os
 import io
@@ -14,6 +15,42 @@ from rdkit import Chem
 from mofa.model import NodeDescription, LigandDescription, MOFRecord
 
 _bond_length_path = Path(__file__).parent / "OChemDB_bond_threshold.csv"
+
+
+def assemble_many(ligand_options: dict[str, list[LigandDescription]], nodes: list[NodeDescription], to_make: int, attempts: int) -> list[MOFRecord]:
+    """Make many MOFs
+
+    Args:
+        ligand_options: Many choices for each type of ligand
+        nodes: List of nodes used for assembly
+        to_make: Target number to make
+        attempts: Number of times to attempt per MOF before giving up
+    Returns:
+        Up to the target number of MOFs
+    """
+
+    output = []
+    attempts_remaining = to_make * attempts
+    while len(output) < to_make and attempts_remaining > 0:
+        attempts_remaining -= 1
+
+        # Get a sample of ligands
+        ligand_choices = {}
+        requirements = {'COO': 2, 'cyano': 1}  # TODO (wardlt): Do not hard code this
+        for anchor_type, count in requirements.items():
+            ligand_choices[anchor_type] = [choice(ligand_options[anchor_type])] * count
+
+        # Attempt assembly
+        try:
+            new_mof = assemble_mof(
+                nodes=nodes,
+                ligands=ligand_choices,
+                topology='pcu'
+            )
+        except (ValueError, KeyError, IndexError):
+            continue
+        output.append(new_mof)
+    return output
 
 
 def readPillaredPaddleWheelXYZ(fpath, dummyElementCOO="At", dummyElementPillar="Fr"):

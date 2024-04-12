@@ -20,7 +20,7 @@ def initialize_database(client: MongoClient) -> Collection:
 
     collection = client.get_database('mofa').get_collection('mofs')
     collection.create_index([
-        ("name", ASCENDING)
+        ("name", ASCENDING),
     ])
     return collection
 
