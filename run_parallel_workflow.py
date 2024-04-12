@@ -606,6 +606,7 @@ if __name__ == "__main__":
     group.add_argument('--ai-fraction', default=0.1, type=float, help='Fraction of workers devoted to AI tasks')
     group.add_argument('--dft-fraction', default=0.1, type=float, help='Fraction of workers devoted to DFT tasks')
     group.add_argument('--redis-host', default=node(), help='Host for the Redis server')
+    group.add_argument('--proxy-threshold', default=10000, type=int, help='Size threshold to use proxystore for data (bytes)')
 
     args = parser.parse_args()
 
@@ -629,7 +630,7 @@ if __name__ == "__main__":
         hostname=args.redis_host,
         topics=['generation', 'lammps', 'cp2k', 'training', 'assembly'],
         proxystore_name='redis',
-        proxystore_threshold=10000
+        proxystore_threshold=args.proxy_threshold
     )
 
     # Load the ligand descriptions
