@@ -405,7 +405,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
                 sort_order = pymongo.DESCENDING
 
             # Build the query
-            self.collection.create_index(sort_field)
+            self.collection.create_index(['structure_stability.uff', 'gas_storage.CO2'])  # Multi-index since we'll query on both
             query = defaultdict(dict)
             query[sort_field] = {'$exists': True}
             query['structure_stability.uff'] = {'$lt': self.trainer_config.maximum_strain}
