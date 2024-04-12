@@ -332,9 +332,9 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         self.logger.info(f'Started MD simulation for mof={to_run.name}. '
                          f'Simulation queue depth: {len(self.mof_queue)}.')
 
-        if self.simulations_left == 0:
-            self.done.set()
-            self.logger.info('No longer submitting tasks.')
+#        if self.simulations_left == 0:
+#            self.done.set()
+#            self.logger.info('No longer submitting tasks.')
 
     @result_processor(topic='lammps')
     def store_lammps(self, result: Result):
@@ -688,7 +688,7 @@ if __name__ == "__main__":
     mongo_dir = run_dir / 'db'
     mongo_dir.mkdir(parents=True)
     mongo_proc = Popen(
-        f'mongod --dbpath {mongo_dir.absolute()} --logpath {(run_dir / "mongo.log").absolute()}'.split(),
+        f'mongod --wiredTigerCacheSizeGB 4 --dbpath {mongo_dir.absolute()} --logpath {(run_dir / "mongo.log").absolute()}'.split(),
         stderr=(run_dir / 'mongo.err').open('w')
     )
 
