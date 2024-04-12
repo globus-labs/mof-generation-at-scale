@@ -27,6 +27,13 @@ def get_utilization() -> dict:
     for nic, stats in psutil.net_io_counters(pernic=True).items():
         output['network'][nic] = stats._asdict()
 
+    # Processes
+    output['procs'] = []
+    for proc in psutil.process_iter(['username', 'pid', 'name', 'memory_percent', 'cpu_percent', 'io_counters']):
+        info = proc.info
+        if info.pop('username') != "root":
+            output['procs'].append(info)
+
     # Disk-utilization
     output['disk'] = {}
     for disk, stats in psutil.disk_io_counters(perdisk=True).items():
