@@ -106,7 +106,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
                  node_template: NodeDescription):
         if hpc_config.num_workers < 2:
             raise ValueError(f'There must be at least two workers. Supplied: {hpc_config}')
-        self.assemble_workers = max(1, hpc_config.num_lammps_workers // 1000)  # We may need
+        self.assemble_workers = max(1, hpc_config.num_lammps_workers // 256)  #Ensure we keep a steady stream of MOFs
         super().__init__(queues, ResourceCounter(hpc_config.num_workers + self.assemble_workers, task_types=['generation', 'lammps', 'cp2k', 'assembly']))
         self.generator_config = generator_config
         self.trainer_config = trainer_config
@@ -139,7 +139,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         self.rec.reallocate(None, 'assembly', self.assemble_workers)
 
         # Settings associated with MOF assembly
-        self.mofs_per_call = hpc_config.num_lammps_workers + 4
+        self.mofs_per_call = min(hpc_config.num_lammps_workers + 4, 128)
         self.make_mofs = Event()  # Signal that we need new MOFs
         self.mofs_available = Event()  # Signal that new MOFs are done
 
@@ -161,7 +161,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         # Output files
         self._output_files: dict[str, Path | TextIO] = {}
         self.generate_write_lock: Lock = Lock()  # Two threads write to the same generation output
-        for name in ['generation-results', 'simulation-results', 'training-results', 'assemble-results']:
+        for name in ['generation-results', 'simulation-results', 'training-results', 'assembly-results']:
             self._output_files[name] = run_dir / f'{name}.json'
 
     def __enter__(self):
@@ -272,18 +272,18 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
 
         # Check that we have enough ligands to start assembly
         while True:
-            self.make_mofs.wait()
             for anchor_type in self.generator_config.anchor_types:
                 have = len(self.ligand_assembly_queue[anchor_type])
                 if have < self.generator_config.min_ligand_candidates:
-                    self.logger.info(f'Too few candidate for anchor_type={anchor_type}. have={have}, need={self.generator_config.min_ligand_candidates}')
                     break
             else:
+                self.make_mofs.clear()
+                self.make_mofs.wait()
                 break
 
         # Submit the assembly task
         self.queues.send_inputs(
-            self.ligand_process_queue,
+            dict((k, list(v)) for k, v in self.ligand_assembly_queue.items()),
             [self.node_template],
             self.mofs_per_call,
             4,
@@ -301,6 +301,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         # Skip if it failed
         if not result.success:
             self.logger.warning(f'Assembly task failed: {result.failure_info.exception}\nStack: {result.failure_info.traceback}')
+            return
 
         # Add them to the database
         num_added = 0
@@ -442,7 +443,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
                 examples.append(MOFRecord(**record))
             if (len(examples) == 0 or len(examples) == last_train_size) and len(examples) < self.trainer_config.maximum_train_size:
                 self.logger.info(f'The number of training examples for {sort_field} with strain below {self.trainer_config.maximum_strain:.2f}'
-                                 f' ({len(examples)} is the same as the last time we trained DiffLinker ({last_train_size}). Waiting for more data')
+                                 f' ({len(examples)}) is the same as the last time we trained DiffLinker ({last_train_size}). Waiting for more data')
                 self.start_train.clear()
                 self.start_train.wait()
                 continue
