@@ -24,9 +24,10 @@ def initialize_database(client: MongoClient) -> Collection:
     collection.create_index([
         ("name", ASCENDING),
     ])  # Retrieving specific records
-    collection.create_index([
-        ('structure_stability.uff', ASCENDING),
-    ])  # Queries for initial training set (is a prefix index of the following, but I'm being extra sure it gets made
+    for k in ['structure_stability.uff', 'gas_storage.CO2']:
+        collection.create_index([
+            (k, ASCENDING),
+        ])  # Queries for initial training set (is a prefix index of the following, but I'm being extra sure it gets made
     collection.create_index([
         ('structure_stability.uff', ASCENDING),
         ('gas_storage.CO2', ASCENDING)

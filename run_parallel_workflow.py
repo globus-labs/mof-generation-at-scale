@@ -431,9 +431,8 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
                 self.collection.find(
                     filter=query,
                     projection={'md_trajectory': 0},  # Filter out the trajectory to save I/O
-                    allow_disk_use=True
                 )
-                .sort((sort_field, sort_order))
+                .sort(sort_field, sort_order)
                 .limit(to_include)
             )
             examples = []
