@@ -275,10 +275,10 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             for anchor_type in self.generator_config.anchor_types:
                 have = len(self.ligand_assembly_queue[anchor_type])
                 if have < self.generator_config.min_ligand_candidates:
+                    self.make_mofs.clear()
+                    self.make_mofs.wait()
                     break
             else:
-                self.make_mofs.clear()
-                self.make_mofs.wait()
                 break
 
         # Submit the assembly task
@@ -289,6 +289,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             4,
             method='assemble_many',
             topic='assembly',
+            task_info={'to_make': self.mofs_per_call}
         )
 
     @result_processor(topic='assembly')
@@ -476,6 +477,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
                 new_model_path = model_dir / f'model-v{self.model_iteration}.ckpt'
                 shutil.copyfile(result.value, new_model_path)
                 self.generator_config.generator_path = new_model_path
+                result.task_info['model_updated'] = datetime.now().timestamp()
                 self.logger.info(f'Received training result. Updated generator path to {new_model_path}, version number to {self.model_iteration}')
             else:
                 self.logger.warning(f'Training failed: {result.failure_info.exception} - {result.failure_info.traceback}')
@@ -670,7 +672,7 @@ if __name__ == "__main__":
 
     # Make the training function
     trainer = TrainingConfig(
-        maximum_train_size=args.maximum_train_size,
+        maximum_train_size=min(args.maximum_train_size, 2048),
         num_epochs=args.num_epochs,
         minimum_train_size=args.retrain_freq,
         best_fraction=args.best_fraction,
