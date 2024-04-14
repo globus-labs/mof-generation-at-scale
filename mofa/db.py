@@ -19,9 +19,18 @@ def initialize_database(client: MongoClient) -> Collection:
     """Create a collection in which to store sequence information"""
 
     collection = client.get_database('mofa').get_collection('mofs')
+
+    # Create the indices needed for different operations
     collection.create_index([
         ("name", ASCENDING),
-    ])
+    ])  # Retrieving specific records
+    collection.create_index([
+        ('structure_stability.uff', ASCENDING),
+    ])  # Queries for initial training set (is a prefix index of the following, but I'm being extra sure it gets made
+    collection.create_index([
+        ('structure_stability.uff', ASCENDING),
+        ('gas_storage.CO2', ASCENDING)
+    ])  # Queries for training sets
     return collection
 
 

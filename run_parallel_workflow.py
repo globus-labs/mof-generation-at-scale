@@ -106,7 +106,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
                  node_template: NodeDescription):
         if hpc_config.num_workers < 2:
             raise ValueError(f'There must be at least two workers. Supplied: {hpc_config}')
-        self.assemble_workers = max(1, hpc_config.num_lammps_workers // 256)  #Ensure we keep a steady stream of MOFs
+        self.assemble_workers = max(1, hpc_config.num_lammps_workers // 256)  # Ensure we keep a steady stream of MOFs
         super().__init__(queues, ResourceCounter(hpc_config.num_workers + self.assemble_workers, task_types=['generation', 'lammps', 'cp2k', 'assembly']))
         self.generator_config = generator_config
         self.trainer_config = trainer_config
@@ -423,17 +423,17 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
                 sort_order = pymongo.DESCENDING
 
             # Build the query
-            self.collection.create_index(['structure_stability.uff', 'gas_storage.CO2'])  # Multi-index since we'll query on both
             query = defaultdict(dict)
             query[sort_field] = {'$exists': True}
             query['structure_stability.uff'] = {'$lt': self.trainer_config.maximum_strain}
 
             cursor = (
                 self.collection.find(
-                    query,
-                    {'md_trajectory': 0}  # Filter out the trajectory to save I/O
+                    filter=query,
+                    projection={'md_trajectory': 0},  # Filter out the trajectory to save I/O
+                    allow_disk_use=True
                 )
-                .sort(sort_field, sort_order)
+                .sort((sort_field, sort_order))
                 .limit(to_include)
             )
             examples = []
@@ -551,7 +551,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             # Store result
             storage_mean, storage_std = result.value
             record = mofadb.get_records(self.collection, [mof_name])[0]
-            record.gas_storage['CO2'] = (1e4, storage_mean)
+            record.gas_storage['CO2'] = storage_mean
             record.times['raspa-done'] = datetime.now()
             mofadb.update_records(self.collection, [record])
 

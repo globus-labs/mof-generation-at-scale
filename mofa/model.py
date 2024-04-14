@@ -411,8 +411,9 @@ class MOFRecord:
     values are the structure in POSCAR format"""
 
     # Properties
-    gas_storage: dict[str, tuple[float, float]] = field(default_factory=dict, repr=False)
-    """Storage capacity of the MOF for different gases and pressures. Key is the name of the gas, value is the pressure and capacity (units TBD)"""
+    gas_storage: dict[str, float | tuple[float, float]] = field(default_factory=dict, repr=False)  # TODO (wardlt): Allow only one type of value
+    """Storage capacity of the MOF for different gases and pressures. Key is the name of the gas, value is a single capacity value
+     or the capacity at different pressures (units TBD)"""
     structure_stability: dict[str, float] = field(default_factory=dict, repr=False)
     """How likely the structure is to be stable according to different assays
 
