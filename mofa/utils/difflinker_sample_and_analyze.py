@@ -53,7 +53,7 @@ def generate_animation(ddpm, chain_batch, node_mask, n_mol):
 @lru_cache(maxsize=1)  # Keep only one model in memory
 def load_model(path, device) -> DDPM:
     """Load the DDPM model from disk"""
-    return DDPM.load_from_checkpoint(path, torch_device=device).eval().to(device)
+    return DDPM.load_from_checkpoint(path, map_location=device).eval().to(device)
 
 
 def main_run(templates: list[LigandTemplate],

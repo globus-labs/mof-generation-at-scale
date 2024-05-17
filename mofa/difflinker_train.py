@@ -47,7 +47,7 @@ class XPUAccelerator(Accelerator):
     @staticmethod
     def auto_device_count() -> int:
         # Return a value for auto-device selection when `Trainer(devices="auto")`
-        raise NotImplementedError()
+        return torch.xpu.device_count()
 
     @staticmethod
     def is_available() -> bool:
@@ -259,6 +259,7 @@ def main(
                 last_checkpoint = find_last_checkpoint(checkpoints_dir)
                 ddpm = DDPM.load_from_checkpoint(
                     last_checkpoint,
+                    map_location=args.device,
                     strict=False,
                     data_path=args.data,
                     train_data_prefix=args.train_data_prefix,

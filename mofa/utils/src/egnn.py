@@ -447,7 +447,10 @@ class Dynamics(nn.Module):
                         for j in range(n_nodes):
                             rows.append(i + batch_idx * n_nodes)
                             cols.append(j + batch_idx * n_nodes)
-                edges = [torch.LongTensor(rows).to(self.device), torch.LongTensor(cols).to(self.device)]
+                edges = [
+                    torch.LongTensor(rows),
+                    torch.LongTensor(cols)
+                ]
                 edges_dic_b[batch_size] = edges
                 return edges
         else:

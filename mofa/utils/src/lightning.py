@@ -112,6 +112,8 @@ class DDPM(pl.LightningModule):
         )
         self.linker_size_sampler = DistributionNodes(LINKER_SIZE_DIST)
 
+        self.validation_step_outputs = []
+
     def setup(self, stage: Optional[str] = None):
         dataset_type = MOADDataset if '.' in self.train_data_prefix else ZincDataset
         if self.dataset_override == "MOFA":
@@ -236,7 +238,7 @@ class DDPM(pl.LightningModule):
             loss = vlb_loss
         else:
             raise NotImplementedError(self.loss_type)
-        return {
+        validation_step = {
             'loss': loss,
             'delta_log_px': delta_log_px,
             'kl_prior': kl_prior,
@@ -247,6 +249,7 @@ class DDPM(pl.LightningModule):
             'noise_t': noise_t,
             'noise_0': noise_0
         }
+        self.validation_step_outputs.append(validation_step)
 
     def test_step(self, data, *args):
         delta_log_px, kl_prior, loss_term_t, loss_term_0, l2_loss, noise_t, noise_0 = self.forward(data, training=False)
@@ -275,9 +278,9 @@ class DDPM(pl.LightningModule):
             self.metrics.setdefault(f'{metric}/train', []).append(avg_metric)
             self.log(f'{metric}/train', avg_metric, prog_bar=True)
 
-    def validation_epoch_end(self, validation_step_outputs):
-        for metric in validation_step_outputs[0].keys():
-            avg_metric = self.aggregate_metric(validation_step_outputs, metric)
+    def on_validation_epoch_end(self):
+        for metric in self.validation_step_outputs[0].keys():
+            avg_metric = self.aggregate_metric(self.validation_step_outputs, metric)
             self.metrics.setdefault(f'{metric}/val', []).append(avg_metric)
             self.log(f'{metric}/val', avg_metric, prog_bar=True)
 
@@ -292,6 +295,8 @@ class DDPM(pl.LightningModule):
             self.log('best_epoch', int(best_epoch), prog_bar=True, batch_size=self.batch_size)
             for metric, value in best_metrics.items():
                 self.log(f'best_{metric}', value, prog_bar=True, batch_size=self.batch_size)
+
+        self.validation_step_outputs.clear()
 
     def test_epoch_end(self, test_step_outputs):
         for metric in test_step_outputs[0].keys():
