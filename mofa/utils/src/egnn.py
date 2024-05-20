@@ -371,7 +371,7 @@ class Dynamics(nn.Module):
         """
 
         bs, n_nodes = xh.shape[0], xh.shape[1]
-        edges = self.get_edges(n_nodes, bs)  # (2, B*N)
+        edges = self.get_edges(n_nodes, bs, device=xh.device)  # (2, B*N)
         node_mask = node_mask.view(bs * n_nodes, 1)  # (B*N, 1)
 
         if linker_mask is not None:
@@ -434,7 +434,7 @@ class Dynamics(nn.Module):
 
         return torch.cat([vel, h_final], dim=2)
 
-    def get_edges(self, n_nodes, batch_size):
+    def get_edges(self, n_nodes, batch_size, device):
         if n_nodes in self.edge_cache:
             edges_dic_b = self.edge_cache[n_nodes]
             if batch_size in edges_dic_b:
@@ -448,14 +448,14 @@ class Dynamics(nn.Module):
                             rows.append(i + batch_idx * n_nodes)
                             cols.append(j + batch_idx * n_nodes)
                 edges = [
-                    torch.LongTensor(rows),
-                    torch.LongTensor(cols)
+                    torch.LongTensor(rows).to(device),
+                    torch.LongTensor(cols).to(device)
                 ]
                 edges_dic_b[batch_size] = edges
                 return edges
         else:
             self.edge_cache[n_nodes] = {}
-            return self.get_edges(n_nodes, batch_size)
+            return self.get_edges(n_nodes, batch_size, device)
 
 
 class DynamicsWithPockets(Dynamics):

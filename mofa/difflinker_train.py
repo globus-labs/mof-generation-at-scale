@@ -185,10 +185,10 @@ def main(
             if '.' in args.train_data_prefix:
                 context_node_nf += 1
 
-            # Make an XPU acceleator, if needed
+            # Make an XPU accelerator, if needed
             if 'xpu' in args.device:
                 pl_device = XPUAccelerator()
-                devices = [0]
+                devices = [0]  # TODO, multi-XPU training
             else:
                 pl_device = args.device
                 devices = "auto"
