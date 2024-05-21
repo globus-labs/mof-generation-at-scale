@@ -8,6 +8,13 @@ import torch
 from pytorch_lightning import Trainer, callbacks
 from pytorch_lightning.accelerators import Accelerator
 from pytorch_lightning.callbacks import TQDMProgressBar
+from pytorch_lightning.strategies import DDPStrategy, SingleDeviceStrategy
+
+try:
+    import intel_extension_for_pytorch as ipex
+    import oneccl_bindings_for_pytorch
+except ImportError:
+    pass
 
 from mofa.utils.src.const import NUMBER_OF_ATOM_TYPES, GEOM_NUMBER_OF_ATOM_TYPES
 from mofa.utils.src.lightning import DDPM
@@ -16,7 +23,6 @@ from mofa.utils.src.utils import disable_rdkit_logging
 
 def _intel_on_train_start(trainer: Trainer):
     """Hook for optimizing the model and optimizer before training"""
-    import intel_extension_for_pytorch as ipex
     assert len(trainer.optimizers) == 1, 'We only support one optimizer for now'
     trainer.model, trainer.optimizers[0] = ipex.optimize(trainer.model, optimizer=trainer.optimizers[0])
 
@@ -28,7 +34,9 @@ class XPUAccelerator(Accelerator):
     # See: https://lightning.ai/docs/pytorch/stable/extensions/accelerator.html#create-a-custom-accelerator
 
     def setup(self, trainer: Trainer) -> None:
-        pass
+        # Ensure libraries are loaded on subprocesses
+        import intel_extension_for_pytorch as ipex
+        import oneccl_bindings_for_pytorch
 
     def setup_device(self, device: torch.device) -> None:
         return
@@ -42,12 +50,12 @@ class XPUAccelerator(Accelerator):
 
     @staticmethod
     def get_parallel_devices(devices: Any) -> Any:
-        return [torch.device("xpu", idx) for idx in devices]
+        return [torch.device("xpu", idx) for idx in range(devices)]
 
     @staticmethod
     def auto_device_count() -> int:
         # Return a value for auto-device selection when `Trainer(devices="auto")`
-        return torch.xpu.device_count()
+        return 6
 
     @staticmethod
     def is_available() -> bool:
@@ -187,11 +195,17 @@ def main(
 
             # Make an XPU accelerator, if needed
             if 'xpu' in args.device:
+                # Manually specific accelerator, devices and strategy for single-gpu
+                #  pl only makes single-device correctly for known GPUS:
+                #  https://github.com/Lightning-AI/pytorch-lightning/blob/2.2.4/src/lightning/pytorch/trainer/connectors/accelerator_connector.py#L468
                 pl_device = XPUAccelerator()
-                devices = [0]  # TODO, multi-XPU training
+                devices = 1
+                strategy = SingleDeviceStrategy(device='xpu')  # Single
+#                strategy = DDPStrategy(process_group_backend='ccl', start_method='spawn')
             else:
                 pl_device = args.device
                 devices = "auto"
+                strategy = None
 
             checkpoint_callback = [callbacks.ModelCheckpoint(
                 dirpath=checkpoints_dir,
@@ -208,11 +222,12 @@ def main(
                 devices=devices,
                 num_sanity_val_steps=0,
                 enable_progress_bar=args.enable_progress_bar,
+                strategy=strategy,
             )
 
             # Add a callback for fit setup
             if args.device == "xpu":
-                trainer.on_train_start = _intel_on_train_start
+                trainer.on_fit_start = _intel_on_train_start
 
             # Get the model
             if args.resume is None:
@@ -298,10 +313,12 @@ def main(
                     anchors_context=anchors_context,
                     dataset_override=args.dataset_override)
 
-            # Force loading of the dataset now before we start distributed training
+            # Force converting the dataset now before we start distributed training
             #  There might be issues in each training rank writing to disk at the same time
-            # TODO (wardlt): Separate the data loader from the model code so it's clearer how to set up
+            # TODO (wardlt): Separate the data loader from the model code so we can avoid these problems
+            ddpm.to('cpu')
             ddpm.setup('fit')
+            ddpm.train_dataset = ddpm.val_dataset = None  # Unload the dataset to avoid needing to copy it to subprocesses
             trainer.fit(model=ddpm)
 
             # Save the last model
