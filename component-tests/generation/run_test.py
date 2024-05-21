@@ -96,6 +96,7 @@ hostname
             )
         ])
     elif args.config.startswith("sunspot"):
+        # Map processes to specific tiles or whole devices
         if args.config == "sunspot":
             accel_ids = [
                f"{gid}.{tid}"
@@ -109,13 +110,23 @@ hostname
             ]
         else:
             raise ValueError(f'Not supported: {args.config}')
+
+        # Ensures processes are mapped to physical cores
+        workers_per_socket = len(accel_ids) // 2
+        cores_per_socket = 52
+        cores_per_worker = cores_per_socket // workers_per_socket
+        assigned_cores = []
+        for socket in range(2):
+            start = cores_per_socket * socket
+            assigned_cores.extend(f"{start + w * cores_per_worker}-{start + (w + 1) * cores_per_worker - 1}" for w in range(workers_per_socket))
+
         config = Config(
             retries=2,
             executors=[
                 HighThroughputExecutor(
                     label="sunspot_test",
                     available_accelerators=accel_ids,  # Ensures one worker per accelerator
-                    cpu_affinity="block",  # Assigns cpus in sequential order
+                    cpu_affinity='list:' + ":".join(assigned_cores),  # Assigns cpus in sequential order
                     prefetch_capacity=0,
                     max_workers=len(accel_ids),
                     cores_per_worker=208 // len(accel_ids),
