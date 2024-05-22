@@ -8,11 +8,11 @@ import torch
 from pytorch_lightning import Trainer, callbacks
 from pytorch_lightning.accelerators import Accelerator
 from pytorch_lightning.callbacks import TQDMProgressBar
-from pytorch_lightning.strategies import DDPStrategy, SingleDeviceStrategy
+from pytorch_lightning.strategies import SingleDeviceStrategy
 
 try:
-    import intel_extension_for_pytorch as ipex
-    import oneccl_bindings_for_pytorch
+    import intel_extension_for_pytorch as ipex  # noqa: F401
+    import oneccl_bindings_for_pytorch  # noqa: F401
 except ImportError:
     pass
 
@@ -35,8 +35,8 @@ class XPUAccelerator(Accelerator):
 
     def setup(self, trainer: Trainer) -> None:
         # Ensure libraries are loaded on subprocesses
-        import intel_extension_for_pytorch as ipex
-        import oneccl_bindings_for_pytorch
+        import intel_extension_for_pytorch as ipex  # noqa: F401
+        import oneccl_bindings_for_pytorch  # noqa: F401, F811
 
     def setup_device(self, device: torch.device) -> None:
         return
@@ -200,8 +200,8 @@ def main(
                 #  https://github.com/Lightning-AI/pytorch-lightning/blob/2.2.4/src/lightning/pytorch/trainer/connectors/accelerator_connector.py#L468
                 pl_device = XPUAccelerator()
                 devices = 1
-                strategy = SingleDeviceStrategy(device='xpu')  # Single
-#                strategy = DDPStrategy(process_group_backend='ccl', start_method='spawn')
+                strategy = SingleDeviceStrategy(device='xpu')
+#                strategy = DDPStrategy(process_group_backend='ccl', start_method='spawn')  # Uncomment when we figure out CCL
             else:
                 pl_device = args.device
                 devices = "auto"
