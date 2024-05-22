@@ -40,7 +40,6 @@ dependencies:
 
   - pip
   - pip:
-    - pytorch-lightning<2
     - git+https://gitlab.com/ase/ase.git
     - git+https://github.com/exalearn/colmena.git  # Fixes for streaming not yet on PyPI
     - -e ..[test]

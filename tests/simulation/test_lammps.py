@@ -10,7 +10,7 @@ from mofa.simulation.lammps import LAMMPSRunner
 def test_lammps_runner(cif_name, cif_dir, tmpdir):
     # Make a LAMMPS simulator that reads and writes to a
     lmprunner = LAMMPSRunner(
-        lammps_command=["lmp"],
+        lammps_command=["lmp_serial"],
         lmp_sims_root_path=tmpdir / "lmp_sims",
         lammps_environ={'OMP_NUM_THREADS': '1'}
     )
@@ -28,7 +28,7 @@ def test_lammps_runner(cif_name, cif_dir, tmpdir):
 
     # Make sure that it runs
     ret = lmprunner.invoke_lammps(lmp_path)
-    assert ret.returncode == 0
+    assert ret.returncode == 0, Path(lmp_path).joinpath('stdout.lmp').read_text()
 
     # Test the full pipeline, forcing deletion on the end
     lmprunner.delete_finished = True

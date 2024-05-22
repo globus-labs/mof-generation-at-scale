@@ -2,12 +2,15 @@ import argparse
 import os
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
-from typing import Any
 
-import torch
 from pytorch_lightning import Trainer, callbacks
-from pytorch_lightning.accelerators import Accelerator
 from pytorch_lightning.callbacks import TQDMProgressBar
+
+try:
+    import intel_extension_for_pytorch as ipex  # noqa: F401
+    import oneccl_bindings_for_pytorch  # noqa: F401
+except ImportError:
+    pass
 
 from mofa.utils.src.const import NUMBER_OF_ATOM_TYPES, GEOM_NUMBER_OF_ATOM_TYPES
 from mofa.utils.src.lightning import DDPM
@@ -16,46 +19,8 @@ from mofa.utils.src.utils import disable_rdkit_logging
 
 def _intel_on_train_start(trainer: Trainer):
     """Hook for optimizing the model and optimizer before training"""
-    import intel_extension_for_pytorch as ipex
     assert len(trainer.optimizers) == 1, 'We only support one optimizer for now'
     trainer.model, trainer.optimizers[0] = ipex.optimize(trainer.model, optimizer=trainer.optimizers[0])
-
-
-# Placeholder until XPU support merged: https://github.com/Lightning-AI/pytorch-lightning/pull/17700
-class XPUAccelerator(Accelerator):
-    """Shim for XPU support"""
-
-    # See: https://lightning.ai/docs/pytorch/stable/extensions/accelerator.html#create-a-custom-accelerator
-
-    def setup(self, trainer: Trainer) -> None:
-        pass
-
-    def setup_device(self, device: torch.device) -> None:
-        return
-
-    def teardown(self) -> None:
-        return
-
-    @staticmethod
-    def parse_devices(devices: Any) -> Any:
-        return devices
-
-    @staticmethod
-    def get_parallel_devices(devices: Any) -> Any:
-        return [torch.device("xpu", idx) for idx in devices]
-
-    @staticmethod
-    def auto_device_count() -> int:
-        # Return a value for auto-device selection when `Trainer(devices="auto")`
-        raise NotImplementedError()
-
-    @staticmethod
-    def is_available() -> bool:
-        return True
-
-    def get_device_stats(self, device: str | torch.device) -> dict[str, Any]:
-        # Return optional device statistics for loggers
-        return {}
 
 
 def get_args(args: list[str]) -> argparse.Namespace:
@@ -185,14 +150,6 @@ def main(
             if '.' in args.train_data_prefix:
                 context_node_nf += 1
 
-            # Make an XPU acceleator, if needed
-            if 'xpu' in args.device:
-                pl_device = XPUAccelerator()
-                devices = [0]
-            else:
-                pl_device = args.device
-                devices = "auto"
-
             checkpoint_callback = [callbacks.ModelCheckpoint(
                 dirpath=checkpoints_dir,
                 filename='difflinker_{epoch:02d}',
@@ -204,15 +161,14 @@ def main(
                 default_root_dir=log_directory,
                 max_epochs=args.n_epochs,
                 callbacks=checkpoint_callback,
-                accelerator=pl_device,
-                devices=devices,
+                accelerator=args.device,
                 num_sanity_val_steps=0,
                 enable_progress_bar=args.enable_progress_bar,
             )
 
             # Add a callback for fit setup
             if args.device == "xpu":
-                trainer.on_train_start = _intel_on_train_start
+                trainer.on_fit_start = _intel_on_train_start
 
             # Get the model
             if args.resume is None:
@@ -259,6 +215,7 @@ def main(
                 last_checkpoint = find_last_checkpoint(checkpoints_dir)
                 ddpm = DDPM.load_from_checkpoint(
                     last_checkpoint,
+                    map_location=args.device,
                     strict=False,
                     data_path=args.data,
                     train_data_prefix=args.train_data_prefix,
@@ -297,10 +254,12 @@ def main(
                     anchors_context=anchors_context,
                     dataset_override=args.dataset_override)
 
-            # Force loading of the dataset now before we start distributed training
+            # Force converting the dataset now before we start distributed training
             #  There might be issues in each training rank writing to disk at the same time
-            # TODO (wardlt): Separate the data loader from the model code so it's clearer how to set up
+            # TODO (wardlt): Separate the data loader from the model code so we can avoid these problems
+            ddpm.to('cpu')
             ddpm.setup('fit')
+            ddpm.train_dataset = ddpm.val_dataset = None  # Unload the dataset to avoid needing to copy it to subprocesses
             trainer.fit(model=ddpm)
 
             # Save the last model
