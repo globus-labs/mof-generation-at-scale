@@ -10,7 +10,7 @@ from parsl.config import Config
 from parsl.app.python import PythonApp
 from parsl.executors import HighThroughputExecutor
 from parsl.providers import PBSProProvider
-from parsl.launchers import MpiExecLauncher
+from parsl.launchers import SimpleLauncher
 
 from mofa.model import MOFRecord
 
@@ -108,29 +108,12 @@ hostname
             )
         ])
     elif args.config.startswith("sunspot"):
-        if args.config == "sunspot":
-            accel_ids = [
-                f"{gid}.{tid}"
-                for gid in range(6)
-                for tid in range(2)
-            ]
-        elif args.config == "sunspot-device":
-            accel_ids = [
-                f"{gid}.0,{gid}.1"
-                for gid in range(6)
-            ]
-        else:
-            raise ValueError(f'Not supported: {args.config}')
         config = Config(
-            retries=2,
             executors=[
                 HighThroughputExecutor(
                     label="sunspot_test",
-                    available_accelerators=accel_ids,  # Ensures one worker per accelerator
-                    cpu_affinity="block",  # Assigns cpus in sequential order
                     prefetch_capacity=0,
-                    max_workers=len(accel_ids),
-                    cores_per_worker=208 // len(accel_ids),
+                    max_workers=1,
                     provider=PBSProProvider(
                         account="CSC249ADCD08_CNDA",
                         queue="workq",
@@ -144,16 +127,15 @@ module load intel_compute_runtime/release/775.20
 module load gcc/12.2.0
 module list
 
-{"" if len(accel_ids) == 12 else "export IPEX_TILE_AS_DEVICE=0"}
+python -c "import intel_extension_for_pytorch as ipex; print(ipex.xpu.device_count())"
+
 cd $PBS_O_WORKDIR
 pwd
 which python
 hostname
                         """,
                         walltime="1:10:00",
-                        launcher=MpiExecLauncher(
-                            bind_cmd="--cpu-bind", overrides="--depth=208 --ppn 1"
-                        ),  # Ensures 1 manger per node and allows it to divide work among all 208 threads
+                        launcher=SimpleLauncher(),
                         select_options="system=sunspot,place=scatter",
                         nodes_per_block=1,
                         min_blocks=0,

@@ -14,7 +14,7 @@ conda activate ./env
 
 # Build torch_ccl locally
 #  Clone from: https://github.com/intel/torch-ccl
-cd libs/torch_ccl
+cd libs/torch-ccl
 COMPUTE_BACKEND=dpcpp pip install -e .
 
 # Now install Corey's stuff
