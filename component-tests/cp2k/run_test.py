@@ -167,7 +167,7 @@ hostname
         runtime, (atoms, run_path) = future.result()
 
         # Get the strain
-        charges = compute_partial_charges(run_path)
+        charges = compute_partial_charges(run_path).arrays['q']
         # Store the result
         with open('runtimes.json', 'a') as fp:
             print(json.dumps({
@@ -178,6 +178,6 @@ hostname
                 'steps': args.steps,
                 'mof': mof.name,
                 'runtime': runtime,
-                'charges': charges,
+                'charges': charges.tolist(),
                 'strc': write_to_string(atoms, 'vasp')
             }), file=fp)
