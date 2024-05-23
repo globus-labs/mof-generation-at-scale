@@ -13,6 +13,12 @@ try:
 except ImportError:
     pass
 
+try:
+    import intel_extension_for_pytorch as ipex  # noqa: F401
+    import oneccl_bindings_for_pytorch  # noqa: F401
+except ImportError:
+    pass
+
 from mofa.utils.src.const import NUMBER_OF_ATOM_TYPES, GEOM_NUMBER_OF_ATOM_TYPES
 from mofa.utils.src.lightning import DDPM
 from mofa.utils.src.utils import disable_rdkit_logging
@@ -150,7 +156,6 @@ def main(
             context_node_nf = 2 if anchors_context else 1
             if '.' in args.train_data_prefix:
                 context_node_nf += 1
-
 
             # Lock XPU to single device for now
             strategy = 'auto'
