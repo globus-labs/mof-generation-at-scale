@@ -1,5 +1,6 @@
 import json
 import argparse
+from itertools import cycle
 from pathlib import Path
 
 import gzip
@@ -71,6 +72,8 @@ if __name__ == "__main__":
             record = json.loads(line)
             record.pop('_id')
             training_set.append(MOFRecord(**record))
+    if len(training_set) < args.training_size:
+        training_set = [l for l, _ in zip(cycle(training_set), range(args.training_size))]
 
     # Select the correct configuraion
     if args.config == "local":
