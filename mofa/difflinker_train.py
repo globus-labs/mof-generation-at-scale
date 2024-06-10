@@ -13,12 +13,6 @@ try:
 except ImportError:
     pass
 
-try:
-    import intel_extension_for_pytorch as ipex  # noqa: F401
-    import oneccl_bindings_for_pytorch  # noqa: F401
-except ImportError:
-    pass
-
 from mofa.utils.src.const import NUMBER_OF_ATOM_TYPES, GEOM_NUMBER_OF_ATOM_TYPES
 from mofa.utils.src.lightning import DDPM
 from mofa.utils.src.utils import disable_rdkit_logging
