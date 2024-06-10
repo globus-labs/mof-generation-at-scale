@@ -5,6 +5,7 @@ from pathlib import Path
 
 from pytorch_lightning import Trainer, callbacks
 from pytorch_lightning.callbacks import TQDMProgressBar
+from pytorch_lightning.strategies import SingleDeviceStrategy
 
 try:
     import intel_extension_for_pytorch as ipex  # noqa: F401
@@ -150,6 +151,11 @@ def main(
             if '.' in args.train_data_prefix:
                 context_node_nf += 1
 
+            # Lock XPU to single device for now
+            strategy = 'auto'
+            if args.device == 'xpu':
+                strategy = SingleDeviceStrategy(device='xpu')
+
             checkpoint_callback = [callbacks.ModelCheckpoint(
                 dirpath=checkpoints_dir,
                 filename='difflinker_{epoch:02d}',
@@ -164,6 +170,7 @@ def main(
                 accelerator=args.device,
                 num_sanity_val_steps=0,
                 enable_progress_bar=args.enable_progress_bar,
+                strategy=strategy
             )
 
             # Add a callback for fit setup
