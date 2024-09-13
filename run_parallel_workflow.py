@@ -32,7 +32,6 @@ from more_itertools import batched, make_decorator
 from colmena.models import Result
 from colmena.task_server.parsl import ParslTaskServer
 from colmena.queue import ColmenaQueues
-from colmena.queue.redis import RedisQueues
 from colmena.thinker import BaseThinker, result_processor, task_submitter, ResourceCounter, event_responder, agent
 
 from mofa.assembly.assemble import assemble_many
@@ -47,6 +46,7 @@ from mofa.utils.conversions import write_to_string
 from mofa.hpc.colmena import DiffLinkerInference
 from mofa import db as mofadb
 from mofa.hpc.config import configs as hpc_configs, HPCConfig
+from mofa.octopus import OctopusQueues
 
 RDLogger.DisableLog('rdApp.*')
 ob.obErrorLog.SetOutputLevel(0)
@@ -627,9 +627,7 @@ if __name__ == "__main__":
     store = Store(name='redis', connector=RedisConnector(hostname=args.redis_host, port=6379), metrics=True)
     register_store(store)
 
-    # Configure to a use Redis queue, which allows streaming results form other nodes
-    queues = RedisQueues(
-        hostname=args.redis_host,
+    queues = OctopusQueues(
         topics=['generation', 'lammps', 'cp2k', 'training', 'assembly'],
         proxystore_name='redis',
         proxystore_threshold=args.proxy_threshold

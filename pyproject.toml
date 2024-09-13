@@ -40,7 +40,10 @@ dependencies = [
     "gpustat",
 
     # Data management
-    "pymongo>=4"
+    "pymongo>=4",
+
+    # Mini-app
+    "diaspora-event-sdk[kafka-python]"
 ]
 
 [tool.setuptools.packages.find]
