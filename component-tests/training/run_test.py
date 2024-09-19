@@ -77,11 +77,11 @@ if __name__ == "__main__":
 
     # Select the correct configuraion
     if args.config == "local":
-        config = Config(executors=[HighThroughputExecutor(max_workers=1, cpu_affinity='block')])
+        config = Config(executors=[HighThroughputExecutor(max_workers_per_node=1, cpu_affinity='block')])
     elif args.config == "polaris":
         config = Config(retries=1, executors=[
             HighThroughputExecutor(
-                max_workers=4,
+                max_workers_per_node=4,
                 cpu_affinity='block-reverse',
                 available_accelerators=4,
                 provider=PBSProProvider(
@@ -116,7 +116,7 @@ hostname
                 HighThroughputExecutor(
                     label="sunspot_test",
                     prefetch_capacity=0,
-                    max_workers=1,
+                    max_workers_per_node=1,
                     provider=PBSProProvider(
                         account="CSC249ADCD08_CNDA",
                         queue="workq",

@@ -62,11 +62,11 @@ if __name__ == "__main__":
 
     # Select the correct configuraion
     if args.config == "local":
-        config = Config(executors=[HighThroughputExecutor(max_workers=1, cpu_affinity='block')])
+        config = Config(executors=[HighThroughputExecutor(max_workers_per_node=1, cpu_affinity='block')])
     elif args.config == "polaris":
         config = Config(retries=1, executors=[
             HighThroughputExecutor(
-                max_workers=4,
+                max_workers_per_node=4,
                 cpu_affinity='block-reverse',
                 available_accelerators=4,
                 provider=PBSProProvider(
@@ -128,7 +128,7 @@ hostname
                     available_accelerators=accel_ids,  # Ensures one worker per accelerator
                     cpu_affinity='list:' + ":".join(assigned_cores),  # Assigns cpus in sequential order
                     prefetch_capacity=0,
-                    max_workers=len(accel_ids),
+                    max_workers_per_node=len(accel_ids),
                     cores_per_worker=208 // len(accel_ids),
                     provider=PBSProProvider(
                         account="CSC249ADCD08_CNDA",

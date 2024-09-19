@@ -62,7 +62,7 @@ if __name__ == "__main__":
         assert args.num_nodes == 1, 'Only support 1 node for local config'
         cp2k_cmd = (f'env OMP_NUM_THREADS={12 // args.ranks_per_node} /usr/bin/mpiexec -np {args.ranks_per_node}'
                     f' /home/lward/Software/cp2k-lward-fork/exe/local/cp2k_shell.psmp')
-        config = Config(executors=[HighThroughputExecutor(max_workers=1)])
+        config = Config(executors=[HighThroughputExecutor(max_workers_per_node=1)])
     elif args.config == "polaris":
         cp2k_cmd = (f'mpiexec -n {args.num_nodes * args.ranks_per_node} --ppn {args.ranks_per_node}'
                     f' --cpu-bind depth --depth {32 // args.ranks_per_node} -env OMP_NUM_THREADS={32 // args.ranks_per_node} '
@@ -70,7 +70,7 @@ if __name__ == "__main__":
                     '/lus/eagle/projects/ExaMol/cp2k-2024.1/exe/local_cuda/cp2k_shell.psmp')
         config = Config(retries=4, executors=[
             HighThroughputExecutor(
-                max_workers=4,
+                max_workers_per_node=4,
                 provider=PBSProProvider(
                     launcher=SimpleLauncher(),
                     account='ExaMol',
@@ -111,7 +111,7 @@ hostname
                 HighThroughputExecutor(
                     label="sunspot_test",
                     prefetch_capacity=0,
-                    max_workers=1,
+                    max_workers_per_node=1,
                     provider=PBSProProvider(
                         account="CSC249ADCD08_CNDA",
                         queue="workq",

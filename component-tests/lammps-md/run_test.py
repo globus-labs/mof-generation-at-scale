@@ -57,14 +57,14 @@ if __name__ == "__main__":
     if args.config == "local":
         lammps_cmd = ['/home/lward/Software/lammps-2Aug2023/build/lmp', '-sf', 'omp']
         lammps_env = None
-        config = Config(executors=[HighThroughputExecutor(max_workers=1, cpu_affinity='block')])
+        config = Config(executors=[HighThroughputExecutor(max_workers_per_node=1, cpu_affinity='block')])
     elif args.config == "polaris":
         lammps_cmd = ('/lus/eagle/projects/ExaMol/mofa/lammps-2Aug2023/build-kokkos-nompi/lmp '
                       '-k on g 1 -sf kk').split()
         lammps_env = {'OMP_NUM_THREADS': '1'}
         config = Config(retries=4, executors=[
             HighThroughputExecutor(
-                max_workers=4,
+                max_workers_per_node=4,
                 cpu_affinity='block-reverse',
                 available_accelerators=4,
                 provider=PBSProProvider(
@@ -110,7 +110,7 @@ hostname
                     available_accelerators=accel_ids,  # Ensures one worker per accelerator
                     cpu_affinity="block",  # Assigns cpus in sequential order
                     prefetch_capacity=0,
-                    max_workers=12,
+                    max_workers_per_node=12,
                     cores_per_worker=16,
                     provider=PBSProProvider(
                         account="CSC249ADCD08_CNDA",
