@@ -125,9 +125,9 @@ class LocalConfig(HPCConfig):
     def make_parsl_config(self, run_dir: Path) -> Config:
         return Config(
             executors=[
-                HighThroughputExecutor(label='sim', max_workers=1),
-                HighThroughputExecutor(label='helper', max_workers=1),
-                HighThroughputExecutor(label='ai', max_workers=1, available_accelerators=1)
+                HighThroughputExecutor(label='sim', max_workers_per_node=1),
+                HighThroughputExecutor(label='helper', max_workers_per_node=1),
+                HighThroughputExecutor(label='ai', max_workers_per_node=1, available_accelerators=1)
             ],
             run_dir=str(run_dir / 'runinfo')
         )
@@ -170,9 +170,9 @@ class LocalXYConfig(HPCConfig):
     def make_parsl_config(self, run_dir: Path) -> Config:
         return Config(
             executors=[
-                HighThroughputExecutor(label='sim', max_workers=1),
-                HighThroughputExecutor(label='helper', max_workers=1),
-                HighThroughputExecutor(label='ai', max_workers=1, available_accelerators=1)
+                HighThroughputExecutor(label='sim', max_workers_per_node=1),
+                HighThroughputExecutor(label='helper', max_workers_per_node=1),
+                HighThroughputExecutor(label='ai', max_workers_per_node=1, available_accelerators=1)
             ],
             run_dir=str(run_dir / 'runinfo')
         )
@@ -217,9 +217,9 @@ class UICXYConfig(HPCConfig):
     def make_parsl_config(self, run_dir: Path) -> Config:
         return Config(
             executors=[
-                HighThroughputExecutor(label='sim', max_workers=4, available_accelerators=4),
-                HighThroughputExecutor(label='helper', max_workers=1),
-                HighThroughputExecutor(label='ai', max_workers=1, available_accelerators=1)
+                HighThroughputExecutor(label='sim', max_workers_per_node=4, available_accelerators=4),
+                HighThroughputExecutor(label='helper', max_workers_per_node=1),
+                HighThroughputExecutor(label='ai', max_workers_per_node=1, available_accelerators=1)
             ],
             run_dir=str(run_dir / 'runinfo')
         )
@@ -351,7 +351,7 @@ hostname"""
         return Config(executors=[
             HighThroughputExecutor(
                 label='inf',
-                max_workers=4,
+                max_workers_per_node=4,
                 cpu_affinity='list:' + ":".join(ai_cores),
                 available_accelerators=4,
                 provider=LocalProvider(
@@ -365,7 +365,7 @@ hostname"""
             ),
             HighThroughputExecutor(
                 label='train',
-                max_workers=1,
+                max_workers_per_node=1,
                 provider=LocalProvider(
                     launcher=WrappedLauncher(
                         f"mpiexec -n 1 --ppn 1 --host {self.ai_hosts[0]} --depth=64 --cpu-bind depth"
@@ -377,7 +377,7 @@ hostname"""
             ),
             HighThroughputExecutor(
                 label='lammps',
-                max_workers=len(lammps_accel),
+                max_workers_per_node=len(lammps_accel),
                 cpu_affinity='list:' + ":".join(sim_cores),
                 available_accelerators=lammps_accel,
                 provider=LocalProvider(
@@ -391,7 +391,7 @@ hostname"""
             ),
             HighThroughputExecutor(
                 label='cp2k',
-                max_workers=self.num_cp2k_workers,
+                max_workers_per_node=self.num_cp2k_workers,
                 cores_per_worker=1e-6,
                 provider=LocalProvider(
                     launcher=SimpleLauncher(),  # Places a single worker on the launch node
@@ -401,7 +401,7 @@ hostname"""
             ),
             HighThroughputExecutor(
                 label='helper',
-                max_workers=len(helper_cores),
+                max_workers_per_node=len(helper_cores),
                 cpu_affinity='list:' + ":".join(helper_cores),
                 provider=LocalProvider(
                     launcher=WrappedLauncher(
@@ -451,7 +451,7 @@ class SunspotConfig(PolarisConfig):
                     available_accelerators=accel_ids,  # Ensures one worker per accelerator
                     cpu_affinity="block",  # Assigns cpus in sequential order
                     prefetch_capacity=0,
-                    max_workers=12,
+                    max_workers_per_node=12,
                     cores_per_worker=16,
                     provider=LocalProvider(
                         worker_init="""
