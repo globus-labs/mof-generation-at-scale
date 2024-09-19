@@ -160,7 +160,7 @@ class OctopusQueues(ColmenaQueues):
         if timeout is None:
             timeout = 0
         timeout *= 1000  # to ms
-        assert consumer, "should be initialized"
+        assert consumer, "consumer should be initialized"
 
         try:
             while True:  # blocks indefinitely
