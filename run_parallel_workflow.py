@@ -705,35 +705,38 @@ if __name__ == "__main__":
     raspa_fun = partial(raspa_runner.run_GCMC_single, timesteps=args.raspa_timesteps)
     update_wrapper(raspa_fun, raspa_runner.run_GCMC_single)
 
-    # Launch MongoDB as a subprocess
-    mongo_dir = run_dir / 'db'
-    mongo_dir.mkdir(parents=True)
-    mongo_proc = Popen(
-        f'mongod --wiredTigerCacheSizeGB 4 --dbpath {mongo_dir.absolute()} --logpath {(run_dir / "mongo.log").absolute()}'.split(),
-        stderr=(run_dir / 'mongo.err').open('w')
-    )
+    if args.launch_option in ['both', 'thinker']:
+        # Launch MongoDB as a subprocess
+        mongo_dir = run_dir / 'db'
+        mongo_dir.mkdir(parents=True)
+        mongo_proc = Popen(
+            f'mongod --wiredTigerCacheSizeGB 4 --dbpath {mongo_dir.absolute()} --logpath {(run_dir / "mongo.log").absolute()}'.split(),
+            stderr=(run_dir / 'mongo.err').open('w')
+        )
 
-    # Make the thinker
-    thinker = MOFAThinker(queues,
-                          hpc_config=hpc_config,
-                          generator_config=generator,
-                          trainer_config=trainer,
-                          simulation_budget=args.simulation_budget,
-                          node_template=node_template,
-                          out_dir=run_dir)
+        # Make the thinker
+        thinker = MOFAThinker(queues,
+                              hpc_config=hpc_config,
+                              generator_config=generator,
+                              trainer_config=trainer,
+                              simulation_budget=args.simulation_budget,
+                              node_template=node_template,
+                              out_dir=run_dir)
 
     # Turn on logging
     my_logger = logging.getLogger('main')
     handlers = [logging.StreamHandler(sys.stdout), logging.FileHandler(run_dir / 'run.log')]
-    for logger in [my_logger, thinker.logger]:
+    loggers = [my_logger, thinker.logger] if args.launch_option in ['both', 'thinker'] else [my_logger]
+    for logger in loggers:
         for handler in handlers:
             handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
             logger.addHandler(handler)
         logger.setLevel(logging.INFO)
     my_logger.info(f'Running job in {run_dir} on {hpc_config.num_workers} workers')
 
-    my_logger.info(f"OctopusQueues.prefix={thinker.queues.prefix}")
-    my_logger.info(f"OctopusQueues.discard={thinker.queues.discard_events_before}")
+    my_logger.info(f"launch_option={args.launch_option}")
+    my_logger.info(f"OctopusQueues.prefix={queues.prefix}")
+    my_logger.info(f"OctopusQueues.discard={queues.discard_events_before}")
 
     # Save the run parameters to disk
     (run_dir / 'params.json').write_text(json.dumps(run_params))
@@ -780,4 +783,44 @@ if __name__ == "__main__":
 
             # Close the proxy store
             store.close()
-    
+
+    elif args.launch_option == "thinker":
+        try:
+            with thinker:  # Opens the output files
+                thinker.run()
+        finally:
+            queues.send_kill_signal()
+
+            # Kill the services launched during workflow
+            util_proc.terminate()
+            mongo_proc.terminate()
+            mongo_proc.poll()
+
+            # Close the proxy store
+            store.close()
+
+    elif args.launch_option == "server":
+        doer = ParslTaskServer(
+            methods=[
+                (gen_method, {'executors': hpc_config.inference_executors}),
+                (train_func, {'executors': hpc_config.train_executors}),
+                (md_fun, {'executors': hpc_config.lammps_executors}),
+                (cp2k_fun, {'executors': hpc_config.cp2k_executors}),
+                (compute_partial_charges, {'executors': hpc_config.helper_executors}),
+                (process_ligands, {'executors': hpc_config.helper_executors}),
+                (raspa_fun, {'executors': hpc_config.helper_executors}),
+                (assemble_many, {'executors': hpc_config.helper_executors})
+            ],
+            queues=queues,
+            config=config
+        )
+        try:
+            doer.start()
+        finally:
+            doer.join()
+
+            # Kill the services launched during workflow
+            util_proc.terminate()
+
+            # Close the proxy store
+            store.close()

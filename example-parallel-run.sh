@@ -11,6 +11,7 @@ python run_parallel_workflow.py \
       --gen-batch-size 64 \
       --simulation-budget 8 \
       --redis-host 127.0.0.1 \
+      --dft-opt-steps 0 \
       --compute-config local
 
 # Xiaoli local
