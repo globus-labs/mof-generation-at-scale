@@ -180,6 +180,7 @@ class OctopusQueues(ColmenaQueues):
         self.connect_request_consumer()
 
         event = self._get_message(self.request_consumer, timeout)
+        logger.warning(f"request event received, event={event}")
         if event["message"].endswith("null"):
             raise KillSignalException()
 
@@ -200,6 +201,7 @@ class OctopusQueues(ColmenaQueues):
             )
 
         event = self._get_message(consumer, timeout)
+        logger.warning(f"result event received, event={event}")
         return event
 
 

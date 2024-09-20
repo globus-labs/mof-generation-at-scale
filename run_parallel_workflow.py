@@ -734,9 +734,9 @@ if __name__ == "__main__":
         logger.setLevel(logging.INFO)
     my_logger.info(f'Running job in {run_dir} on {hpc_config.num_workers} workers')
 
-    my_logger.info(f"launch_option={args.launch_option}")
-    my_logger.info(f"OctopusQueues.prefix={queues.prefix}")
-    my_logger.info(f"OctopusQueues.discard={queues.discard_events_before}")
+    my_logger.info(f"Octopus::launch_option={args.launch_option}")
+    my_logger.info(f"Octopus::prefix={queues.prefix}")
+    my_logger.info(f"Octopus::discard={queues.discard_events_before}")
 
     # Save the run parameters to disk
     (run_dir / 'params.json').write_text(json.dumps(run_params))
