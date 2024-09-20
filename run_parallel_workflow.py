@@ -610,6 +610,9 @@ if __name__ == "__main__":
     group.add_argument('--redis-host', default=node(), help='Host for the Redis server')
     group.add_argument('--proxy-threshold', default=10000, type=int, help='Size threshold to use proxystore for data (bytes)')
 
+    group = parser.add_argument_group(title='Mini App Settings', description='Mini App and Octopus configuration')
+    group.add_argument('--launch-option', default='both', help='require one of [both|thinker|server]')
+
     args = parser.parse_args()
 
     # Load the example MOF
@@ -735,22 +738,6 @@ if __name__ == "__main__":
     # Save the run parameters to disk
     (run_dir / 'params.json').write_text(json.dumps(run_params))
 
-    # Launch the thinker and task server
-    doer = ParslTaskServer(
-        methods=[
-            (gen_method, {'executors': hpc_config.inference_executors}),
-            (train_func, {'executors': hpc_config.train_executors}),
-            (md_fun, {'executors': hpc_config.lammps_executors}),
-            (cp2k_fun, {'executors': hpc_config.cp2k_executors}),
-            (compute_partial_charges, {'executors': hpc_config.helper_executors}),
-            (process_ligands, {'executors': hpc_config.helper_executors}),
-            (raspa_fun, {'executors': hpc_config.helper_executors}),
-            (assemble_many, {'executors': hpc_config.helper_executors})
-        ],
-        queues=queues,
-        config=config
-    )
-
     # Launch the utilization logging
     log_dir = run_dir / 'logs'
     log_dir.mkdir(parents=True)
@@ -759,19 +746,38 @@ if __name__ == "__main__":
         raise ValueError('Monitor process failed to run!')
     my_logger.info(f'Launched monitoring process. pid={util_proc.pid}')
 
-    try:
-        doer.start()
-        my_logger.info(f'Running parsl. pid={doer.pid}')
+    # Launch the thinker and task server
 
-        with thinker:  # Opens the output files
-            thinker.run()
-    finally:
-        queues.send_kill_signal()
+    if args.launch_option == "both":
+        doer = ParslTaskServer(
+            methods=[
+                (gen_method, {'executors': hpc_config.inference_executors}),
+                (train_func, {'executors': hpc_config.train_executors}),
+                (md_fun, {'executors': hpc_config.lammps_executors}),
+                (cp2k_fun, {'executors': hpc_config.cp2k_executors}),
+                (compute_partial_charges, {'executors': hpc_config.helper_executors}),
+                (process_ligands, {'executors': hpc_config.helper_executors}),
+                (raspa_fun, {'executors': hpc_config.helper_executors}),
+                (assemble_many, {'executors': hpc_config.helper_executors})
+            ],
+            queues=queues,
+            config=config
+        )
 
-        # Kill the services launched during workflow
-        util_proc.terminate()
-        mongo_proc.terminate()
-        mongo_proc.poll()
+        try:
+            doer.start()
+            my_logger.info(f'Running parsl. pid={doer.pid}')
 
-        # Close the proxy store
-        store.close()
+            with thinker:  # Opens the output files
+                thinker.run()
+        finally:
+            queues.send_kill_signal()
+
+            # Kill the services launched during workflow
+            util_proc.terminate()
+            mongo_proc.terminate()
+            mongo_proc.poll()
+
+            # Close the proxy store
+            store.close()
+    
