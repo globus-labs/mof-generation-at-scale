@@ -1,14 +1,13 @@
 #! /bin/bash
 
-# Extract the launch option if provided
 LAUNCH_OPTION=""
 
 if [ "$OCTOPUS_LAUNCH_OPTION" == "thinker" ]; then
-    LAUNCH_OPTION="--launch-option thinker"
+    LAUNCH_OPTION="thinker"
 elif [ "$OCTOPUS_LAUNCH_OPTION" == "server" ]; then
-    LAUNCH_OPTION="--launch-option server"
+    LAUNCH_OPTION="server"
 else
-    LAUNCH_OPTION="--launch-option both"
+    LAUNCH_OPTION="both"
 fi
 
 python run_parallel_workflow.py \
@@ -24,5 +23,4 @@ python run_parallel_workflow.py \
       --redis-host 127.0.0.1 \
       --dft-opt-steps 0 \
       --compute-config local \
-      $LAUNCH_OPTION
-
+      --launch-option $LAUNCH_OPTION

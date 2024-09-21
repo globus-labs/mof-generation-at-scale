@@ -1,22 +1,20 @@
 """Queues that use Octopus"""
 
-from typing import Collection, Optional, Union, Dict, Tuple
-import logging
-
-import os
 import json
-
+import logging
+import os
 import pickle
+from datetime import datetime
+from time import time
 
-from colmena.exceptions import TimeoutException, KillSignalException
+from colmena.exceptions import KillSignalException, TimeoutException
 from colmena.models import SerializationMethod
-
 from colmena.queue.base import ColmenaQueues
-from diaspora_event_sdk import KafkaProducer
-from diaspora_event_sdk import KafkaConsumer
+
+from diaspora_event_sdk import KafkaConsumer, KafkaProducer
 from kafka.errors import KafkaError
 
-from time import time
+from typing import Collection, Dict, Optional, Tuple, Union
 
 
 logger = logging.getLogger(__name__)
@@ -180,7 +178,8 @@ class OctopusQueues(ColmenaQueues):
         self.connect_request_consumer()
 
         event = self._get_message(self.request_consumer, timeout)
-        logger.warning(f"request event received, event={event}")
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        logger.warning(f"Octopus::request event:: {current_time}, event={event}")
         if event["message"].endswith("null"):
             raise KillSignalException()
 
@@ -201,7 +200,8 @@ class OctopusQueues(ColmenaQueues):
             )
 
         event = self._get_message(consumer, timeout)
-        logger.warning(f"result event received, event={event}")
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        logger.warning(f"Octopus::result event:: {current_time}, event={event}")
         return event
 
 
