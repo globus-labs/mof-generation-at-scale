@@ -3,9 +3,12 @@
 # Extract the launch option if provided
 LAUNCH_OPTION=""
 
-# Check for valid launch options and set LAUNCH_OPTION accordingly
-if [[ "$1" == "--launch-option both" || "$1" == "--launch-option server" || "$1" == "--launch-option thinker" ]]; then
-    LAUNCH_OPTION="$1"
+if [ "$OCTOPUS_LAUNCH_OPTION" == "thinker" ]; then
+    LAUNCH_OPTION="--launch-option thinker"
+elif [ "$OCTOPUS_LAUNCH_OPTION" == "server" ]; then
+    LAUNCH_OPTION="--launch-option server"
+else
+    LAUNCH_OPTION="--launch-option both"
 fi
 
 python run_parallel_workflow.py \
