@@ -737,6 +737,7 @@ if __name__ == "__main__":
     my_logger.info(f"Octopus::launch_option={args.launch_option}")
     my_logger.info(f"Octopus::prefix={queues.prefix}")
     my_logger.info(f"Octopus::discard={queues.discard_events_before}")
+    my_logger.info(f"Octopus::redis={args.redis_host}")
 
     # Save the run parameters to disk
     (run_dir / 'params.json').write_text(json.dumps(run_params))
