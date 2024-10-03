@@ -1,3 +1,11 @@
+run/
+
+# macOS-specific things to ignore.
+.DS_Store
+
+# IDE-specific directories to ignore.
+.idea/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
