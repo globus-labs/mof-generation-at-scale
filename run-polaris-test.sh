@@ -1,8 +1,8 @@
 #!/bin/bash -le
-#PBS -l select=8:system=polaris
-#PBS -l walltime=0:30:00
+#PBS -l select=6:system=polaris
+#PBS -l walltime=0:60:00
 #PBS -l filesystems=home:grand:eagle
-#PBS -q preemptable
+#PBS -q debug-scaling
 #PBS -N mofa-test
 #PBS -A examol
 
@@ -21,7 +21,7 @@ NNODES=`wc -l < $PBS_NODEFILE`
 mpiexec -n ${NNODES} --ppn 1 ./bin/enable_mps_polaris.sh &
 
 # Start Redis
-redis-server --bind 0.0.0.0 --appendonly no --logfile redis.log &
+redis-server --bind 0.0.0.0 --appendonly no --logfile redis.log --protected-mode no &
 redis_pid=$!
 echo launched redis on $redis_pid
 
@@ -36,7 +36,7 @@ python run_parallel_workflow.py \
       --retrain-freq 1 \
       --num-epochs 128 \
       --num-samples 1024 \
-      --gen-batch-size 128 \
+      --gen-batch-size 128000 \
       --simulation-budget 32768 \
       --md-timesteps 1000000 \
       --md-snapshots 10 \
@@ -45,6 +45,7 @@ python run_parallel_workflow.py \
       --dft-opt-steps 2 \
       --dft-fraction 0.25 \
       --ai-fraction 0.4 \
+      --proxy-threshold 10000000000000 \
       --compute-config polaris
 echo Python done
 

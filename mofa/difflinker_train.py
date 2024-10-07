@@ -152,7 +152,7 @@ def main(
                 context_node_nf += 1
 
             # Lock XPU to single device for now
-            strategy = 'auto'
+            strategy = 'ddp_spawn'
             if args.device == 'xpu':
                 strategy = SingleDeviceStrategy(device='xpu')
 
