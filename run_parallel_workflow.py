@@ -632,8 +632,8 @@ if __name__ == "__main__":
 
     queues = OctopusQueues(
         topics=['generation', 'lammps', 'cp2k', 'training', 'assembly'],
-        proxystore_name='redis',
-        proxystore_threshold=args.proxy_threshold
+        # proxystore_name='redis',
+        # proxystore_threshold=args.proxy_threshold
     )
 
     # Load the ligand descriptions
