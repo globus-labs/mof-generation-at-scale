@@ -20,8 +20,10 @@ import logging
 import hashlib
 import json
 import sys
+import os
 
 import pymongo
+from proxystore.connectors.endpoint import EndpointConnector
 from proxystore.connectors.redis import RedisConnector
 from proxystore.store import Store, register_store
 from rdkit import RDLogger
@@ -47,6 +49,7 @@ from mofa.hpc.colmena import DiffLinkerInference
 from mofa import db as mofadb
 from mofa.hpc.config import configs as hpc_configs, HPCConfig
 from mofa.octopus import OctopusQueues
+from mofa.proxystream import ProxyQueues
 
 RDLogger.DisableLog('rdApp.*')
 ob.obErrorLog.SetOutputLevel(0)
@@ -627,14 +630,23 @@ if __name__ == "__main__":
     run_dir.mkdir(parents=True)
 
     # Open a proxystore with Redis
-    store = Store(name='redis', connector=RedisConnector(hostname=args.redis_host, port=6379), metrics=True)
+    
+    endpoint_connector = EndpointConnector([os.environ["PROXYSTORE_ENDPOINT"]])
+    store = Store("my-endpoint", connector=endpoint_connector)
     register_store(store)
-
-    queues = OctopusQueues(
-        topics=['generation', 'lammps', 'cp2k', 'training', 'assembly'],
-        # proxystore_name='redis',
-        # proxystore_threshold=args.proxy_threshold
+    queues = ProxyQueues(
+        store=store,
+        topics=["generation", "lammps", "cp2k", "training", "assembly"],
+        proxystore_name="my-endpoint",
     )
+    
+    # store = Store(name='redis', connector=RedisConnector(hostname=args.redis_host, port=6379), metrics=True)
+    # register_store(store)
+    # queues = OctopusQueues(
+    #     topics=['generation', 'lammps', 'cp2k', 'training', 'assembly'],
+    #     # proxystore_name='redis',
+    #     # proxystore_threshold=args.proxy_threshold
+    # )
 
     # Load the ligand descriptions
     templates = []
@@ -737,7 +749,7 @@ if __name__ == "__main__":
     my_logger.info(f"Octopus::launch_option={args.launch_option}")
     my_logger.info(f"Octopus::prefix={queues.prefix}")
     my_logger.info(f"Octopus::discard={queues.discard_events_before}")
-    my_logger.info(f"Octopus::redis={args.redis_host}")
+    # my_logger.info(f"Octopus::redis={args.redis_host}")
 
     # Save the run parameters to disk
     (run_dir / 'params.json').write_text(json.dumps(run_params))

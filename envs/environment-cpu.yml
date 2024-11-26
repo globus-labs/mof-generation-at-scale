@@ -38,3 +38,8 @@ dependencies:
   - pip:
     - git+https://gitlab.com/ase/ase.git
     - -e ..[test]
+    - aws-msk-iam-sasl-signer-python
+    - confluent_kafka
+    - proxystore[all]
+    - iterators
+    - setuptools
