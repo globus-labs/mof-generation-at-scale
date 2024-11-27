@@ -1,15 +1,11 @@
 # the implementation here follows Valerie's:
 # https://github.com/ValHayot/mofka-docker/blob/proxystore/mocto/octopus.py
 
-import json
 import logging
 import os
-import pickle
 from datetime import datetime
 from time import time
 from typing import Collection, Dict, Optional, Tuple, Union
-import threading
-from iterators import TimeoutIterator
 
 from aws_msk_iam_sasl_signer import MSKAuthTokenProvider
 from colmena.exceptions import KillSignalException, TimeoutException
@@ -19,7 +15,6 @@ from confluent_kafka import Consumer, Producer
 from proxystore.connectors.endpoint import EndpointConnector
 from proxystore.store import Store, register_store
 from proxystore.stream import StreamConsumer, StreamProducer
-
 from proxystore.stream.shims.kafka import KafkaPublisher, KafkaSubscriber
 
 logger = logging.getLogger(__name__)
@@ -31,9 +26,10 @@ assert os.environ["OCTOPUS_BOOTSTRAP_SERVERS"]
 assert os.environ["PROXYSTORE_GLOBUS_CLIENT_ID"]
 assert os.environ["PROXYSTORE_GLOBUS_CLIENT_SECRET"]
 
-assert os.environ["PROXYSTORE_ENDPOINT"]
+# assert os.environ["PROXYSTORE_ENDPOINT"]
 
-print(os.environ["PROXYSTORE_ENDPOINT"])
+# print(os.environ["PROXYSTORE_ENDPOINT"])
+
 
 class ProxyQueues(ColmenaQueues):
     def __init__(
@@ -50,8 +46,6 @@ class ProxyQueues(ColmenaQueues):
         proxystore_name: Optional[Union[str, Dict[str, str]]] = None,
         proxystore_threshold: Optional[Union[int, Dict[str, int]]] = None,
     ):
-
-
         super().__init__(
             topics,
             serialization_method,
@@ -136,11 +130,14 @@ class ProxyQueues(ColmenaQueues):
         """Disconnect the request producer."""
         if self.request_producer:
             self.request_producer.close()
+            self.request_producer = None
+            print("close!!!")
 
     def disconnect_request_consumer(self):
         """Disconnect the request consumer."""
         if self.request_consumer:
             self.request_consumer.close()
+            self.request_consumer = None
 
     def disconnect_result_consumer(self, topic):
         """Disconnect the result consumer for a specific topic."""
@@ -179,13 +176,17 @@ class ProxyQueues(ColmenaQueues):
             self.request_producer.send(octopus_topic, message, evict=True)
             self.request_producer.flush_topic(octopus_topic)
         except Exception as e:
-            print(f"Error producing message: {e}")
+            print(
+                f"Error producing message: {e}, {self.request_producer}, {type(self.request_producer)}"
+            )
 
     def _send_request(self, message: str, topic: str):
         self.connect_request_producer()
         queue = f"{self.prefix}_requests"
         event = {"message": message, "topic": topic}
+        print("_send_request", 123)
         self._publish_event(event, queue)
+        print("_send_request", 456)
 
     def _get_message(
         self,
@@ -197,38 +198,24 @@ class ProxyQueues(ColmenaQueues):
         # timeout *= 1000  # to ms
         assert consumer, "consumer should be initialized"
 
-        if not timeout or timeout == 0:
-            print("here1")
+        try:
             while True:
                 event = consumer.next_object()
                 if event:  # gives None if there is a timeout
                     print("event here:", event)
                     return event
-
-        else:
-            print("here2")
-            consumer_iter = consumer.iter_objects()
-            consumer_iter = TimeoutIterator(consumer_iter, timeout=timeout)
-            
-        try:
-            while True:  # blocks indefinitely
-                for event in consumer_iter:
-                    if event:  # gives None if there is a timeout
-                        print("event here:", event)
-                        return event
-
-                # event = consumer.next_object()
-                # return event
+                else:
+                    print("event is None")
 
         except Exception as e:
-            print(f"Error consuming message: {e}, {consumer}, {timeout}")
+            print(f"Error consuming message: {e}, {timeout}")
             raise TimeoutException()
-    
 
     def _get_request(self, timeout: float = None) -> Tuple[str, str]:
         self.connect_request_consumer()
-
+        print("_get_request", 123)
         event = self._get_message(self.request_consumer, timeout)
+        print("_get_request", 456)
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         logger.warning(f"ProxyQueues::request event:: {current_time}, event={event}")
         if event["message"].endswith("null"):
@@ -257,29 +244,24 @@ class ProxyQueues(ColmenaQueues):
 
 
 if __name__ == "__main__":
-    # print(os.environ["PROXYSTORE_ENDPOINT"])
-    
-    # endpoint_connector = EndpointConnector([os.environ["PROXYSTORE_ENDPOINT"]])
-    
     endpoints = [
-        "f4b4290b-8d3f-413e-882e-a2932213ade2",
-        "074b70c1-c85e-4e18-af86-70b443dfac0f"
+        "41a566dd-d9b0-4c57-99ab-d16a8f1a0e54",
     ]
     endpoint_connector = EndpointConnector(endpoints)
-    
-    store = Store("my-endpoint2", connector=endpoint_connector)
+
+    store = Store("my-store", connector=endpoint_connector)
     register_store(store)
-    
+
     queues = ProxyQueues(
         store=store,
         topics=["generation", "lammps", "cp2k", "training", "assembly"],
-        proxystore_name="my-endpoint2",
+        proxystore_name="my-store",
     )
     print(queues)
     print(queues.topics)
 
-    queues.connect_request_producer()
-    queues.connect_request_consumer()
+    # queues.connect_request_producer()
+    # queues.connect_request_consumer()
     # for topic in queues.topics:
     #     queues.connect_result_consumer(topic)
 
@@ -291,6 +273,6 @@ if __name__ == "__main__":
     # print(queues_loaded.request_consumer)
     # print(queues_loaded.result_consumers)
 
-    queues._send_request("123", "generation")
-    queues._get_message(queues.request_consumer, 0)
+    # queues._send_request("123", "generation")
+    # queues._get_message(queues.request_consumer)
     # print("here")

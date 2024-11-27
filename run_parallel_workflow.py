@@ -48,8 +48,7 @@ from mofa.utils.conversions import write_to_string
 from mofa.hpc.colmena import DiffLinkerInference
 from mofa import db as mofadb
 from mofa.hpc.config import configs as hpc_configs, HPCConfig
-from mofa.octopus import OctopusQueues
-from mofa.proxystream import ProxyQueues
+from mofa.proxyqueue import ProxyQueues
 
 RDLogger.DisableLog('rdApp.*')
 ob.obErrorLog.SetOutputLevel(0)
@@ -631,7 +630,8 @@ if __name__ == "__main__":
 
     # Open a proxystore with Redis
     
-    endpoint_connector = EndpointConnector([os.environ["PROXYSTORE_ENDPOINT"]])
+    # endpoint_connector = EndpointConnector([os.environ["PROXYSTORE_ENDPOINT"]])
+    endpoint_connector = EndpointConnector([ "41a566dd-d9b0-4c57-99ab-d16a8f1a0e54",])
     store = Store("my-endpoint", connector=endpoint_connector)
     register_store(store)
     queues = ProxyQueues(
