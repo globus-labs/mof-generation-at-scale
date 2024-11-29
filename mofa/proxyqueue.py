@@ -244,6 +244,10 @@ if __name__ == "__main__":
     #     print(queues._send_result("_send_result message111", "generation"))
     #     print(queues._send_result("_send_result message222", "generation"))
 
+    # for future impl for ColmenaQueues:
+    # it's very importantant to ensure serilization works
+    # otherwise it would cause silent errors in MOFA,
+    # causing future operation to fail
     # queues_dumped = pickle.dumps(queues)
     # queues_loaded = pickle.loads(queues_dumped)
     # for i in range(10):
