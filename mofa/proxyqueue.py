@@ -3,15 +3,16 @@
 
 import logging
 import os
+import pickle
 from datetime import datetime
-from time import time
+from time import sleep, time
 from typing import Collection, Dict, Optional, Tuple, Union
 
 from aws_msk_iam_sasl_signer import MSKAuthTokenProvider
 from colmena.exceptions import KillSignalException, TimeoutException
 from colmena.models import SerializationMethod
 from colmena.queue.base import ColmenaQueues
-from confluent_kafka import Consumer, Producer
+from confluent_kafka import Consumer, Producer, TopicPartition
 from proxystore.connectors.endpoint import EndpointConnector
 from proxystore.store import Store, register_store
 from proxystore.stream import StreamConsumer, StreamProducer
@@ -25,20 +26,43 @@ assert os.environ["OCTOPUS_BOOTSTRAP_SERVERS"]
 
 assert os.environ["PROXYSTORE_GLOBUS_CLIENT_ID"]
 assert os.environ["PROXYSTORE_GLOBUS_CLIENT_SECRET"]
+assert os.environ["PROXYSTORE_ENDPOINT"]
 
-# assert os.environ["PROXYSTORE_ENDPOINT"]
 
-# print(os.environ["PROXYSTORE_ENDPOINT"])
+def oauth_cb(oauth_config):
+    auth_token, expiry_ms = MSKAuthTokenProvider.generate_auth_token("us-east-1")
+    print("oauth_cb", auth_token)
+    return auth_token, expiry_ms / 1000
+
+
+def confluent_producer_conf():
+    return {
+        "bootstrap.servers": os.environ["OCTOPUS_BOOTSTRAP_SERVERS"],
+        "security.protocol": "SASL_SSL",
+        "sasl.mechanisms": "OAUTHBEARER",
+        "oauth_cb": oauth_cb,
+    }
+
+
+def confluent_consumer_conf(group_id: str, auto_offset_reset: str):
+    return {
+        # "debug": "all",
+        "bootstrap.servers": os.environ["OCTOPUS_BOOTSTRAP_SERVERS"],
+        "security.protocol": "SASL_SSL",
+        "sasl.mechanisms": "OAUTHBEARER",
+        "oauth_cb": oauth_cb,
+        "group.id": group_id,
+        "auto.offset.reset": auto_offset_reset,
+    }
 
 
 class ProxyQueues(ColmenaQueues):
     def __init__(
         self,
-        store,
         topics: Collection[str],
         prefix: str = "mofa_test2",
+        group_id: str = "my-mofa-group",
         auto_offset_reset: str = "earliest",
-        discard_events_before: int = int(time() * 1000),
         serialization_method: Union[
             str, SerializationMethod
         ] = SerializationMethod.PICKLE,
@@ -53,97 +77,65 @@ class ProxyQueues(ColmenaQueues):
             proxystore_name,
             proxystore_threshold,
         )
+
         # self.topics in handled in super
-        self.store = store
         self.prefix = prefix
+        self.group_id = group_id
         self.auto_offset_reset = auto_offset_reset
-        self.discard_events_before = discard_events_before
+
+        self.proxy_topics = [f"{self.prefix}_requests"]
+        for topic in self.topics:
+            self.proxy_topics.append(f"{self.prefix}_{topic}_result")
+
+        self.endpoint = os.environ["PROXYSTORE_ENDPOINT"]
+        self.endpoint_connector = None
+        self.store = None
 
         self.request_producer = None
         self.request_consumer = None
         self.result_consumers = {}
 
-    def octopus_conf(self, group_id: str | None, auto_offset_reset: str):
-        REGION = "us-east-1"
-        assert os.environ["OCTOPUS_AWS_ACCESS_KEY_ID"]
-        assert os.environ["OCTOPUS_AWS_SECRET_ACCESS_KEY"]
-        assert os.environ["OCTOPUS_BOOTSTRAP_SERVERS"]
-
-        def oauth_cb(oauth_config):
-            auth_token, expiry_ms = MSKAuthTokenProvider.generate_auth_token(REGION)
-            return auth_token, expiry_ms / 1000
-
-        conf = {
-            "bootstrap.servers": os.environ["OCTOPUS_BOOTSTRAP_SERVERS"],
-            "security.protocol": "SASL_SSL",
-            "sasl.mechanisms": "OAUTHBEARER",
-            "oauth_cb": oauth_cb,
-            "group.id": group_id,
-            "auto.offset.reset": auto_offset_reset,
-        }
-
-        return conf
-
     def connect_request_producer(self):
-        """Connect the request producer."""
+        if not self.endpoint_connector:
+            self.endpoint_connector = EndpointConnector([self.endpoint])
+            self.store = Store("my-store", connector=self.endpoint_connector)
+
         if not isinstance(self.request_producer, StreamProducer):
-            conf = self.octopus_conf("my-group", self.auto_offset_reset)
-            producer = Producer(conf)
+            producer = Producer(confluent_producer_conf())
             publisher = KafkaPublisher(client=producer)
-
-            proxy_topics = [f"{self.prefix}_requests"]
-            for topic in self.topics:
-                proxy_topic = f"{self.prefix}_{topic}_result"
-                proxy_topics.append(proxy_topic)
-            # print("proxy_topics", proxy_topics)
-
-            oprod = StreamProducer(
-                publisher=publisher, stores={k: self.store for k in proxy_topics}
+            self.request_producer = StreamProducer(
+                publisher=publisher,
+                stores={k: self.store for k in self.proxy_topics},
             )
-            self.request_producer = oprod
 
     def connect_request_consumer(self):
-        """Connect the request consumer."""
         if not isinstance(self.request_consumer, StreamConsumer):
-            conf = self.octopus_conf("my-group", self.auto_offset_reset)
-            consumer = Consumer(conf)
+            consumer = Consumer(
+                confluent_consumer_conf(self.group_id, self.auto_offset_reset)
+            )
             request_topic = f"{self.prefix}_requests"
-            consumer.subscribe([request_topic])
+            # consumer.subscribe([request_topic])
+            topic_partition = TopicPartition(request_topic, partition=0)
+            consumer.assign([topic_partition])
             subscriber = KafkaSubscriber(client=consumer)
-            oconsumer = StreamConsumer(subscriber=subscriber)
-            self.request_consumer = oconsumer
+            self.request_consumer = StreamConsumer(
+                subscriber=subscriber,
+            )
 
     def connect_result_consumer(self, topic):
-        """Connect a result consumer for a specific topic."""
         if (topic not in self.result_consumers) or not isinstance(
             self.result_consumers[topic], StreamConsumer
         ):
-            conf = self.octopus_conf("my-group", self.auto_offset_reset)
-            consumer = Consumer(conf)
+            consumer = Consumer(
+                confluent_consumer_conf(self.group_id, self.auto_offset_reset)
+            )
             result_topic = f"{self.prefix}_{topic}_result"
             consumer.subscribe([result_topic])
             subscriber = KafkaSubscriber(client=consumer)
-            oconsumer = StreamConsumer(subscriber=subscriber)
+            oconsumer = StreamConsumer(
+                subscriber=subscriber,
+            )
             self.result_consumers[topic] = oconsumer
-
-    def disconnect_request_producer(self):
-        """Disconnect the request producer."""
-        if self.request_producer:
-            self.request_producer.close()
-            self.request_producer = None
-            print("close!!!")
-
-    def disconnect_request_consumer(self):
-        """Disconnect the request consumer."""
-        if self.request_consumer:
-            self.request_consumer.close()
-            self.request_consumer = None
-
-    def disconnect_result_consumer(self, topic):
-        """Disconnect the result consumer for a specific topic."""
-        consumer = self.result_consumers.pop(topic, None)
-        if consumer:
-            consumer.close()
 
     def __getstate__(self):
         state = super().__getstate__()
@@ -157,35 +149,27 @@ class ProxyQueues(ColmenaQueues):
         for topic in list(self.result_consumers.keys()):
             state["result_consumers"][topic] = "connected"
 
+        state["endpoint_connector"] = None
+        state["store"] = None
+
         return state
 
     def __setstate__(self, state):
         super().__setstate__(state)
+        # only needed producers and consumers will be recreated
 
-        if self.request_producer:
-            self.connect_request_producer()
-
-        if self.request_consumer:
-            self.connect_request_consumer()
-
-        for topic in list(self.result_consumers.keys()):
-            self.connect_result_consumer(topic)
-
-    def _publish_event(self, message, octopus_topic):
+    def _publish_event(self, message, proxy_topic):
         try:
-            self.request_producer.send(octopus_topic, message, evict=True)
-            self.request_producer.flush_topic(octopus_topic)
+            self.request_producer.send(proxy_topic, message, evict=True)
+            self.request_producer.flush_topic(proxy_topic)
         except Exception as e:
-            print(
-                f"Error producing message: {e}, {self.request_producer}, {type(self.request_producer)}"
-            )
+            print(f"Error producing message: {e}")
 
     def _send_request(self, message: str, topic: str):
         self.connect_request_producer()
-        queue = f"{self.prefix}_requests"
         event = {"message": message, "topic": topic}
         print("_send_request", 123)
-        self._publish_event(event, queue)
+        self._publish_event(event, f"{self.prefix}_requests")
         print("_send_request", 456)
 
     def _get_message(
@@ -198,20 +182,11 @@ class ProxyQueues(ColmenaQueues):
         # timeout *= 1000  # to ms
         assert consumer, "consumer should be initialized"
 
-        try:
-            while True:
-                event = consumer.next_object()
-                if event:  # gives None if there is a timeout
-                    print("event here:", event)
-                    return event
-                else:
-                    print("event is None")
-
-        except Exception as e:
-            print(f"Error consuming message: {e}, {timeout}")
-            raise TimeoutException()
+        event = consumer.next_object()
+        return event
 
     def _get_request(self, timeout: float = None) -> Tuple[str, str]:
+        print("_get_request", 0)
         self.connect_request_consumer()
         print("_get_request", 123)
         event = self._get_message(self.request_consumer, timeout)
@@ -225,54 +200,54 @@ class ProxyQueues(ColmenaQueues):
         return topic, message
 
     def _send_result(self, message: str, topic: str):
+        print("_send_result", 123)
         self.connect_request_producer()
-        queue = f"{self.prefix}_{topic}_result"
-        self._publish_event(message, queue)
+        print("_send_result", 456)
+        self._publish_event(message, f"{self.prefix}_{topic}_result")
+        print("_send_result", 789)
 
     def _get_result(self, topic: str, timeout: int = None) -> str:
+        print("_get_result", 0)
         self.connect_result_consumer(topic)
+        print("_get_result", 123)
         consumer = self.result_consumers.get(topic)
         if not consumer:
             raise ConnectionError(
                 f"No consumer connected for topic '{topic}'. Did you call 'connect_result_consumer('{topic}')'?"
             )
-
+        print("_get_result", 124)
         event = self._get_message(consumer, timeout)
+        print("_get_result", 456)
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         logger.warning(f"ProxyQueues::result event:: {current_time}, event={event}")
         return event
 
 
 if __name__ == "__main__":
-    endpoints = [
-        "41a566dd-d9b0-4c57-99ab-d16a8f1a0e54",
-    ]
-    endpoint_connector = EndpointConnector(endpoints)
-
-    store = Store("my-store", connector=endpoint_connector)
-    register_store(store)
-
     queues = ProxyQueues(
-        store=store,
         topics=["generation", "lammps", "cp2k", "training", "assembly"],
-        proxystore_name="my-store",
     )
-    print(queues)
-    print(queues.topics)
+    assert not any(
+        queues.proxystore_name.values()
+    )  # disable internal use of proxystore
+    assert not any(
+        queues.proxystore_threshold.values()
+    )  # disable internal use of proxystore
+    assert len(queues.topics) == 6  # including the 'default' topic
 
     # queues.connect_request_producer()
     # queues.connect_request_consumer()
-    # for topic in queues.topics:
-    #     queues.connect_result_consumer(topic)
+
+    # for i in range(10):
+    #     print(queues._send_request("1234", "generation"))
+    #     print(queues._send_request("4568", "generation"))
+    #     print(queues._send_result("_send_result message111", "generation"))
+    #     print(queues._send_result("_send_result message222", "generation"))
 
     # queues_dumped = pickle.dumps(queues)
-    # print(queues_dumped)
-
     # queues_loaded = pickle.loads(queues_dumped)
-    # print(queues_loaded.request_producer)
-    # print(queues_loaded.request_consumer)
-    # print(queues_loaded.result_consumers)
-
-    # queues._send_request("123", "generation")
-    # queues._get_message(queues.request_consumer)
-    # print("here")
+    # for i in range(10):
+    #     print(queues_loaded._get_request())
+    #     print(queues_loaded._get_request())
+    #     print(queues_loaded._get_result("generation"))
+    #     print(queues_loaded._get_result("generation"))

@@ -24,7 +24,6 @@ import os
 
 import pymongo
 from proxystore.connectors.endpoint import EndpointConnector
-from proxystore.connectors.redis import RedisConnector
 from proxystore.store import Store, register_store
 from rdkit import RDLogger
 from openbabel import openbabel as ob
@@ -609,7 +608,6 @@ if __name__ == "__main__":
     group.add_argument('--compute-config', default='local', help='Configuration for the HPC system')
     group.add_argument('--ai-fraction', default=0.1, type=float, help='Fraction of workers devoted to AI tasks')
     group.add_argument('--dft-fraction', default=0.1, type=float, help='Fraction of workers devoted to DFT tasks')
-    group.add_argument('--redis-host', default=node(), help='Host for the Redis server')
     group.add_argument('--proxy-threshold', default=10000, type=int, help='Size threshold to use proxystore for data (bytes)')
 
     group = parser.add_argument_group(title='Mini App Settings', description='Mini App and Octopus configuration')
@@ -628,25 +626,16 @@ if __name__ == "__main__":
     run_dir = Path('run') / f'parallel-{args.compute_config}-{start_time.strftime("%d%b%y%H%M%S")}-{params_hash}'
     run_dir.mkdir(parents=True)
 
-    # Open a proxystore with Redis
-    
-    # endpoint_connector = EndpointConnector([os.environ["PROXYSTORE_ENDPOINT"]])
-    endpoint_connector = EndpointConnector([ "41a566dd-d9b0-4c57-99ab-d16a8f1a0e54",])
-    store = Store("my-endpoint", connector=endpoint_connector)
+    # for DiffLinkerInference
+    assert os.environ["PROXYSTORE_ENDPOINT"]
+    endpoint_connector = EndpointConnector([os.environ["PROXYSTORE_ENDPOINT"]])
+    store = Store("my-store", connector=endpoint_connector)
     register_store(store)
+
+    # for Thinker - TaskServer communication
     queues = ProxyQueues(
-        store=store,
         topics=["generation", "lammps", "cp2k", "training", "assembly"],
-        proxystore_name="my-endpoint",
     )
-    
-    # store = Store(name='redis', connector=RedisConnector(hostname=args.redis_host, port=6379), metrics=True)
-    # register_store(store)
-    # queues = OctopusQueues(
-    #     topics=['generation', 'lammps', 'cp2k', 'training', 'assembly'],
-    #     # proxystore_name='redis',
-    #     # proxystore_threshold=args.proxy_threshold
-    # )
 
     # Load the ligand descriptions
     templates = []
@@ -746,10 +735,8 @@ if __name__ == "__main__":
         logger.setLevel(logging.INFO)
     my_logger.info(f'Running job in {run_dir} on {hpc_config.num_workers} workers')
 
-    my_logger.info(f"Octopus::launch_option={args.launch_option}")
-    my_logger.info(f"Octopus::prefix={queues.prefix}")
-    my_logger.info(f"Octopus::discard={queues.discard_events_before}")
-    # my_logger.info(f"Octopus::redis={args.redis_host}")
+    my_logger.info(f"ProxyQueues::launch_option={args.launch_option}")
+    my_logger.info(f"ProxyQueues::prefix={queues.prefix}")
 
     # Save the run parameters to disk
     (run_dir / 'params.json').write_text(json.dumps(run_params))
