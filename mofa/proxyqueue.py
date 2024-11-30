@@ -28,6 +28,9 @@ assert os.environ["PROXYSTORE_GLOBUS_CLIENT_ID"]
 assert os.environ["PROXYSTORE_GLOBUS_CLIENT_SECRET"]
 assert os.environ["PROXYSTORE_ENDPOINT"]
 
+os.environ["AWS_ACCESS_KEY_ID"] = os.environ["OCTOPUS_AWS_ACCESS_KEY_ID"]
+os.environ["AWS_SECRET_ACCESS_KEY"] = os.environ["OCTOPUS_AWS_SECRET_ACCESS_KEY"]
+
 
 def oauth_cb(oauth_config):
     auth_token, expiry_ms = MSKAuthTokenProvider.generate_auth_token("us-east-1")
@@ -168,9 +171,7 @@ class ProxyQueues(ColmenaQueues):
     def _send_request(self, message: str, topic: str):
         self.connect_request_producer()
         event = {"message": message, "topic": topic}
-        print("_send_request", 123)
         self._publish_event(event, f"{self.prefix}_requests")
-        print("_send_request", 456)
 
     def _get_message(
         self,
@@ -186,11 +187,8 @@ class ProxyQueues(ColmenaQueues):
         return event
 
     def _get_request(self, timeout: float = None) -> Tuple[str, str]:
-        print("_get_request", 0)
         self.connect_request_consumer()
-        print("_get_request", 123)
         event = self._get_message(self.request_consumer, timeout)
-        print("_get_request", 456)
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         logger.warning(f"ProxyQueues::request event:: {current_time}, event={event}")
         if event["message"].endswith("null"):
@@ -200,24 +198,17 @@ class ProxyQueues(ColmenaQueues):
         return topic, message
 
     def _send_result(self, message: str, topic: str):
-        print("_send_result", 123)
         self.connect_request_producer()
-        print("_send_result", 456)
         self._publish_event(message, f"{self.prefix}_{topic}_result")
-        print("_send_result", 789)
 
     def _get_result(self, topic: str, timeout: int = None) -> str:
-        print("_get_result", 0)
         self.connect_result_consumer(topic)
-        print("_get_result", 123)
         consumer = self.result_consumers.get(topic)
         if not consumer:
             raise ConnectionError(
                 f"No consumer connected for topic '{topic}'. Did you call 'connect_result_consumer('{topic}')'?"
             )
-        print("_get_result", 124)
         event = self._get_message(consumer, timeout)
-        print("_get_result", 456)
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         logger.warning(f"ProxyQueues::result event:: {current_time}, event={event}")
         return event
@@ -235,23 +226,23 @@ if __name__ == "__main__":
     )  # disable internal use of proxystore
     assert len(queues.topics) == 6  # including the 'default' topic
 
-    # queues.connect_request_producer()
-    # queues.connect_request_consumer()
+    queues.connect_request_producer()
+    queues.connect_request_consumer()
 
-    # for i in range(10):
-    #     print(queues._send_request("1234", "generation"))
-    #     print(queues._send_request("4568", "generation"))
-    #     print(queues._send_result("_send_result message111", "generation"))
-    #     print(queues._send_result("_send_result message222", "generation"))
+    for i in range(10):
+        print(queues._send_request("1234", "generation"))
+        print(queues._send_request("4568", "generation"))
+        print(queues._send_result("_send_result message111", "generation"))
+        print(queues._send_result("_send_result message222", "generation"))
 
     # for future impl for ColmenaQueues:
     # it's very importantant to ensure serilization works
     # otherwise it would cause silent errors in MOFA,
     # causing future operation to fail
-    # queues_dumped = pickle.dumps(queues)
-    # queues_loaded = pickle.loads(queues_dumped)
-    # for i in range(10):
-    #     print(queues_loaded._get_request())
-    #     print(queues_loaded._get_request())
-    #     print(queues_loaded._get_result("generation"))
-    #     print(queues_loaded._get_result("generation"))
+    queues_dumped = pickle.dumps(queues)
+    queues_loaded = pickle.loads(queues_dumped)
+    for i in range(10):
+        print(queues_loaded._get_request())
+        print(queues_loaded._get_request())
+        print(queues_loaded._get_result("generation"))
+        print(queues_loaded._get_result("generation"))
