@@ -6,30 +6,41 @@ import os
 import pickle
 from datetime import datetime
 from time import sleep, time
-from typing import Collection, Dict, Optional, Tuple, Union
+from typing import Collection, Dict, Optional, Tuple, Union, Literal
+from uuid import uuid4
 
-from aws_msk_iam_sasl_signer import MSKAuthTokenProvider
 from colmena.exceptions import KillSignalException, TimeoutException
 from colmena.models import SerializationMethod
 from colmena.queue.base import ColmenaQueues
-from confluent_kafka import Consumer, Producer, TopicPartition
 from proxystore.connectors.endpoint import EndpointConnector
 from proxystore.store import Store, register_store
 from proxystore.stream import StreamConsumer, StreamProducer
-from proxystore.stream.shims.kafka import KafkaPublisher, KafkaSubscriber
 
 logger = logging.getLogger(__name__)
 
-assert os.environ["OCTOPUS_AWS_ACCESS_KEY_ID"]
-assert os.environ["OCTOPUS_AWS_SECRET_ACCESS_KEY"]
-assert os.environ["OCTOPUS_BOOTSTRAP_SERVERS"]
+ENGINE: Literal["octopus", "mofka"] = os.environ["STREAM_ENGINE"]
 
-assert os.environ["PROXYSTORE_GLOBUS_CLIENT_ID"]
-assert os.environ["PROXYSTORE_GLOBUS_CLIENT_SECRET"]
-assert os.environ["PROXYSTORE_ENDPOINT"]
+if ENGINE == "octopus":
+    from aws_msk_iam_sasl_signer import MSKAuthTokenProvider
+    from confluent_kafka import Consumer, Producer, TopicPartition
+    from proxystore.stream.shims.kafka import KafkaPublisher, KafkaSubscriber
 
-os.environ["AWS_ACCESS_KEY_ID"] = os.environ["OCTOPUS_AWS_ACCESS_KEY_ID"]
-os.environ["AWS_SECRET_ACCESS_KEY"] = os.environ["OCTOPUS_AWS_SECRET_ACCESS_KEY"]
+    assert os.environ["OCTOPUS_AWS_ACCESS_KEY_ID"]
+    assert os.environ["OCTOPUS_AWS_SECRET_ACCESS_KEY"]
+    assert os.environ["OCTOPUS_BOOTSTRAP_SERVERS"]
+
+    assert os.environ["PROXYSTORE_GLOBUS_CLIENT_ID"]
+    assert os.environ["PROXYSTORE_GLOBUS_CLIENT_SECRET"]
+    assert os.environ["PROXYSTORE_ENDPOINT"]
+
+    os.environ["AWS_ACCESS_KEY_ID"] = os.environ["OCTOPUS_AWS_ACCESS_KEY_ID"]
+    os.environ["AWS_SECRET_ACCESS_KEY"] = os.environ["OCTOPUS_AWS_SECRET_ACCESS_KEY"]
+else:
+    from proxystore.ex.stream.shims.mofka import MofkaSubscriber
+    from proxystore.ex.stream.shims.mofka import MofkaPublisher
+
+    assert (MOFKA_GROUPFILE := os.environ["MOFKA_GROUPFILE"])
+    assert (MOFKA_PROTOCOL := os.environ["MOFKA_PROTOCOL"])
 
 
 def oauth_cb(oauth_config):
@@ -99,17 +110,24 @@ class ProxyQueues(ColmenaQueues):
         self.result_consumers = {}
 
     def connect_request_producer(self):
-        if not self.endpoint_connector:
-            self.endpoint_connector = EndpointConnector([self.endpoint])
-            self.store = Store("my-store", connector=self.endpoint_connector)
 
-        if not isinstance(self.request_producer, StreamProducer):
-            producer = Producer(confluent_producer_conf())
-            publisher = KafkaPublisher(client=producer)
-            self.request_producer = StreamProducer(
-                publisher=publisher,
-                stores={k: self.store for k in self.proxy_topics},
+        if ENGINE == "octopus":
+            if not self.endpoint_connector:
+                self.endpoint_connector = EndpointConnector([self.endpoint])
+                self.store = Store("my-store", connector=self.endpoint_connector)
+
+            if not isinstance(self.request_producer, StreamProducer):
+                producer = Producer(confluent_producer_conf())
+                publisher = KafkaPublisher(client=producer)
+                self.request_producer = StreamProducer(
+                    publisher=publisher,
+                    stores={k: self.store for k in self.proxy_topics},
+                )
+        else:
+            publisher = MofkaPublisher(
+                protocol=MOFKA_PROTOCOL, group_file=MOFKA_GROUPFILE
             )
+            self.request_producer = StreamProducer(publisher=publisher)
 
     def connect_request_consumer(self):
         if not isinstance(self.request_consumer, StreamConsumer):
@@ -129,12 +147,22 @@ class ProxyQueues(ColmenaQueues):
         if (topic not in self.result_consumers) or not isinstance(
             self.result_consumers[topic], StreamConsumer
         ):
-            consumer = Consumer(
-                confluent_consumer_conf(self.group_id, self.auto_offset_reset)
-            )
             result_topic = f"{self.prefix}_{topic}_result"
-            consumer.subscribe([result_topic])
-            subscriber = KafkaSubscriber(client=consumer)
+
+            if ENGINE == "octopus":
+                consumer = Consumer(
+                    confluent_consumer_conf(self.group_id, self.auto_offset_reset)
+                )
+                consumer.subscribe([result_topic])
+                subscriber = KafkaSubscriber(client=consumer)
+            else:
+                subscriber = MofkaSubscriber(
+                    protocol=MOFKA_PROTOCOL,
+                    group_file=MOFKA_GROUPFILE,
+                    topic_name=topic,
+                    subscriber_name=str(f"MOFA-{uuid4()}"),
+                )
+
             oconsumer = StreamConsumer(
                 subscriber=subscriber,
             )
