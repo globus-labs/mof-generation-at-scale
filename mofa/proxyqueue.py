@@ -164,7 +164,7 @@ class ProxyQueues(ColmenaQueues):
             else:
                 subscriber = MofkaSubscriber(
                     group_file=MOFKA_GROUPFILE,
-                    topic_name=topic,
+                    topic_name=result_topic,
                     subscriber_name=str(f"MOFA-result-{uuid4()}"),
                 )
 
