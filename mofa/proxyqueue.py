@@ -132,11 +132,11 @@ class ProxyQueues(ColmenaQueues):
     def connect_request_consumer(self):
         if not isinstance(self.request_consumer, StreamConsumer):
 
+            request_topic = f"{self.prefix}_requests"
             if ENGINE == "octopus":
                 consumer = Consumer(
                     confluent_consumer_conf(self.group_id, self.auto_offset_reset)
                 )
-                request_topic = f"{self.prefix}_requests"
                 # consumer.subscribe([request_topic])
                 topic_partition = TopicPartition(request_topic, partition=0)
                 consumer.assign([topic_partition])
