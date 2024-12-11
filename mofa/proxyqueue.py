@@ -40,7 +40,7 @@ else:
     from proxystore.ex.stream.shims.mofka import MofkaPublisher
 
     assert (MOFKA_GROUPFILE := os.environ["MOFKA_GROUPFILE"])
-    assert (MOFKA_PROTOCOL := os.environ["MOFKA_PROTOCOL"])
+    assert os.environ["MOFKA_PROTOCOL"]
 
 
 def oauth_cb(oauth_config):
@@ -124,9 +124,7 @@ class ProxyQueues(ColmenaQueues):
                     stores={k: self.store for k in self.proxy_topics},
                 )
         else:
-            publisher = MofkaPublisher(
-                protocol=MOFKA_PROTOCOL, group_file=MOFKA_GROUPFILE
-            )
+            publisher = MofkaPublisher(group_file=MOFKA_GROUPFILE)
             self.request_producer = StreamProducer(publisher=publisher)
 
     def connect_request_consumer(self):
@@ -143,7 +141,6 @@ class ProxyQueues(ColmenaQueues):
                 subscriber = KafkaSubscriber(client=consumer)
             else:
                 subscriber = MofkaSubscriber(
-                    protocol=MOFKA_PROTOCOL,
                     group_file=MOFKA_GROUPFILE,
                     topic_name=request_topic,
                     subscriber_name=str(f"MOFA-request-{uuid4()}"),
@@ -166,7 +163,6 @@ class ProxyQueues(ColmenaQueues):
                 subscriber = KafkaSubscriber(client=consumer)
             else:
                 subscriber = MofkaSubscriber(
-                    protocol=MOFKA_PROTOCOL,
                     group_file=MOFKA_GROUPFILE,
                     topic_name=topic,
                     subscriber_name=str(f"MOFA-result-{uuid4()}"),
