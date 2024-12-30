@@ -3,6 +3,8 @@ from rdkit import Chem
 
 from mofa.model import LigandDescription
 from mofa.utils.xyz import xyz_to_mol
+from mofa.assembly.smiles_props import *
+
 
 
 def process_ligands(ligands: list[LigandDescription]) -> tuple[list[LigandDescription], list[dict]]:
@@ -26,6 +28,9 @@ def process_ligands(ligands: list[LigandDescription]) -> tuple[list[LigandDescri
                   "smiles": None,
                   "xyz": ligand.xyz,
                   "prompt_atoms": ligand.prompt_atoms,
+                  "hmof_tani_sim": None,
+                  "sascore": None,
+                  "rd_embed": None,
                   "valid": False}
         all_records.append(record)  # Record is still editable even after added to list
 
@@ -51,6 +56,17 @@ def process_ligands(ligands: list[LigandDescription]) -> tuple[list[LigandDescri
 
         # If passes, save the SMILES string and store the molecules
         ligand.smiles = Chem.MolToSmiles(mol)
+
+        # Add subsequent properties, assuming everything else has passed
+        hmof_tani_sim = mol_to_hmof_tani(Chem.AddHs(mol))
+        record['hmof_tani_sim'] = hmof_tani_sim
+        ligand.hmof_tani_sim = hmof_tani_sim
+        sascore = SAscore_model(ligand.smiles)
+        record['sascore'] = sascore
+        ligand.sascore = sascore
+        rd_embed = mol_to_embed(Chem.AddHs(mol))
+        record['rd_embed'] = rd_embed
+        ligand.rd_embed = rd_embed
 
         # Update the record, add to ligand queue and prepare it for writing to disk
         record['valid'] = True

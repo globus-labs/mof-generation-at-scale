@@ -169,8 +169,16 @@ class LigandDescription:
     prompt_atoms: list[list[int]] | None = field(default=None, repr=True)
     """Groups of atoms which attach to the nodes
 
+    
     There are typically two groups of fragment atoms, and these are
     never altered during MOF generation."""
+    # SMILES properties
+    hmof_tani_sim: float | None = field(default=None)
+    """Maximum Tanimoto similarity between the ligand and those in HMOF"""
+    sascore: float | None = field(default=None)
+    """Synthesizability score of the ligand"""
+    rd_embed: list[float] | None = field(default=None)
+    
     dummy_element: str = field(default=None, repr=False)
     """Element used to represent the anchor group during assembly"""
 

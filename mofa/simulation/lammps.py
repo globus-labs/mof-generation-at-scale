@@ -37,7 +37,8 @@ class LAMMPSRunner:
         self.lammps_command = lammps_command
         self.lmp_sims_root_path = lmp_sims_root_path
         os.makedirs(self.lmp_sims_root_path, exist_ok=True)
-        self.lammps_environ = lammps_environ.copy()
+        #self.lammps_environ = lammps_environ.copy()
+        self.lammps_environ = lammps_environ
         self.delete_finished = delete_finished
 
     def prep_molecular_dynamics_single(self, run_name: str, atoms: ase.Atoms, timesteps: int, report_frequency: int, stepsize_fs: float = 0.5) -> str:
