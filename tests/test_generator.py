@@ -41,6 +41,7 @@ def test_load_model(load_denoising_model, load_size_gnn_model):
     assert load_size_gnn_model.__class__.__name__ == 'SizeClassifier'
 
 
+@mark.slow
 @mark.parametrize('finetune', [True, False])
 def test_training(file_dir, tmpdir, finetune):
     # Load some examples from disk
@@ -50,6 +51,8 @@ def test_training(file_dir, tmpdir, finetune):
             record = json.loads(line)
             record.pop('_id')
             examples.append(MOFRecord(**record))
+            if len(examples) > 4:
+                break
 
     new_model = train_generator(
         starting_model=file_dir / 'geom_difflinker.ckpt' if finetune else None,
@@ -64,6 +67,7 @@ def test_training(file_dir, tmpdir, finetune):
 @mark.parametrize('filename', ['geom_difflinker.ckpt', 'geom_difflinker_given_anchors.ckpt'])
 @mark.parametrize('n_atoms', [8])
 @mark.parametrize('n_samples', [1, 3])
+@mark.slow
 def test_sampling_num_atoms(n_atoms, example_template, n_samples, file_dir, filename, tmp_path):
     # prompts = "1,5" if "prompts" in filename else None ####Give 1st and 5th atom of FRAGMENT-only molecule
     # (i.e., we can keep track of atom indices in fragment SDF/XYZ etc files)

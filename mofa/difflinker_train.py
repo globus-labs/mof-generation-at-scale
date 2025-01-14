@@ -105,6 +105,7 @@ def get_args(args: list[str]) -> argparse.Namespace:
     p.add_argument('--inpainting', action='store_true', default=False, help='Inpainting mode (full generation)')
     p.add_argument('--remove_anchors_context', action='store_true', default=False, help='Remove anchors context')
     p.add_argument('--dataset_override', type=str, default="", help="Dataset override flag - set to MOFA for retraining")
+    p.add_argument('--strategy', help="Strategy used for parallel training")
     disable_rdkit_logging()
 
     return p.parse_args(args)
@@ -152,7 +153,7 @@ def main(
                 context_node_nf += 1
 
             # Lock XPU to single device for now
-            strategy = 'ddp_spawn'
+            strategy = 'ddp_spawn' if args.strategy is None else SingleDeviceStrategy(device='xpu')
             if args.device == 'xpu':
                 strategy = SingleDeviceStrategy(device='xpu')
 

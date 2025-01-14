@@ -20,6 +20,7 @@ def train_generator(
         examples: list[MOFRecord],
         num_epochs: int = 10,
         device: str = 'cpu',
+        strategy: str | None = None
 ) -> Path:
     """Retrain a generative model for MOFs
 
@@ -30,11 +31,13 @@ def train_generator(
         examples: Path to examples used to train the generator. Should be a directory which contains SDF,
         num_epochs: Number of training epochs
         device: Device to use for training
+        strategy: Strategy used for
     Returns:
         Path to the new model weights
     """
 
     # Load configuration from YML file
+    #  TODO (wardlt): Move away from argparse? Could simplify making modular configuration files
     args = get_args(['--config', str(config_path)])
 
     # Overwrite any arguments from argparse with any from the configuration file
@@ -48,6 +51,7 @@ def train_generator(
         else:
             arg_dict[key] = value
     args.config = args.config.name
+    args.strategy = strategy
 
     # Save the current model into the checkpoint directory, which is where difflinker will look for starting weights
     run_directory = Path(run_directory)

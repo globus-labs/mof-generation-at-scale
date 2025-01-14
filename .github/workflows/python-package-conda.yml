@@ -39,7 +39,7 @@ jobs:
         pip install flake8
         flake8 --exclude mofa/utils mofa tests run_*.py # Ignore utils for now
     - name: Test with pytest
-      run: pytest --cov=mofa --forked --timeout=300 tests
+      run: pytest --cov=mofa --timeout=300 tests
     - name: Coveralls
       run: |
         pip install coveralls
