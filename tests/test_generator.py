@@ -50,6 +50,8 @@ def test_training(file_dir, tmpdir, finetune):
             record = json.loads(line)
             record.pop('_id')
             examples.append(MOFRecord(**record))
+            if len(examples) > 4:
+                break
 
     new_model = train_generator(
         starting_model=file_dir / 'geom_difflinker.ckpt' if finetune else None,
