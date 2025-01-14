@@ -68,18 +68,22 @@ if __name__ == "__main__":
                     f' --cpu-bind depth --depth {32 // args.ranks_per_node} -env OMP_NUM_THREADS={32 // args.ranks_per_node} '
                     '/lus/eagle/projects/ExaMol/cp2k-2024.1/set_affinity_gpu_polaris.sh '
                     '/lus/eagle/projects/ExaMol/cp2k-2024.1/exe/local_cuda/cp2k_shell.psmp')
-        config = Config(retries=4, executors=[
+        config = Config(retries=1, executors=[
             HighThroughputExecutor(
-                max_workers=4,
+                max_workers_per_node=1,
                 provider=PBSProProvider(
                     launcher=SimpleLauncher(),
                     account='ExaMol',
-                    queue='debug',
+                    queue='debug-scaling',
                     select_options="ngpus=4",
                     scheduler_options="#PBS -l filesystems=home:eagle",
                     worker_init="""
-module load kokkos
-module load nvhpc/23.3
+module reset
+module use /soft/modulefiles 
+module swap PrgEnv-nvhpc PrgEnv-gnu
+module load cray-fftw
+module load cudatoolkit-standalone/12.2
+module load cray-libsci
 module list
 source activate /lus/eagle/projects/ExaMol/mofa/mof-generation-at-scale/env-polaris
 
@@ -92,7 +96,7 @@ pwd
 which python
 hostname
                     """,
-                    nodes_per_block=1,
+                    nodes_per_block=args.num_nodes,
                     init_blocks=1,
                     min_blocks=0,
                     max_blocks=1,
@@ -167,7 +171,7 @@ hostname
         runtime, (atoms, run_path) = future.result()
 
         # Get the strain
-        charges = compute_partial_charges(run_path).arrays['q']
+#        charges = compute_partial_charges(run_path).arrays['q']
         # Store the result
         with open('runtimes.json', 'a') as fp:
             print(json.dumps({
@@ -176,8 +180,8 @@ hostname
                 'ranks-per-node': args.ranks_per_node,
                 'cp2k_cmd': cp2k_cmd,
                 'steps': args.steps,
-                'mof': mof.name,
+                'mof': future.mof.name,
                 'runtime': runtime,
-                'charges': charges.tolist(),
+#                'charges': charges.tolist(),
                 'strc': write_to_string(atoms, 'vasp')
             }), file=fp)
