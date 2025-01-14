@@ -26,13 +26,15 @@ conda env create --file envs/environment-cpu.yml
 
 ## Running MOFA
 
-The `run_serial_workflow.py` script defines a workflow using MOFA. 
+The `run_parallel_workflow.py` script defines an HPC workflow using MOFA. 
 
-Set up the required input files by running `0_assemble-inputs.ipynb` in `input_files/zn-paddle-pillar`.
+First, Set up the required input files by running `0_assemble-inputs.ipynb` in `input_files/zn-paddle-pillar`.
 
-Then invoke the workflow by running `example-run.sh`
+The run scripts available in the root directory include input argument configurations appropriate for different systems
+at different scales.
+For example, `run-polaris-test.sh` is configured for a short run on Polaris using a small number of nodes.
 
-The code will produce a run directory in `run` named using the start time and a hash of the run parameters.
+Each run will produce a run directory in `run` named using the start time and a hash of the run parameters.
 
 The run directory contains the following files:
 
@@ -40,4 +42,6 @@ The run directory contains the following files:
 - `params.json`: The arguments provided to the run script
 - `all-ligands.csv`: A CSV file with the geometries of the generated ligands in XYZ format, 
   if they passed all validation screens, and the SMILES string (if available).
- 
+- `db`: A MongoDB database folder. Convert to JSON format using `./bin/dump_data.sh`
+- `*-results.json`: Summaries of different types of computations. See visualizations in `scripts` for examples 
+  on reading them.
