@@ -42,6 +42,7 @@ def test_load_model(load_denoising_model, load_size_gnn_model):
 
 
 @mark.parametrize('finetune', [True, False])
+@mark.slow
 def test_training(file_dir, tmpdir, finetune):
     # Load some examples from disk
     examples = []

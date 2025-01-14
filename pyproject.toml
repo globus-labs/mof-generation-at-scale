@@ -53,7 +53,7 @@ repository = "https://github.com/globus-labs/mof-generation-at-scale"
 test = [
     'flake8',
     'pytest',
-    'pytest-forked',
+    'pytest-skip-slow',
     'pytest-timeout',
     'pytest-cov',
     'mongomock'
