@@ -77,15 +77,14 @@ if __name__ == "__main__":
 
     # Select the correct configuraion
     if args.config == "local":
-        config = Config(executors=[HighThroughputExecutor(max_workers=1, cpu_affinity='block')])
+        config = Config(executors=[HighThroughputExecutor(max_workers_per_node=1, cpu_affinity='block')])
     elif args.config == "polaris":
         config = Config(retries=1, executors=[
             HighThroughputExecutor(
-                max_workers=4,
+                max_workers_per_node=1,
                 cpu_affinity='block-reverse',
-                available_accelerators=4,
                 provider=PBSProProvider(
-                    launcher=MpiExecLauncher(bind_cmd="--cpu-bind", overrides="--depth=64 --ppn 1"),
+                    launcher=SimpleLauncher(),
                     account='ExaMol',
                     queue='debug',
                     select_options="ngpus=4",
@@ -116,7 +115,7 @@ hostname
                 HighThroughputExecutor(
                     label="sunspot_test",
                     prefetch_capacity=0,
-                    max_workers=1,
+                    max_workers_per_node=1,
                     provider=PBSProProvider(
                         account="CSC249ADCD08_CNDA",
                         queue="workq",

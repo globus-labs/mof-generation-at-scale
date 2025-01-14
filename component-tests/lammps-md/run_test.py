@@ -64,7 +64,7 @@ if __name__ == "__main__":
         lammps_env = {'OMP_NUM_THREADS': '1'}
         config = Config(retries=4, executors=[
             HighThroughputExecutor(
-                max_workers=4,
+                max_workers_per_node=4,
                 cpu_affinity='block-reverse',
                 available_accelerators=4,
                 provider=PBSProProvider(
@@ -186,3 +186,5 @@ hostname
                 'runtime': runtime,
                 'strain': strain
             }), file=fp)
+
+    parsl.dfk().cleanup()
