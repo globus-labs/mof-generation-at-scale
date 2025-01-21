@@ -1,6 +1,8 @@
 """Test for the Colmena steering algorithm"""
 from pathlib import Path
+import logging
 
+from colmena.exceptions import TimeoutException
 from pytest import fixture
 from mongomock import MongoClient
 from colmena.queue import PipeQueues
@@ -73,10 +75,33 @@ def thinker(queues, hpc_config, gen_config, trn_config, node_template, tmpdir):
         trainer_config=trn_config,
         node_template=node_template,
     )
+
+    # Route logs to disk
+    handlers = [logging.FileHandler(run_dir / 'run.log')]
+    for logger in [thinker.logger, logging.getLogger('colmena')]:
+        for handler in handlers:
+            handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+            logger.addHandler(handler)
+        logger.setLevel(logging.INFO)
     with thinker:
+        thinker.start()
         yield thinker
-    thinker.done.set()
+        thinker.done.set()
+        queues._all_complete.set()  # Act like all tasks have finished
+        queues._active_tasks.clear()
+    thinker.join()
 
 
-def test_make_thinker(thinker):
+def test_start(thinker, queues):
     assert (thinker.out_dir / 'simulation-results.json').exists()
+    tasks = []
+    while True:
+        try:
+            task = queues.get_task(timeout=0.5)
+        except TimeoutException:
+            break
+        tasks.append(task)
+    assert queues.active_count == 1
+    assert len(tasks) == 1
+    topic, task = tasks[0]
+    assert topic == 'generation'

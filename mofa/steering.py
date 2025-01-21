@@ -253,7 +253,9 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
                 have = len(self.ligand_assembly_queue[anchor_type])
                 if have < self.generator_config.min_ligand_candidates:
                     self.make_mofs.clear()
-                    self.make_mofs.wait()
+                    while self.make_mofs.wait(timeout=1.):
+                        if self.done.is_set():
+                            return
                     break
             else:
                 break
@@ -311,7 +313,10 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             self.mofs_available.clear()
             self.make_mofs.set()
             self.logger.info('No MOFs are available for simulation. Waiting')
-            self.mofs_available.wait()
+
+            while self.mofs_available.wait(timeout=0.5):
+                if self.done.is_set():
+                    return
 
         to_run = self.mof_queue.pop()
         self.queues.send_inputs(
@@ -323,10 +328,6 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         self.in_progress[to_run.name] = to_run  # Store the MOF record for later use
         self.logger.info(f'Started MD simulation for mof={to_run.name}. '
                          f'Simulation queue depth: {len(self.mof_queue)}.')
-
-    #        if self.simulations_left == 0:
-    #            self.done.set()
-    #            self.logger.info('No longer submitting tasks.')
 
     @result_processor(topic='lammps')
     def store_lammps(self, result: Result):
@@ -446,7 +447,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             # Update the model
             result = self.queues.get_result(topic='training')
             result.task_info['train_size'] = len(examples)
-            model_dir = Path(run_dir / 'models')
+            model_dir = Path(self.out_dir / 'models')
             model_dir.mkdir(exist_ok=True)
             if result.success:
                 self.model_iteration = attempt_id
@@ -495,7 +496,10 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
 
             self.logger.info('No MOFs ready for CP2K. Waiting for MD to finish')
             self.cp2k_ready.clear()
-            self.cp2k_ready.wait()
+
+            while not self.cp2k_ready.wait(timeout=1.):
+                if self.done.is_set():
+                    return
 
     @result_processor(topic='cp2k')
     def store_cp2k(self, result: Result):
