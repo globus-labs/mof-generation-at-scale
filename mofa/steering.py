@@ -26,7 +26,6 @@ from mofa.hpc.config import HPCConfig
 from mofa.model import LigandTemplate, MOFRecord, LigandDescription, NodeDescription
 from mofa.scoring.geometry import LatticeParameterChange
 from mofa.utils.conversions import write_to_string
-from run_parallel_workflow import run_dir
 
 
 @dataclass
@@ -75,6 +74,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
 
     def __init__(self,
                  queues: ColmenaQueues,
+                 mongo_client: MongoClient,
                  out_dir: Path,
                  hpc_config: HPCConfig,
                  simulation_budget: int,
@@ -132,14 +132,14 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         self.cp2k_ran = set()
 
         # Connect to MongoDB
-        self.mongo_client = MongoClient()
+        self.mongo_client = mongo_client
         self.collection: Collection = mofadb.initialize_database(self.mongo_client)
 
         # Output files
         self._output_files: dict[str, Path | TextIO] = {}
         self.generate_write_lock: Lock = Lock()  # Two threads write to the same generation output
         for name in ['generation-results', 'simulation-results', 'training-results', 'assembly-results']:
-            self._output_files[name] = run_dir / f'{name}.json'
+            self._output_files[name] = out_dir / f'{name}.json'
 
     def __enter__(self):
         """Open the output files"""

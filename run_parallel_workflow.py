@@ -13,6 +13,7 @@ import sys
 
 from proxystore.connectors.redis import RedisConnector
 from proxystore.store import Store, register_store
+from pymongo import MongoClient
 from rdkit import RDLogger
 from openbabel import openbabel as ob
 from more_itertools import batched, make_decorator
@@ -183,6 +184,7 @@ if __name__ == "__main__":
 
     # Make the thinker
     thinker = MOFAThinker(queues,
+                          mongo_client=MongoClient(),  # Connect to a local service
                           hpc_config=hpc_config,
                           generator_config=generator,
                           trainer_config=trainer,
