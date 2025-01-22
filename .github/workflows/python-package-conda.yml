@@ -37,9 +37,8 @@ jobs:
 
              # Link the cp2k.ssmp executable to the cp2k_shell needed for ASE
              mkdir -p bin
-             echo -e "!/bin/bash\ncp2k.ssmp --shell $@" > bin/cp2k_shell
+             echo -e "#!/bin/bash\ncp2k.ssmp --shell $@" > bin/cp2k_shell
              chmod u+x bin/cp2k_shell
-             export PATH=$PATH:`realpath bin/`
            else
              echo "$RUNNER_OS not supported"
              exit 1
@@ -50,7 +49,8 @@ jobs:
         pip install flake8
         flake8 --exclude mofa/utils mofa tests run_*.py # Ignore utils for now
     - name: Test with pytest
-      run: pytest --cov=mofa --timeout=300 tests
+      run: |
+        pytest --cov=mofa --timeout=300 tests
     - name: Coveralls
       run: |
         pip install coveralls
