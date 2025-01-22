@@ -40,7 +40,9 @@ jobs:
              echo -e "#!/bin/bash\ncp2k.ssmp --shell \$@" > bin/cp2k_shell
              chmod u+x bin/cp2k_shell
              export PATH=$PATH:`realpath ./bin`
+             which cp2k_shell
              export CP2K_DATA_DIR=$CONDA_PREFIX/share/cp2k/data/
+             echo $CP2K_DATA_DIR
            else
              echo "$RUNNER_OS not supported"
              exit 1
