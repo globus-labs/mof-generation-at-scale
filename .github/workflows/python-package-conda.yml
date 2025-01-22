@@ -41,7 +41,6 @@ jobs:
              export CP2K_DATA_DIR=`which cp2k.ssmp | xargs dirname`/../share/cp2k/data/
              echo -e "#!/bin/bash\nCP2K_DATA_DIR=$CP2K_DATA_DIR `which cp2k.ssmp` --shell \$@" > bin/cp2k_shell
              chmod u+x bin/cp2k_shell
-             export PATH=$PATH:`realpath ./bin`
              cat `which cp2k_shell`
              echo -n | ./bin/cp2k_shell --version
            else
@@ -54,8 +53,8 @@ jobs:
         flake8 --exclude mofa/utils mofa tests run_*.py # Ignore utils for now
     - name: Test with pytest
       run: |
-        cat `which cp2k_shell`
-        echo -n | ./bin/cp2k_shell --version
+        export PATH=$PATH:`realpath ./bin`
+        echo -n | cp2k_shell --version
         pytest --cov=mofa --timeout=300 tests
     - name: Coveralls
       run: |
