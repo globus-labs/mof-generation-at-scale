@@ -41,7 +41,7 @@ jobs:
              chmod u+x bin/cp2k_shell
              export PATH=$PATH:`realpath ./bin`
              which cp2k_shell
-             export CP2K_DATA_DIR=$CONDA_PREFIX/share/cp2k/data/
+             export CP2K_DATA_DIR=`which cp2k.ssmp | xargs dirname`/../share/cp2k/data/
              echo $CP2K_DATA_DIR
            else
              echo "$RUNNER_OS not supported"
