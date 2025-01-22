@@ -37,7 +37,7 @@ jobs:
 
              # Link the cp2k.ssmp executable to the cp2k_shell needed for ASE
              mkdir -p bin
-             echo -e "#!/bin/bash\ncp2k.ssmp --shell $@" > bin/cp2k_shell
+             echo -e "#!/bin/bash\ncp2k.ssmp --shell \$@" > bin/cp2k_shell
              chmod u+x bin/cp2k_shell
            else
              echo "$RUNNER_OS not supported"
