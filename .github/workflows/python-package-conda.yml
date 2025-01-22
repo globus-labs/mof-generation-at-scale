@@ -43,6 +43,7 @@ jobs:
              chmod u+x bin/cp2k_shell
              export PATH=$PATH:`realpath ./bin`
              cat `which cp2k_shell`
+             echo -n | ./bin/cp2k_shell --version
            else
              echo "$RUNNER_OS not supported"
              exit 1
