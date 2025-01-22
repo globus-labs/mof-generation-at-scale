@@ -37,12 +37,12 @@ jobs:
 
              # Link the cp2k.ssmp executable to the cp2k_shell needed for ASE
              mkdir -p bin
-             echo -e "#!/bin/bash\ncp2k.ssmp --shell \$@" > bin/cp2k_shell
+             cp2k_path=`which cp2k.ssmp`
+             export CP2K_DATA_DIR=`which cp2k.ssmp | xargs dirname`/../share/cp2k/data/
+             echo -e "#!/bin/bash\nCP2K_DATA_DIR=$CP2K_DATA_DIR `which cp2k.ssmp` --shell \$@" > bin/cp2k_shell
              chmod u+x bin/cp2k_shell
              export PATH=$PATH:`realpath ./bin`
-             which cp2k_shell
-             export CP2K_DATA_DIR=`which cp2k.ssmp | xargs dirname`/../share/cp2k/data/
-             echo $CP2K_DATA_DIR
+             cat `which cp2k_shell`
            else
              echo "$RUNNER_OS not supported"
              exit 1
