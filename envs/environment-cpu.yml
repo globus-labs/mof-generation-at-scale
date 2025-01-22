@@ -30,6 +30,7 @@ dependencies:
 
   # Tools used for simulation
   - lammps
+  - cp2k
 
   # Use Conda PyTorch to avoid OpenMP disagreement with other libraries
   - pytorch==2.3.*=*cpu*
