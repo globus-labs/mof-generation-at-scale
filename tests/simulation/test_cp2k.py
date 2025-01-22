@@ -14,7 +14,7 @@ IN_GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
 def test_cp2k_single(cif_name, cif_dir, tmpdir):
     # Make a CP2k simulator that reads and writes to a temporary directory
     runner = CP2KRunner(
-        cp2k_invocation="cp2k_shell.psmp",
+        cp2k_invocation="cp2k_shell",
     )
 
     test_file = cif_dir / f'{cif_name}.cif'
