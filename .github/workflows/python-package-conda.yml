@@ -53,8 +53,7 @@ jobs:
         flake8 --exclude mofa/utils mofa tests run_*.py # Ignore utils for now
     - name: Test with pytest
       run: |
-        export PATH=$PATH:`realpath ./bin`
-        echo -n | cp2k_shell --version
+        export PATH=$PATH:`realpath ./bin`  # Ensure CP2K is visible
         pytest --cov=mofa --timeout=300 tests
     - name: Coveralls
       run: |
