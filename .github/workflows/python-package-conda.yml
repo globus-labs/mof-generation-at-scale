@@ -54,6 +54,8 @@ jobs:
         flake8 --exclude mofa/utils mofa tests run_*.py # Ignore utils for now
     - name: Test with pytest
       run: |
+        cat `which cp2k_shell`
+        echo -n | ./bin/cp2k_shell --version
         pytest --cov=mofa --timeout=300 tests
     - name: Coveralls
       run: |
