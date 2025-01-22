@@ -31,9 +31,9 @@ jobs:
     - name: Add quantum chemistry tools (Linux)
       run: |
            if [ "$RUNNER_OS" == "Linux" ]; then
-#             CP2K package has disappeared as of 21Jan25
-#             sudo apt update
-#             sudo apt install -y cp2k lammps
+             # CP2K package has disappeared as of 21Jan25
+             # sudo apt update
+             # sudo apt install -y cp2k lammps
 
              # Link the cp2k.ssmp executable to the cp2k_shell needed for ASE
              mkdir bin
