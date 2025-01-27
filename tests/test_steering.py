@@ -1,15 +1,33 @@
 """Test for the Colmena steering algorithm"""
 from pathlib import Path
+import pickle as pkl
+import warnings
 import logging
+import gzip
 
 from colmena.exceptions import TimeoutException
+from colmena.models import Result
 from pytest import fixture
 from mongomock import MongoClient
 from colmena.queue import PipeQueues
 
+from mofa.assembly.validate import process_ligands
+from mofa.generator import run_generator
 from mofa.model import LigandTemplate, NodeDescription
 from mofa.steering import MOFAThinker, GeneratorConfig, TrainingConfig
 from mofa.hpc.config import LocalConfig
+
+
+def _pull_tasks(queues) -> list[Result]:
+    """Pull all tasks available on the queue"""
+    tasks = []
+    while True:
+        try:
+            task = queues.get_task(timeout=0.5)
+        except TimeoutException:
+            break
+        tasks.append(task)
+    return tasks
 
 
 @fixture()
@@ -20,6 +38,11 @@ def queues():
 @fixture()
 def hpc_config():
     return LocalConfig()
+
+
+@fixture()
+def cache_dir(file_path):
+    return file_path / 'steering' / 'results'
 
 
 @fixture()
@@ -92,16 +115,60 @@ def thinker(queues, hpc_config, gen_config, trn_config, node_template, tmpdir):
     thinker.join()
 
 
-def test_start(thinker, queues):
+def make_gen_outputs(task: Result, cache_dir: Path):
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    # Assemble the name of this task
+    task.deserialize()
+    templates: list[LigandTemplate] = task.kwargs['templates']
+    assert len(templates) == 1
+    result_name = f'{templates[0].anchor_type}-{task.kwargs["n_atoms"]}.pkl.gz'
+    result_path = cache_dir.joinpath(result_name)
+
+    # Get the result
+    if result_path.is_file():
+        with gzip.open(result_path, 'r') as fp:
+            result = pkl.load(fp)
+    else:
+        result = list(run_generator(
+            **task.kwargs,
+            n_samples=32,
+            n_steps=64,
+            device='cpu'
+        ))
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            result = process_ligands(result)
+        with gzip.open(result_path, "w") as fp:
+            pkl.dump(result, fp)
+
+    # Make a message with the model
+    done_res = task.model_copy(deep=True)
+    done_res.set_result(None, intermediate=False)
+    done_res.serialize()
+
+    task.set_result(result, intermediate=True)
+    task.serialize()
+    return done_res, task
+
+
+def test_generator(thinker, queues, cache_dir):
+    """Ensure generator tasks are properly circulated"""
     assert (thinker.out_dir / 'simulation-results.json').exists()
-    tasks = []
-    while True:
-        try:
-            task = queues.get_task(timeout=0.5)
-        except TimeoutException:
-            break
-        tasks.append(task)
+    tasks = _pull_tasks(queues)
     assert queues.active_count == 1
     assert len(tasks) == 1
     topic, task = tasks[0]
     assert topic == 'generation'
+
+    # Get the generator output and feed back to the thinker
+    done_result, task = make_gen_outputs(task, cache_dir / 'generate')
+    queues.send_result(task)
+    tasks = _pull_tasks(queues)
+    assert len(tasks) == 0  # The ligands won't create new tasks
+
+    assert thinker.out_dir.joinpath('all_ligands.csv').exists()
+
+    queues.send_result(done_result)
+    tasks = _pull_tasks(queues)
+    assert len(tasks) == 1  # Sending a completed task will trigger new updates

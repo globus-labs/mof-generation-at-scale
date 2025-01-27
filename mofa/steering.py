@@ -177,14 +177,14 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         anchor_type = self.generator_config.templates[ligand_id].anchor_type
 
         # The generation topic includes both the generator and process functions
-        self.logger.info(f'Generator task type={result.method} for anchor_type={anchor_type} size={size} finished')
-        if result.method == 'run_generator':
+        self.logger.info(f'Generator task intermediate={not result.complete} for anchor_type={anchor_type} size={size} finished')
+        if result.complete:  # The generate method has finished making ligands
             # Start a new task
             self.rec.release('generation')
             with self.generate_write_lock:
                 print(result.json(exclude={'inputs', 'value'}), file=self._output_files['generation-results'], flush=True)
-        elif result.method == 'process_ligands':
-            # Process them asynchronously
+        else:
+            # The message contains the ligands
             self.ligand_process_queue.put(result)
 
         if not result.success:
@@ -253,7 +253,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
                 have = len(self.ligand_assembly_queue[anchor_type])
                 if have < self.generator_config.min_ligand_candidates:
                     self.make_mofs.clear()
-                    while self.make_mofs.wait(timeout=1.):
+                    while not self.make_mofs.wait(timeout=1.):
                         if self.done.is_set():
                             return
                     break
@@ -314,7 +314,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             self.make_mofs.set()
             self.logger.info('No MOFs are available for simulation. Waiting')
 
-            while self.mofs_available.wait(timeout=0.5):
+            while not self.mofs_available.wait(timeout=0.5):
                 if self.done.is_set():
                     return
 
