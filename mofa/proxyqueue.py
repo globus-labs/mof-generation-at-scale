@@ -196,7 +196,7 @@ class ProxyQueues(ColmenaQueues):
 
     def _publish_event(self, message, proxy_topic):
         try:
-            self.request_producer.send(proxy_topic, message, evict=True)
+            self.request_producer.send(proxy_topic, message, evict=False)
             self.request_producer.flush_topic(proxy_topic)
         except Exception as e:
             print(f"Error producing message: {e}")
