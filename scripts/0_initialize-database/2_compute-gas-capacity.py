@@ -41,7 +41,7 @@ if __name__ == "__main__":
             future.row = row
             futures.append(future)
 
-        for future in as_completed(tqdm(futures)):
+        for future in tqdm(as_completed(futures), total=len(futures)):
             mean, std = future.result()
             with output_path.open('a') as fp:
                 print(json.dumps({

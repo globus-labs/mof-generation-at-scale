@@ -12,12 +12,11 @@ import pandas as pd
 import parsl
 from parsl.config import Config
 from parsl.app.python import PythonApp
-from parsl.executors import HighThroughputExecutor
+from parsl.executors import HighThroughputExecutor, MPIExecutor
 from parsl.providers import PBSProProvider
 from parsl.launchers import SimpleLauncher
 
 from mofa.model import MOFRecord
-from mofa.scoring.geometry import LatticeParameterChange
 from mofa.simulation.cp2k import compute_partial_charges
 from mofa.utils.conversions import write_to_string
 
@@ -66,17 +65,17 @@ if __name__ == "__main__":
                     f' /home/lward/Software/cp2k-2024.1/exe/local/cp2k_shell.psmp')
         config = Config(executors=[HighThroughputExecutor(max_workers_per_node=1)])
     elif args.config == "polaris":
-        cp2k_cmd = (f'mpiexec -n {args.num_nodes * args.ranks_per_node} --ppn {args.ranks_per_node}'
+        cp2k_cmd = (f'mpiexec -n $PARSL_NUM_NODES --ppn {args.ranks_per_node} --hosts $PARSL_MPI_NODELIST'
                     f' --cpu-bind depth --depth {32 // args.ranks_per_node} -env OMP_NUM_THREADS={32 // args.ranks_per_node} '
                     '/lus/eagle/projects/ExaMol/cp2k-2024.1/set_affinity_gpu_polaris.sh '
                     '/lus/eagle/projects/ExaMol/cp2k-2024.1/exe/local_cuda/cp2k_shell.psmp')
         config = Config(retries=1, executors=[
-            HighThroughputExecutor(
-                max_workers_per_node=1,
+            MPIExecutor(
+                max_workers_per_block=32 // args.num_nodes,
                 provider=PBSProProvider(
                     launcher=SimpleLauncher(),
                     account='ExaMol',
-                    queue='debug-scaling',
+                    queue='prod',
                     select_options="ngpus=4",
                     scheduler_options="#PBS -l filesystems=home:eagle",
                     worker_init="""
@@ -98,57 +97,15 @@ pwd
 which python
 hostname
                     """,
-                    nodes_per_block=args.num_nodes,
+                    nodes_per_block=32,
                     init_blocks=1,
                     min_blocks=0,
                     max_blocks=1,
                     cpus_per_node=32,
-                    walltime="1:00:00",
+                    walltime="6:00:00",
                 )
             )
         ])
-    elif args.config == "sunspot":
-        cp2k_cmd = (f'mpiexec -n {args.num_nodes * args.ranks_per_node} --ppn {args.ranks_per_node}'
-                    f' --cpu-bind depth --depth {104 // args.ranks_per_node} -env OMP_NUM_THREADS={104 // args.ranks_per_node} '
-                    '/lus/gila/projects/CSC249ADCD08_CNDA/cp2k/cp2k-2024.1/exe/local/cp2k_shell.psmp')
-        config = Config(
-            retries=2,
-            executors=[
-                HighThroughputExecutor(
-                    label="sunspot_test",
-                    prefetch_capacity=0,
-                    max_workers=1,
-                    provider=PBSProProvider(
-                        account="CSC249ADCD08_CNDA",
-                        queue="workq",
-                        worker_init="""
-source activate /lus/gila/projects/CSC249ADCD08_CNDA/mof-generation-at-scale/env
-module reset
-module use /soft/modulefiles/
-module use /home/ftartagl/graphics-compute-runtime/modulefiles
-module load oneapi/release/2023.12.15.001
-module load intel_compute_runtime/release/775.20
-module load mpich/gnu-all-debug-pmix-gpu/52.2
-module load gcc/12.2.0
-module load fftw
-module list
-
-cd $PBS_O_WORKDIR
-pwd
-which python
-hostname
-                        """,
-                        walltime="1:10:00",
-                        launcher=SimpleLauncher(),
-                        select_options="system=sunspot,place=scatter",
-                        nodes_per_block=1,
-                        min_blocks=0,
-                        max_blocks=1,  # Can increase more to have more parallel batch jobs
-                        cpus_per_node=208,
-                    ),
-                ),
-            ]
-        )
     else:
         raise ValueError(f'Configuration not defined: {args.config}')
 
