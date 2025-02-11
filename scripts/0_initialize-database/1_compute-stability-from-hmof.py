@@ -60,7 +60,7 @@ if __name__ == "__main__":
     if args.config == "local":
         lammps_cmd = ['/home/lward/Software/lammps-2Aug2023/build/lmp', '-sf', 'omp']
         lammps_env = {}
-        config = Config(executors=[HighThroughputExecutor(max_workers_per_node=1, cpu_affinity='block')])
+        config = Config(executors=[HighThroughputExecutor(max_workers_per_node=2, cpu_affinity='list:0-3:4-7')])
     elif args.config == "polaris":
         lammps_cmd = ('/lus/eagle/projects/ExaMol/mofa/lammps-2Aug2023/build-kokkos-nompi/lmp '
                       '-k on g 1 -sf kk').split()

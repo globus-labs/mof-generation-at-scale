@@ -14,12 +14,12 @@ if __name__ == "__main__":
     # Load what we've done already
     output_path = Path('capacity.jsonl')
     if output_path.exists():
-        done = dict(pd.read_json('charges.jsonl', lines=True)[['mof', 'steps']].values)
+        done = list(map(tuple, pd.read_json('capacity.jsonl', lines=True)[['mof', 'opt_steps']].values.tolist()))
     else:
         done = set()
 
     # Make a parsl executor
-    config = Config(executors=[HighThroughputExecutor(max_workers_per_node=6, cpu_affinity='block')])
+    config = Config(executors=[HighThroughputExecutor(max_workers_per_node=6, cpu_affinity='list:0:1:2:3:4:5')])
     with load(config):
 
         # Run what we have not
@@ -42,11 +42,15 @@ if __name__ == "__main__":
             futures.append(future)
 
         for future in tqdm(as_completed(futures), total=len(futures)):
-            mean, std = future.result()
-            with output_path.open('a') as fp:
-                print(json.dumps({
-                    'mof': future.row['mof'],
-                    'opt_steps': future.row['steps'],
-                    'mean': mean,
-                    'std': std
-                }), file=fp)
+            try:
+                mean, std = future.result()
+                with output_path.open('a') as fp:
+                    print(json.dumps({
+                        'mof': future.row['mof'],
+                        'opt_steps': future.row['steps'],
+                        'mean': mean,
+                        'std': std
+                    }), file=fp)
+            except:
+                print(f'{future.row["mof"]} failed')
+                continue
