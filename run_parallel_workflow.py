@@ -61,6 +61,8 @@ from mofa.proxyqueue import ProxyQueues
 RDLogger.DisableLog("rdApp.*")
 ob.obErrorLog.SetOutputLevel(0)
 
+my_logger = logging.getLogger(__name__)
+
 
 @dataclass
 class GeneratorConfig:
@@ -1015,7 +1017,6 @@ if __name__ == "__main__":
         )
 
     # Turn on logging
-    my_logger = logging.getLogger("main")
     handlers = [
         logging.StreamHandler(sys.stdout),
         logging.FileHandler(run_dir / "run.log"),
