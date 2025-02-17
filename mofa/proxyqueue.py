@@ -124,8 +124,10 @@ class ProxyQueues(ColmenaQueues):
                     stores={k: self.store for k in self.proxy_topics},
                 )
         else:
+            logger.info("Creating a MofkaPublisher")
             publisher = MofkaPublisher(group_file=MOFKA_GROUPFILE)
             self.request_producer = StreamProducer(publisher=publisher)
+            logger.info("MofkaPublisher creation completed")
 
     def connect_request_consumer(self):
         if not isinstance(self.request_consumer, StreamConsumer):
@@ -140,11 +142,13 @@ class ProxyQueues(ColmenaQueues):
                 consumer.assign([topic_partition])
                 subscriber = KafkaSubscriber(client=consumer)
             else:
+                logger.info("Creating a MofkaSubscriber")
                 subscriber = MofkaSubscriber(
                     group_file=MOFKA_GROUPFILE,
                     topic_name=request_topic,
                     subscriber_name=str(f"MOFA-request-{uuid4()}"),
                 )
+                logger.info("MofkaSubscriber creation completed")
             self.request_consumer = StreamConsumer(
                 subscriber=subscriber,
             )
@@ -162,6 +166,7 @@ class ProxyQueues(ColmenaQueues):
                 consumer.subscribe([result_topic])
                 subscriber = KafkaSubscriber(client=consumer)
             else:
+                logger.info("Connecting to result consumer Mofka")
                 subscriber = MofkaSubscriber(
                     group_file=MOFKA_GROUPFILE,
                     topic_name=result_topic,
@@ -195,6 +200,7 @@ class ProxyQueues(ColmenaQueues):
         # only needed producers and consumers will be recreated
 
     def _publish_event(self, message, proxy_topic):
+        logger.info("Publishing event")
         try:
             self.request_producer.send(proxy_topic, message, evict=False)
             self.request_producer.flush_topic(proxy_topic)
@@ -211,6 +217,7 @@ class ProxyQueues(ColmenaQueues):
         consumer,
         timeout: float = None,
     ):
+        logger.info("Consuming event")
         if timeout is None:
             timeout = 0
         # timeout *= 1000  # to ms
