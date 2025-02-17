@@ -270,10 +270,11 @@ if __name__ == "__main__":
     queues.connect_request_consumer()
 
     for i in range(10):
-        print(queues._send_request("1234", "generation"))
-        print(queues._send_request("4568", "generation"))
-        print(queues._send_result("_send_result message111", "generation"))
-        print(queues._send_result("_send_result message222", "generation"))
+        print(f"{queues._send_request('1234', 'generation')=}")
+        print(f'{queues._send_request("4568", "generation")=}')
+        print(f'{queues._send_result("_send_result message111", "generation")=}')
+        print(f'{queues._send_result("_send_result message222", "generation")=}')
+        print(f'{queues.send_inputs("test_send_inputs", topic="generation")=}')
 
     # for future impl for ColmenaQueues:
     # it's very importantant to ensure serilization works
@@ -282,7 +283,8 @@ if __name__ == "__main__":
     queues_dumped = pickle.dumps(queues)
     queues_loaded = pickle.loads(queues_dumped)
     for i in range(10):
-        print(queues_loaded._get_request())
-        print(queues_loaded._get_request())
-        print(queues_loaded._get_result("generation"))
-        print(queues_loaded._get_result("generation"))
+        print(f"{queues_loaded._get_request()=}")
+        print(f"{queues_loaded._get_request()=}")
+        print(f'{queues_loaded._get_result("generation")=}')
+        print(f'{queues_loaded._get_result("generation")=}')
+        print(f'{queues_loaded._get_result("generation")=}')
