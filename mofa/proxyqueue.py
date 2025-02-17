@@ -16,7 +16,7 @@ from proxystore.connectors.endpoint import EndpointConnector
 from proxystore.store import Store, register_store
 from proxystore.stream import StreamConsumer, StreamProducer
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("main")
 
 ENGINE: Literal["octopus", "mofka"] = os.environ["STREAM_ENGINE"]
 
