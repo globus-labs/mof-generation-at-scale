@@ -224,6 +224,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
 
         ligand_id, size = self.generate_queue.popleft()
         ligand = self.generator_config.templates[ligand_id]
+        self.logger.info("Sending inputs to generation topic")
         self.queues.send_inputs(
             input_kwargs={
                 "model": self.generator_config.generator_path,
@@ -355,6 +356,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
                 break
 
         # Submit the assembly task
+        self.logger.info("Sending inputs to assembly topic")
         self.queues.send_inputs(
             dict((k, list(v)) for k, v in self.ligand_assembly_queue.items()),
             [self.node_template],
@@ -418,6 +420,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             self.mofs_available.wait()
 
         to_run = self.mof_queue.pop()
+        self.logger.info("Sending inputs to lammps topic")
         self.queues.send_inputs(
             to_run,
             method="run_molecular_dynamics",
@@ -573,6 +576,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             self.logger.info(f"Preparing to retrain Difflinker in {train_dir}")
 
             # Submit training using the latest model
+            self.logger.info("Sending inputs to training topic")
             self.queues.send_inputs(
                 self.initial_weights,
                 input_kwargs={"examples": examples, "run_directory": train_dir},
@@ -628,6 +632,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
                 self.cp2k_ran.add(record["name"])
                 record.pop("_id")
                 record = MOFRecord(**record)
+                self.logger.info("Sending inputs to CP2k topic (structure_stability)")
                 self.queues.send_inputs(
                     record,
                     method="run_optimization",
@@ -658,6 +663,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         elif result.method == "run_optimization":
             # Submit post-processing to happen
             _, cp2k_path = result.value  # Not doing anything with the Atoms yet
+            self.logger.info("Sending inputs to CP2k topic (run_optimization)")
             self.queues.send_inputs(
                 cp2k_path,
                 method="compute_partial_charges",
@@ -669,6 +675,8 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             )
         elif result.method == "compute_partial_charges":
             atoms_with_charge = result.value
+
+            self.logger.info("Sending inputs to CP2k (compute partial charges) topic")
             self.queues.send_inputs(
                 atoms_with_charge,
                 mof_name,
