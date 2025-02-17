@@ -4,6 +4,7 @@
 import logging
 import os
 import pickle
+import sys
 from datetime import datetime
 from time import sleep, time
 from typing import Collection, Dict, Optional, Tuple, Union, Literal
@@ -16,7 +17,7 @@ from proxystore.connectors.endpoint import EndpointConnector
 from proxystore.store import Store, register_store
 from proxystore.stream import StreamConsumer, StreamProducer
 
-logger = logging.getLogger("main")
+logger = logging.getLogger(__name__)
 
 ENGINE: Literal["octopus", "mofka"] = os.environ["STREAM_ENGINE"]
 
@@ -255,6 +256,16 @@ class ProxyQueues(ColmenaQueues):
 
 
 if __name__ == "__main__":
+    handlers = [
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler("proxyqueue.log"),
+    ]
+    logging.basicConfig(
+        level=logging.DEBUG,
+        handlers=handlers,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
+
     queues = ProxyQueues(
         topics=["generation", "lammps", "cp2k", "training", "assembly"],
     )
