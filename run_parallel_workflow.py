@@ -61,8 +61,6 @@ from mofa.proxyqueue import ProxyQueues
 RDLogger.DisableLog("rdApp.*")
 ob.obErrorLog.SetOutputLevel(0)
 
-my_logger = logging.getLogger(__name__)
-
 
 @dataclass
 class GeneratorConfig:
@@ -1017,6 +1015,7 @@ if __name__ == "__main__":
         )
 
     # Turn on logging
+    my_logger = logging.getLogger(__name__)
     handlers = [
         logging.StreamHandler(sys.stdout),
         logging.FileHandler(run_dir / "run.log"),
@@ -1035,6 +1034,12 @@ if __name__ == "__main__":
             )
             logger.addHandler(handler)
         logger.setLevel(logging.INFO)
+
+    logging.basicConfig(
+        level=logging.INFO,
+        handlers=handlers,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
     my_logger.info(f"Running job in {run_dir} on {hpc_config.num_workers} workers")
 
     my_logger.info(f"ProxyQueues::launch_option={args.launch_option}")
