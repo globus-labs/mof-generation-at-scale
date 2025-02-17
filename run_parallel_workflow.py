@@ -42,7 +42,7 @@ from colmena.thinker import (
     event_responder,
     agent,
 )
-from colmena.queue.bas import logger as queuelogger
+from colmena.queue.base import logger as queuelogger
 
 from mofa.assembly.assemble import assemble_many
 from mofa.assembly.validate import process_ligands
