@@ -324,6 +324,6 @@ if __name__ == "__main__":
     # causing future operation to fail
     queues_dumped = pickle.dumps(queues)
 
-    future = consume(queues_dumped)
+    future = consume()
     print(future.result())
     queues.close()
