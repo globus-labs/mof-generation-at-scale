@@ -260,7 +260,9 @@ class ProxyQueues(ColmenaQueues):
 
 if __name__ == "__main__":
 
-    @parsl.python_app
+    from concurrent.futures import ProcessPoolExecutor
+
+    # @parsl.python_app
     def consume():
         from mofa.proxyqueue import ProxyQueues
 
@@ -289,16 +291,16 @@ if __name__ == "__main__":
         topics=["generation", "lammps", "cp2k", "training", "assembly"],
     )
 
-    config = Config(
-        executors=[
-            HighThroughputExecutor(
-                max_workers_per_node=1,
-                cpu_affinity="block",
-            )
-        ]
-    )
-    parsl.clear()
-    parsl.load(config)
+    # config = Config(
+    #     executors=[
+    #         HighThroughputExecutor(
+    #             max_workers_per_node=1,
+    #             cpu_affinity="block",
+    #         )
+    #     ]
+    # )
+    # parsl.clear()
+    # parsl.load(config)
 
     assert not any(
         queues.proxystore_name.values()
@@ -324,6 +326,8 @@ if __name__ == "__main__":
     # causing future operation to fail
     queues_dumped = pickle.dumps(queues)
 
-    future = consume()
+    with ProcessPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(consume)
+    # future = consume()
     print(future.result())
     queues.close()
