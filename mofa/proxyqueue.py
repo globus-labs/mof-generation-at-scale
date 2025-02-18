@@ -1,10 +1,13 @@
 # the implementation here follows Valerie's:
 # https://github.com/ValHayot/mofka-docker/blob/proxystore/mocto/octopus.py
 
+import parsl
 import logging
 import os
 import pickle
 import sys
+from parsl.config import Config
+from parsl.executors import HighThroughputExecutor
 from datetime import datetime
 from time import sleep, time
 from typing import Collection, Dict, Optional, Tuple, Union, Literal
@@ -256,6 +259,18 @@ class ProxyQueues(ColmenaQueues):
 
 
 if __name__ == "__main__":
+
+    @parsl.python_app
+    def consume(serialized_queues):
+        queues_loaded = pickle.loads(serialized_queues)
+
+        for i in range(10):
+            print(f"{queues_loaded._get_request()=}")
+            print(f"{queues_loaded._get_request()=}")
+            print(f'{queues_loaded._get_result("generation")=}')
+            print(f'{queues_loaded._get_result("generation")=}')
+            print(f'{queues_loaded._get_result("generation")=}')
+
     handlers = [
         logging.StreamHandler(sys.stdout),
         logging.FileHandler("proxyqueue.log"),
@@ -269,6 +284,18 @@ if __name__ == "__main__":
     queues = ProxyQueues(
         topics=["generation", "lammps", "cp2k", "training", "assembly"],
     )
+
+    config = Config(
+        executors=[
+            HighThroughputExecutor(
+                max_workers_per_node=1,
+                cpu_affinity="block",
+            )
+        ]
+    )
+    parsl.clear()
+    parsl.load(config)
+
     assert not any(
         queues.proxystore_name.values()
     )  # disable internal use of proxystore
@@ -278,7 +305,7 @@ if __name__ == "__main__":
     assert len(queues.topics) == 6  # including the 'default' topic
 
     queues.connect_request_producer()
-    queues.connect_request_consumer()
+    # queues.connect_request_consumer()
 
     for i in range(10):
         print(f"{queues._send_request('1234', 'generation')=}")
@@ -292,10 +319,7 @@ if __name__ == "__main__":
     # otherwise it would cause silent errors in MOFA,
     # causing future operation to fail
     queues_dumped = pickle.dumps(queues)
-    queues_loaded = pickle.loads(queues_dumped)
-    for i in range(10):
-        print(f"{queues_loaded._get_request()=}")
-        print(f"{queues_loaded._get_request()=}")
-        print(f'{queues_loaded._get_result("generation")=}')
-        print(f'{queues_loaded._get_result("generation")=}')
-        print(f'{queues_loaded._get_result("generation")=}')
+
+    future = consume(queues_dumped)
+    print(future.result())
+    queues.close()
