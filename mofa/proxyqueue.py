@@ -262,6 +262,8 @@ if __name__ == "__main__":
 
     @parsl.python_app
     def consume(serialized_queues):
+        import pickle
+
         queues_loaded = pickle.loads(serialized_queues)
 
         for i in range(10):
