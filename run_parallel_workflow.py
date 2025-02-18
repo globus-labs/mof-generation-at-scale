@@ -1033,7 +1033,7 @@ if __name__ == "__main__":
                 )
             )
             logger.addHandler(handler)
-        logger.setLevel(logging.INFO)
+        logger.setLevel(logging.DEBUG)
 
     logging.basicConfig(
         level=logging.INFO,
