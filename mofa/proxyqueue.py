@@ -261,10 +261,12 @@ class ProxyQueues(ColmenaQueues):
 if __name__ == "__main__":
 
     @parsl.python_app
-    def consume(serialized_queues):
-        import pickle
+    def consume():
+        from mofa.proxyqueue import ProxyQueues
 
-        queues_loaded = pickle.loads(serialized_queues)
+        queues_loaded = ProxyQueues(
+            topics=["generation", "lammps", "cp2k", "training", "assembly"],
+        )
 
         for i in range(10):
             print(f"{queues_loaded._get_request()=}")
