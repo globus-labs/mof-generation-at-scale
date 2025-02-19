@@ -269,6 +269,7 @@ if __name__ == "__main__":
         queues_loaded = ProxyQueues(
             topics=["generation", "lammps", "cp2k", "training", "assembly"],
         )
+        queues_loaded.connect_request_consumer()
 
         for i in range(10):
             print(f"{queues_loaded._get_request()=}")
