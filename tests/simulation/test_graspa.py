@@ -3,13 +3,13 @@ from ase.io import read
 from pytest import mark
 from pathlib import Path
 
-@mark.parametrize('ciffile,adsorbate,temperature,pressure,unit', 
+@mark.parametrize('adsorbate,temperature,pressure,unit', 
     [
-        ('JUPNAL_clean_DDEC_pacmof.cif',"CO2",298,1e4,"mol/kg"),
-        ('JUPNAL_clean_DDEC_pacmof.cif',"H2",160,5e5,"g/L")
+        ("CO2",298,1e4,"mol/kg"),
+        ("H2",160,5e5,"g/L")
     ]
 )
-def test_graspa_runner(ciffile, adsorbate, temperature, pressure, unit):
+def test_graspa_runner(adsorbate, temperature, pressure, unit):
     """Test for gRASPA runner"""
 
     # Can use different sets of parameters
