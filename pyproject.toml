@@ -26,7 +26,7 @@ classifiers = [
 ]
 dependencies = [
     # General workflow
-    "colmena==0.7.*",
+    "colmena>=0.7",
     "more-itertools",
     "parsl>=2023.04",
     "tqdm",
