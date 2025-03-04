@@ -32,10 +32,9 @@ dependencies:
   - lammps
   - cp2k
 
-  # Use Conda PyTorch to avoid OpenMP disagreement with other libraries
-  - pytorch==2.3.*=*cpu*
-
   - pip
   - pip:
     - git+https://gitlab.com/ase/ase.git
+    - --extra-index-url https://download.pytorch.org/whl/cpu
+    - torch==2.3.*
     - -e ..[test]
