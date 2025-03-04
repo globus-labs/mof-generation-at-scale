@@ -25,12 +25,14 @@ class LatticeParameterChange(Scorer):
 
     md_level: str = 'uff'
     """Level of accuracy used for the molecular dynamics simulation"""
+    md_length: int = 1000
+    """Length of the MD calculation"""
 
     def score_mof(self, record: MOFRecord) -> float:
         # Get the trajectory from the record
         if self.md_level not in record.md_trajectory:
             raise ValueError(f'No data available for MD simulations at level: "{self.md_level}"')
-        traj = record.md_trajectory[self.md_level]
+        traj = record.md_trajectory[self.md_level][str(self.md_length)]
 
         # Get the initial and final structures
         init_strc = read_vasp(StringIO(traj[0]))
