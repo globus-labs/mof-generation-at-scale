@@ -35,6 +35,6 @@ dependencies:
   - pip
   - pip:
     - git+https://gitlab.com/ase/ase.git
-    - --index-url https://download.pytorch.org/whl/cpu
+    - --extra-index-url https://download.pytorch.org/whl/cpu
     - torch==2.3.*
     - -e ..[test]
