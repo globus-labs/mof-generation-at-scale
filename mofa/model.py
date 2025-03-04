@@ -404,20 +404,21 @@ class MOFRecord:
     """A representative 3D structure of the MOF in POSCAR format"""
 
     # Detailed outputs from simulations
-    md_trajectory: dict[str, list[str]] = field(default_factory=dict, repr=False)
+    md_trajectory: dict[str, dict[str, list[str]]] = field(default_factory=dict, repr=False)
     """Structures of the molecule produced during molecular dynamics simulations.
 
-    Key is the name of the level of accuracy for the MD computational (e.g., "uff"),
-    values are the structure in POSCAR format"""
+    The dictionary has two keys: the level of accuracy, then the number of timesteps in the trajectory.
+    The values are the structures at each timestep in POSCAR format"""
 
     # Properties
     gas_storage: dict[str, float | tuple[float, float]] = field(default_factory=dict, repr=False)  # TODO (wardlt): Allow only one type of value
     """Storage capacity of the MOF for different gases and pressures. Key is the name of the gas, value is a single capacity value
      or the capacity at different pressures (units TBD)"""
-    structure_stability: dict[str, float] = field(default_factory=dict, repr=False)
+    structure_stability: dict[str, dict[str, float]] = field(default_factory=dict, repr=False)
     """How likely the structure is to be stable according to different assays
 
-    A score of 1 equates to most likely to be stable, 0 as least likely."""
+    The dictionary has two keys: the level of accuracy, then the number of timesteps in the trajectory.
+    The value is the strain between the first and last timestep. Larger values indicate worse stability"""
 
     # Tracking provenance of structure
     times: dict[str, datetime] = field(default_factory=lambda: {'created': datetime.now()})

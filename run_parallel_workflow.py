@@ -27,7 +27,7 @@ from mofa.model import NodeDescription, LigandTemplate
 from mofa.simulation.cp2k import CP2KRunner, compute_partial_charges
 from mofa.simulation.lammps import LAMMPSRunner
 from mofa.simulation.raspa import RASPARunner
-from mofa.steering import GeneratorConfig, TrainingConfig, MOFAThinker
+from mofa.steering import GeneratorConfig, TrainingConfig, MOFAThinker, SimulationConfig
 from mofa.hpc.colmena import DiffLinkerInference
 from mofa.hpc.config import configs as hpc_configs
 
@@ -156,8 +156,9 @@ if __name__ == "__main__":
                               lmp_sims_root_path='/dev/shm/lmp_run' if args.lammps_on_ramdisk else str(run_dir / 'lmp_run'),
                               lammps_environ=hpc_config.lammps_env,
                               delete_finished=not args.retain_lammps)
-    md_fun = partial(lmp_runner.run_molecular_dynamics, timesteps=args.md_timesteps, report_frequency=max(1, args.md_timesteps / args.md_snapshots))
+    md_fun = partial(lmp_runner.run_molecular_dynamics, report_frequency=max(1, args.md_timesteps / args.md_snapshots))
     update_wrapper(md_fun, lmp_runner.run_molecular_dynamics)
+    sim_config = SimulationConfig(md_length=(args.md_timesteps,))
 
     # Make the CP2K function
     cp2k_runner = CP2KRunner(
