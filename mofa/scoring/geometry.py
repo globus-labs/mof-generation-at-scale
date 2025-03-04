@@ -25,7 +25,7 @@ class LatticeParameterChange(Scorer):
 
     md_level: str = 'uff'
     """Level of accuracy used for the molecular dynamics simulation"""
-    md_length: int = 1000
+    md_length: int | str = 1000
     """Length of the MD calculation"""
 
     def score_mof(self, record: MOFRecord) -> float:
