@@ -25,7 +25,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ]
 dependencies = [
-    "colmena==0.7",
+    "colmena>=0.7",
     "more-itertools",
     "parsl>=2023.04",
     "ase>3.22",
