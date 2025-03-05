@@ -1,40 +1,61 @@
 from dataclasses import dataclass
-import ase
-from pathlib import Path
-import numpy as np
 import subprocess
 import os
-import platform
+from pathlib import Path
+import shutil
+import numpy as np
+import ase
 
-_file_dir = Path(__file__).parent / 'files' / 'graspa_template'
+_file_dir = Path(__file__).parent / "files" / "graspa_template"
 
+
+@dataclass
 class gRASPARunner:
-    graspa_command: str
-    run_dir: Path = Path('graspa-runs')
-    """Interface for running pre-defined gRASPA workflows"""
+    """Interface for running pre-defined gRASPA workflows."""
 
-    def _calculate_cell_size(self, atoms: ase.Atoms, cutoff: float=12.8) -> list[int, int, int]:
-        """Method to calculate Unitcells (for periodic boundary condition)"""
+    graspa_command: str = ""
+    """Invocation used to run gRASPA on this system"""
+
+    run_dir: Path = Path("graspa-runs")
+    """Path to store gRASPA files"""
+
+    def _calculate_cell_size(self, atoms: ase.Atoms, cutoff: float = 12.8) -> list[int, int, int]:
+        """Method to calculate Unitcells (for periodic boundary condition) for GCMC
+
+        Args:
+            atoms (ase.Atoms): ASE atom object
+            cutoff (float, optional): Cutoff in Angstrom. Defaults to 12.8.
+
+        Returns:
+            list[int, int, int]: Unit cell in x, y and z
+        """
         unit_cell = atoms.cell[:]
-        #Unit cell vectors
-        A = unit_cell[0]
-        B = unit_cell[1]
-        C = unit_cell[2]
-        #minimum distances between unit cell faces
-        Wa = np.divide(np.linalg.norm(np.dot(np.cross(B,C),A)), np.linalg.norm(np.cross(B,C)))
-        Wb = np.divide(np.linalg.norm(np.dot(np.cross(C,A),B)), np.linalg.norm(np.cross(C,A)))
-        Wc = np.divide(np.linalg.norm(np.dot(np.cross(A,B),C)), np.linalg.norm(np.cross(A,B)))
+        # Unit cell vectors
+        a = unit_cell[0]
+        b = unit_cell[1]
+        c = unit_cell[2]
+        # minimum distances between unit cell faces
+        wa = np.divide(np.linalg.norm(np.dot(np.cross(b, c), a)), np.linalg.norm(np.cross(b, c)))
+        wb = np.divide(np.linalg.norm(np.dot(np.cross(c, a), b)), np.linalg.norm(np.cross(c, a)))
+        wc = np.divide(np.linalg.norm(np.dot(np.cross(a, b), c)), np.linalg.norm(np.cross(a, b)))
 
-        uc_x = int(np.ceil(cutoff/(0.5*Wa)))
-        uc_y = int(np.ceil(cutoff/(0.5*Wb)))
-        uc_z = int(np.ceil(cutoff/(0.5*Wc)))
+        uc_x = int(np.ceil(cutoff / (0.5 * wa)))
+        uc_y = int(np.ceil(cutoff / (0.5 * wb)))
+        uc_z = int(np.ceil(cutoff / (0.5 * wc)))
 
         return [uc_x, uc_y, uc_z]
 
     def _write_cif(self, atoms: ase.Atoms, out_dir: str, name: str):
-        """Write a CIF file with partial charges that gRASPA can read from ASE atoms."""
+        """Save a CIF file with partial charges for gRASPA from an ASE Atoms object.
+
+        Args:
+            atoms (ase.Atoms): ASE Atoms object containing partial charges in atoms.info["_atom_site_charge"].
+            out_dir (str): Directory to save the output file.
+            name (str): Name of the output file.
+        """
+
         with open(os.path.join(out_dir, name), "w") as fp:
-            fp.write(f"MOFA-{name}\n")    
+            fp.write(f"MOFA-{name}\n")
 
             a, b, c, alpha, beta, gamma = atoms.cell.cellpar()
             fp.write(f"_cell_length_a      {a}\n")
@@ -43,10 +64,10 @@ class gRASPARunner:
             fp.write(f"_cell_angle_alpha   {alpha}\n")
             fp.write(f"_cell_angle_beta    {beta}\n")
             fp.write(f"_cell_angle_gamma   {gamma}\n")
-            fp.write(f"\n")
+            fp.write("\n")
             fp.write("_symmetry_space_group_name_H-M    'P 1'\n")
             fp.write("_symmetry_int_tables_number        1\n")
-            fp.write('\n')
+            fp.write("\n")
 
             fp.write("loop_\n")
             fp.write("  _symmetry_equiv_pos_as_xyz\n")
@@ -64,7 +85,7 @@ class gRASPARunner:
 
             coords = atoms.get_scaled_positions().tolist()
             symbols = atoms.get_chemical_symbols()
-            occupancies = [1 for i in range(len(symbols))] # No partial occupancy
+            occupancies = [1 for i in range(len(symbols))]  # No partial occupancy
             charges = atoms.info["_atom_site_charge"]
 
             no = {}
@@ -75,10 +96,22 @@ class gRASPARunner:
                 else:
                     no[symbol] = 1
 
-                fp.write(f"{symbol}{no[symbol]} {occ:.1f} {pos[0]:.6f} {pos[1]:.6f} {pos[2]:.6f} Biso 1.0 {symbol} {charge:.6f}\n")
+                fp.write(
+                    f"{symbol}{no[symbol]} {occ:.1f} {pos[0]:.6f} {pos[1]:.6f} {pos[2]:.6f} Biso 1.0 {symbol} {charge:.6f}\n"
+                )
 
-    def _get_cif_from_chargemol(self, cp2k_path: str, chargemol_fname: str = 'DDEC6_even_tempered_net_atomic_charges.xyz'):
-        """Return an ASE Atom object from Chargemol output"""
+    def _get_cif_from_chargemol(
+        self, cp2k_path: str, chargemol_fname: str = "DDEC6_even_tempered_net_atomic_charges.xyz"
+    ) -> ase.Atoms:
+        """Return an ASE atom object from a Chargemol output file.
+
+        Args:
+            cp2k_path (str): Path to Chargemol output.
+            chargemol_fname (str, optional): Chargemol output filename. Defaults to "DDEC6_even_tempered_net_atomic_charges.xyz".
+
+        Returns:
+            ase.Atoms: ASE Atoms object containing partial charges in atoms.info["_atom_site_charge"].
+        """
         with open(os.path.join(cp2k_path, chargemol_fname), "r") as f:
             symbols = []
             x = []
@@ -112,77 +145,95 @@ class gRASPARunner:
                     charges.append(float(data[4]))
                     positions.append([x, y, z])
         cell = [[a1, a2, a3], [b1, b2, b3], [c1, c2, c3]]
-        atoms = ase.Atoms(symbols=symbols, positions=positions, cell=cell, pbc=True)  
-        atoms.info['_atom_site_charge'] = charges
+        atoms = ase.Atoms(symbols=symbols, positions=positions, cell=cell, pbc=True)
+        atoms.info["_atom_site_charge"] = charges
 
         return atoms
 
-    def _write_cif_from_chargemol(self, cp2k_path: str, out_dir: str, name: str, chargemol_fname: str = 'DDEC6_even_tempered_net_atomic_charges.xyz'):
-        """Write a CIF file with partial charges for gRASPA using chargemol output"""
-        atoms = self._get_cif_from_chargemol(cp2k_path, chargemol_fname=chargemol_fname)
-        self._write_cif(atoms, out_dir, name)
+    def run_graspa(
+        self,
+        name: str,
+        cp2k_path: str,
+        adsorbate: str,
+        temperature: float,
+        pressure: float,
+        cutoff: float = 12.8,
+        n_cycle: int = 500,
+        chargemol_fname: str = "DDEC6_even_tempered_net_atomic_charges.xyz",
+    ) -> tuple[float, float, float, float]:
+        """Execute gRASPA simulations with specified input parameters.
 
-    def run_graspa(self, name: str, cp2k_path: str, adsorbate: str, temperature: float, pressure: float, 
-                   cutoff: float = 12.8, n_cycle: int = 500, write_output=True, unit='g/L', chargemol_fname: str='DDEC6_even_tempered_net_atomic_charges.xyz'):
-        out_dir = self.run_dir / f'{name}_{adsorbate}_{temperature}_{pressure:0e}'
+        Args:
+            name (str): Name of the MOF (excluding the ".cif" extension).
+            cp2k_path (str): Path to the Chargemol output file.
+            adsorbate (str): Adsorbate name. Supported values: 'H2', 'CO2', 'N2'.
+            temperature (float): Simulation temperature in Kelvin (K).
+            pressure (float): Simulation pressure in Pascal (Pa).
+            cutoff (float, optional): Van der Waals and Coulomb cutoff distance in Angstroms. Defaults to 12.8 Å.
+            n_cycle (int, optional): Number of initialization and production cycles. Defaults to 500.
+            chargemol_fname (str, optional): Filename of the Chargemol output. Defaults to "DDEC6_even_tempered_net_atomic_charges.xyz".
+
+        Returns:
+            tuple[float, float, float, float]: Computed uptake (U) and error (E) from gRASPA in the following order:
+                - U (mol/kg)
+                - E (mol/kg)
+                - U (g/L)
+                - E (g/L)
+        """
+
+        out_dir = self.run_dir / f"{name}_{adsorbate}_{temperature}_{pressure:0e}"
         out_dir.mkdir(parents=True, exist_ok=True)
 
         atoms = self._get_cif_from_chargemol(cp2k_path, chargemol_fname=chargemol_fname)
-        sed_option = "-i ''" if platform.system() == "Darwin" else "-i" # For MacOS
-        # Copy input files from templates
+        # Write CIF file with charges
+        self._write_cif(atoms, out_dir=out_dir, name=name + ".cif")
+
+        # Copy other input files (simulation.input, force fields and definition files) from template folder.
         subprocess.run(f"cp {_file_dir}/* {out_dir}/", shell=True)
 
-        # Modify simulation.input for each run
-        subprocess.run(f"sed {sed_option} 's/NCYCLE/{n_cycle}/g' {out_dir}/simulation.input", shell=True)
-        subprocess.run(f"sed {sed_option} 's/ADSORBATE/{adsorbate}/' {out_dir}/simulation.input", shell=True)
-        subprocess.run(f"sed {sed_option} 's/TEMPERATURE/{temperature}/' {out_dir}/simulation.input", shell=True)
-        subprocess.run(f"sed {sed_option} 's/PRESSURE/{pressure}/' {out_dir}/simulation.input", shell=True)
         [uc_x, uc_y, uc_z] = self._calculate_cell_size(atoms=atoms)
-        subprocess.run(f"sed {sed_option} 's/UC_X UC_Y UC_Z/{uc_x} {uc_y} {uc_z}/' {out_dir}/simulation.input", shell=True)
-        subprocess.run(f"sed {sed_option} 's/CUTOFF/{cutoff}/g' {out_dir}/simulation.input", shell=True)
 
-        # CIF file name
-        self._write_cif(atoms, out_dir=out_dir, name=name + '.cif') # Not sure if name should have .cif or not
-        #self._write_cif_from_chargemol(cp2k_path, out_dir, name)
-        subprocess.run(f"sed {sed_option} 's/CIF/{name}/' {out_dir}/simulation.input", shell=True)
-        
-        # gRASPA outputs different units. Select the correct value based on requested unit.
-        if unit == 'g/L':
-            value_index = -3
-        elif unit == 'mg/g':
-            value_index = 7
-        elif unit == 'mol/kg':
-            value_index = -5
-        else:
-            raise ValueError("Current implementation only support output unit in 'g/L' or 'mg/g' or 'mol/kg' ")
+        # Modify input from template simulation.input
+        with (
+            open(f"{out_dir}/simulation.input", "r") as f_in,
+            open(f"{out_dir}/simulation.input.tmp", "w") as f_out,
+        ):
+            for line in f_in:
+                if "NCYCLE" in line:
+                    line = line.replace("NCYCLE", str(n_cycle))
+                if "ADSORBATE" in line:
+                    line = line.replace("ADSORBATE", adsorbate)
+                if "TEMPERATURE" in line:
+                    line = line.replace("TEMPERATURE", str(temperature))
+                if "PRESSURE" in line:
+                    line = line.replace("PRESSURE", str(pressure))
+                if "UC_X UC_Y UC_Z" in line:
+                    line = line.replace("UC_X UC_Y UC_Z", f"{uc_x} {uc_y} {uc_z}")
+                if "CUTOFF" in line:
+                    line = line.replace("CUTOFF", str(cutoff))
+                if "CIF" in line:
+                    line = line.replace("CIF", name)
+                f_out.write(line)
 
-        if write_output == True:
-            self.graspa_command = self.graspa_command + " > raspa.err 2> raspa.log" # Store outputs in raspa.log. Some minor outputs are in raspa.err.
-            subprocess.run(self.graspa_command, shell=True, cwd=out_dir)
+        shutil.move(f"{out_dir}/simulation.input.tmp", f"{out_dir}/simulation.input")
+        # Store outputs in raspa.log. Some minor outputs are in raspa.err.
+        self.graspa_command = self.graspa_command + " > raspa.err 2> raspa.log"
 
-            # Get output from raspa.log file
-            data = subprocess.check_output("grep 'Overall: Average' {}/{}".format(out_dir, "raspa.log"), shell=True).decode('ascii')
-            results = data.strip().split('\n')
-            results_uptake = results[value_index]
-            r = results_uptake.split(',')
-            uptake = r[0].split()[-1]
-            error = r[1].split()[-1]
+        # Run gRASPA
+        subprocess.run(self.graspa_command, shell=True, cwd=out_dir)
 
-            return float(uptake), float(error)
-        else:
-            import sys
-            process = subprocess.run(self.graspa_command, shell=True, cwd=out_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) 
-            stderr_output = process.stderr # gRASPA main outputs are in stderr
-            results = [line for line in stderr_output.split('\n') if "Overall: Average" in line]
+        # Get output from raspa.log file
+        results = []
+        with open(f"{out_dir}/raspa.log", "r") as rf:
+            for line in rf:
+                if "Overall: Average" in line:
+                    results.append(line.strip())
 
-            if results:
-                results_uptake = results[value_index]  # Adjust value_index accordingly based on unit
-                r = results_uptake.split(',')
-                uptake = r[0].split()[-1]
-                error = r[1].split()[-1]
-                
-                return float(uptake), float(error)
-            else:
-                raise ValueError("No relevant output found in stderr.")
+        result_mol_kg = results[-5].split(",")
+        uptake_mol_kg = result_mol_kg[0].split()[-1]
+        error_mol_kg = result_mol_kg[1].split()[-1]
 
-
+        result_g_L = results[-3].split(",")
+        uptake_g_L = result_g_L[0].split()[-1]
+        error_g_L = result_g_L[1].split()[-1]
+        return float(uptake_mol_kg), float(error_mol_kg), float(uptake_g_L), float(error_g_L)
