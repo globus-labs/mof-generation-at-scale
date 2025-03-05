@@ -16,7 +16,10 @@ def test_graspa_runner(adsorbate, temperature, pressure):
         "pressure": pressure,
         "n_cycle": 100,
     }
-    graspa_command = "/opt/cray/pals/1.3.4/bin/mpiexec -n 1 --cpu-bind list:0 /eagle/projects/HPCBot/thang/soft/gRASPA/src_clean/nvc_main.x"  # Change this to your graspa command.
+    graspa_command = (
+        "/opt/cray/pals/1.3.4/bin/mpiexec -n 1 --cpu-bind list:0 "
+        "/eagle/projects/HPCBot/thang/soft/gRASPA/src_clean/nvc_main.x"
+    )
     gr = gRASPARunner()
     gr.graspa_command = graspa_command
     uptake_mol_kg, error_mol_kg, uptake_g_L, error_g_L = gr.run_graspa(**params)
