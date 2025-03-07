@@ -9,7 +9,7 @@ try:
     from mace.calculators import mace_mp
 
     calc = mace_mp(
-        model="medium", dispersion=True, default_dtype="float32", device="cpu"
+        model="medium", dispersion=False, default_dtype="float32", device="cpu"
     )
     MACE_AVAILABLE = True
 except (ImportError, ValueError, RuntimeError):
