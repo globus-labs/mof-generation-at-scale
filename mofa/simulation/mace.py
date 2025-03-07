@@ -14,9 +14,14 @@ from ase.optimize import LBFGS
 from mofa.model import MOFRecord
 from mofa.utils.conversions import read_from_string
 
+# Default model paths from MACE's pretrained models
+_default_model_path = (
+    "mace-mp-0"  # This will use MACE's built-in Materials Project model
+)
+
 _mace_options = {
     "default": {
-        "model": "medium",  # Can be 'small', 'medium', or 'large'
+        "model_paths": _default_model_path,  # Using Materials Project pretrained model
         "device": "cpu",  # Can be 'cpu' or 'cuda'
         "default_dtype": "float32",
     }

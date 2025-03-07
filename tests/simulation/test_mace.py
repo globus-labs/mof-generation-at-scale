@@ -1,7 +1,17 @@
 import os
 import shutil
 
-from pytest import mark
+from pytest import mark, importorskip
+
+# Try to import MACE and check if models are available
+mace = importorskip("mace")
+try:
+    from mace.calculators import MACECalculator
+
+    calc = MACECalculator(model_paths="mace-mp-0")
+    MACE_AVAILABLE = True
+except (ImportError, ValueError, RuntimeError):
+    MACE_AVAILABLE = False
 
 from mofa.model import MOFRecord
 from mofa.simulation.mace import MACERunner
@@ -10,6 +20,7 @@ from mofa.utils.conversions import write_to_string
 IN_GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
 
 
+@mark.skipif(not MACE_AVAILABLE, reason="MACE models not available")
 @mark.parametrize("cif_name", ["hMOF-0"])
 def test_mace_single(cif_name, cif_dir, tmpdir):
     # Make a MACE simulator that reads and writes to a temporary directory
@@ -28,6 +39,7 @@ def test_mace_single(cif_name, cif_dir, tmpdir):
     assert atoms.get_potential_energy() is not None
 
 
+@mark.skipif(not MACE_AVAILABLE, reason="MACE models not available")
 @mark.skipif(IN_GITHUB_ACTIONS, reason="Too expensive for CI")
 @mark.parametrize("cif_name", ["hMOF-0"])
 def test_mace_optimize(cif_name, cif_dir, tmpdir):
@@ -52,6 +64,7 @@ def test_mace_optimize(cif_name, cif_dir, tmpdir):
     assert atoms.get_potential_energy() is not None
 
 
+@mark.skipif(not MACE_AVAILABLE, reason="MACE models not available")
 @mark.parametrize("level", ["default"])
 def test_mace_options(level, cif_dir):
     """Test that different MACE options work"""
