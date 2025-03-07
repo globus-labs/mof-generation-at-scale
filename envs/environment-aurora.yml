@@ -46,6 +46,7 @@ dependencies:
   - pip:
     - git+https://gitlab.com/ase/ase.git
     - git+https://github.com/exalearn/colmena.git  # Fixes for streaming not yet on PyPI
+    - mace-torch
 
     # Install ccl manually for now, uncomment when SSL doesn't disagree between
     #  the following wheel's version and Sunspot/Aurora
