@@ -6,9 +6,11 @@ from pytest import mark, importorskip
 # Try to import MACE and check if models are available
 mace = importorskip("mace")
 try:
-    from mace.calculators import MACECalculator
+    from mace.calculators import mace_mp
 
-    calc = MACECalculator(model_paths="mace-mp-0")
+    calc = mace_mp(
+        model="medium", dispersion=True, default_dtype="float32", device="cpu"
+    )
     MACE_AVAILABLE = True
 except (ImportError, ValueError, RuntimeError):
     MACE_AVAILABLE = False

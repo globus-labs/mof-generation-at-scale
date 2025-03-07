@@ -5,7 +5,7 @@ from pathlib import Path
 import os
 
 import ase
-from mace.calculators import MACECalculator
+from mace.calculators import mace_mp
 from ase import units
 from ase.filters import UnitCellFilter
 from ase.io import Trajectory
@@ -122,7 +122,7 @@ class MACERunner:
 
         try:
             # Initialize MACE calculator
-            calc = MACECalculator(**options)
+            calc = mace_mp(**options)
             atoms = atoms.copy()
             atoms.calc = calc
 
