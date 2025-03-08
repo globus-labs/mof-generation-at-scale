@@ -105,7 +105,7 @@ class ProxyQueues(ColmenaQueues):
         for topic in self.topics:
             self.proxy_topics.append(f"{self.prefix}_{topic}_result")
 
-        self.endpoint = os.environ["PROXYSTORE_ENDPOINT"]
+        self.endpoint = os.getenv("PROXYSTORE_ENDPOINT")
         self.endpoint_connector = None
         self.store = None
 
