@@ -6,7 +6,6 @@ import os
 
 import ase
 from mace.calculators import mace_mp
-from ase import units
 from ase.filters import UnitCellFilter
 from ase.io import Trajectory
 from ase.optimize import LBFGS
