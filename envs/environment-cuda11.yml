@@ -44,5 +44,6 @@ dependencies:
     - git+https://gitlab.com/ase/ase.git
     - git+https://github.com/exalearn/colmena.git  # Fixes for streaming not yet on PyPI
     - rdkit==2023.03.2
+    - mace-torch
     - -e ..[test]
 
