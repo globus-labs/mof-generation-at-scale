@@ -3,7 +3,7 @@ from functools import partial, update_wrapper
 from subprocess import Popen
 from argparse import ArgumentParser
 from dataclasses import asdict
-from datetime import datetime
+from datetime import datetime, UTC
 from platform import node
 from pathlib import Path
 import logging
@@ -29,7 +29,9 @@ from mofa.simulation.lammps import LAMMPSRunner
 from mofa.simulation.raspa import RASPARunner
 from mofa.steering import GeneratorConfig, TrainingConfig, MOFAThinker, SimulationConfig
 from mofa.hpc.colmena import DiffLinkerInference
-from mofa.hpc.config import configs as hpc_configs
+from mofa.hpc.config import LocalConfig, HPCConfig
+from mofa.utils.config import load_variable
+from tests.test_steering import hpc_config
 
 RDLogger.DisableLog('rdApp.*')
 ob.obErrorLog.SetOutputLevel(0)
@@ -74,7 +76,8 @@ if __name__ == "__main__":
 
     group = parser.add_argument_group(title='Compute Settings', description='Compute environment configuration')
     group.add_argument('--lammps-on-ramdisk', action='store_true', help='Write LAMMPS outputs to a RAM Disk')
-    group.add_argument('--compute-config', default='local', help='Configuration for the HPC system')
+    group.add_argument('--compute-config', default='local', help='Configuration for the HPC system. Use either "local" for single node, '
+                                                                 'or provide the path to a config file containing the config')
     group.add_argument('--ai-fraction', default=0.1, type=float, help='Fraction of workers devoted to AI tasks')
     group.add_argument('--dft-fraction', default=0.1, type=float, help='Fraction of workers devoted to DFT tasks')
     group.add_argument('--redis-host', default=node(), help='Host for the Redis server')
@@ -88,7 +91,7 @@ if __name__ == "__main__":
 
     # Make the run directory
     run_params = args.__dict__.copy()
-    start_time = datetime.utcnow()
+    start_time = datetime.now(UTC)
     params_hash = hashlib.sha256(json.dumps(run_params).encode()).hexdigest()[:6]
     run_dir = Path('run') / f'parallel-{args.compute_config}-{start_time.strftime("%d%b%y%H%M%S")}-{params_hash}'
     run_dir.mkdir(parents=True)
@@ -112,12 +115,16 @@ if __name__ == "__main__":
         templates.append(template)
 
     # Load the HPC configuration
-    hpc_config = hpc_configs[args.compute_config]()
+    if args.compute_config == 'local':
+        hpc_config = LocalConfig()
+    else:
+        hpc_config = load_variable(args.compute_config, 'hpc_config')
     hpc_config.ai_fraction = args.ai_fraction
     hpc_config.dft_fraction = args.dft_fraction
+    hpc_config.run_dir = run_dir
 
     # Make the Parsl configuration
-    config = hpc_config.make_parsl_config(run_dir)
+    config = hpc_config.make_parsl_config()
     with (run_dir / 'compute-config.json').open('w') as fp:
         json.dump(asdict(hpc_config), fp)
 
@@ -169,9 +176,7 @@ if __name__ == "__main__":
     update_wrapper(cp2k_fun, cp2k_runner.run_optimization)
 
     # Make the RASPA function
-    raspa_runner = RASPARunner(
-        raspa_sims_root_path=run_dir / 'raspa-runs'
-    )
+    raspa_runner = hpc_config.make_raspa_runner()
     raspa_fun = partial(raspa_runner.run_GCMC_single, timesteps=args.raspa_timesteps)
     update_wrapper(raspa_fun, raspa_runner.run_GCMC_single)
 
