@@ -16,7 +16,28 @@ from parsl.providers import LocalProvider
 
 
 class HPCConfig:
-    """Base class for HPC configuration"""
+    """Base class for HPC configuration
+
+    Construct a new configuration by subclassing HPCConfig
+    or one of the subclasses provided below, then adapt
+    the :meth:`launch_monitor_process` and
+    :meth:`make_parsl_config` functions are appropriate
+    for the new system.
+
+    Also modify any of the configuration options provided in the
+    base class as appropriate.
+
+    MOFA uses the configuration class by setting the run_dir,
+    potentially altering some of the configuration values at runtime
+    (e.g., the fraction of nodes used for DFT), and then
+    executing the :meth:`make_parsl_config` function to prepare a Parsl config
+    before calling :meth:`launch_monitor_process` function to place
+    monitoring daemons on each compute node.
+    """
+
+    # Variables which must be set at runtime
+    run_dir: Path
+    """Where the log files should be written"""
 
     # How tasks run
     torch_device: str = 'cpu'
@@ -75,15 +96,13 @@ class HPCConfig:
         """
         raise NotImplementedError
 
-    def make_parsl_config(self, run_dir: Path) -> Config:
+    def make_parsl_config(self) -> Config:
         """Make a Parsl configuration
 
-        Args:
-            run_dir: Directory in which results will be stored
         Returns:
             Configuration that saves Parsl logs into the run directory
         """
-        raise NotImplementedError()
+        raise NotImplementedError
 
 
 @dataclass(kw_only=True)
@@ -122,14 +141,14 @@ class LocalConfig(HPCConfig):
             args=f"monitor_utilization --frequency {freq} {log_dir}".split()
         )
 
-    def make_parsl_config(self, run_dir: Path) -> Config:
+    def make_parsl_config(self) -> Config:
         return Config(
             executors=[
                 HighThroughputExecutor(label='sim', max_workers_per_node=1),
                 HighThroughputExecutor(label='helper', max_workers_per_node=1),
                 HighThroughputExecutor(label='ai', max_workers_per_node=1, available_accelerators=1)
             ],
-            run_dir=str(run_dir / 'runinfo')
+            run_dir=str(self.run_dir / 'runinfo')
         )
 
 
@@ -167,14 +186,14 @@ class LocalXYConfig(HPCConfig):
             args=f"monitor_utilization --frequency {freq} {log_dir}".split()
         )
 
-    def make_parsl_config(self, run_dir: Path) -> Config:
+    def make_parsl_config(self) -> Config:
         return Config(
             executors=[
                 HighThroughputExecutor(label='sim', max_workers_per_node=1),
                 HighThroughputExecutor(label='helper', max_workers_per_node=1),
                 HighThroughputExecutor(label='ai', max_workers_per_node=1, available_accelerators=1)
             ],
-            run_dir=str(run_dir / 'runinfo')
+            run_dir=str(self.run_dir / 'runinfo')
         )
 
 
@@ -214,26 +233,37 @@ class UICXYConfig(HPCConfig):
             args=f"monitor_utilization --frequency {freq} {log_dir}".split()
         )
 
-    def make_parsl_config(self, run_dir: Path) -> Config:
+    def make_parsl_config(self) -> Config:
         return Config(
             executors=[
                 HighThroughputExecutor(label='sim', max_workers_per_node=4, available_accelerators=4),
                 HighThroughputExecutor(label='helper', max_workers_per_node=1),
                 HighThroughputExecutor(label='ai', max_workers_per_node=1, available_accelerators=1)
             ],
-            run_dir=str(run_dir / 'runinfo')
+            run_dir=str(self.run_dir / 'runinfo')
         )
 
 
 @dataclass(kw_only=True)
-class PolarisConfig(HPCConfig):
-    """Configuration used on Polaris"""
+class SingleJobHPCConfig(HPCConfig):
+    """A configuration used for running MOFA inside a single HPC job
+
+    Partitions nodes between different tasks and sets aside a series of
+    CPUs on some nodes as "helpers" to run post-processing tasks.
+
+    Modify this configuration for a new HPC by changing:
+     1. Paths to the executables
+     2. Number of cores and GPUs per node
+     3. The scheduler used to detect the :attr:`hosts`
+     4. The make Parsl config function
+
+    This class provides an implementation for Polaris as an example.
+    """
 
     torch_device = 'cuda'
     lammps_cmd = ('/lus/eagle/projects/ExaMol/mofa/lammps-2Aug2023/build-gpu-nompi-mixed/lmp '
                   '-sf gpu -pk gpu 1').split()
     lammps_env = {}
-    run_dir: Path | None = None  # Set when building the configuration
 
     nodes_per_cp2k: int = 2
     """Number of nodes per CP2K task"""
@@ -271,9 +301,8 @@ class PolarisConfig(HPCConfig):
     def hosts(self):
         """Lists of hosts on which this computation is running"""
         # Determine the number of nodes from the PBS_NODEFILE
-        node_file = os.environ['PBS_NODEFILE']
-        with open(node_file) as fp:
-            hosts = [x.strip() for x in fp]
+        from parsl.executors.high_throughput.mpi_resource_management import get_nodes_in_batchjob, Scheduler
+        hosts = get_nodes_in_batchjob(Scheduler.PBS)
 
         # Determine the number of nodes to use for AI
         num_ai_hosts = max(1, min(int(self.ai_fraction * len(hosts)), len(hosts) - self.nodes_per_cp2k - 1))
@@ -308,8 +337,8 @@ class PolarisConfig(HPCConfig):
                  f'--cpu-bind depth monitor_utilization --frequency {freq} {log_dir.absolute()}'.split()
         )
 
-    def make_parsl_config(self, run_dir: Path) -> Config:
-        self.run_dir = str(run_dir.absolute())  # Used for CP2K config
+    def make_parsl_config(self) -> Config:
+        run_dir = self.run_dir.absolute()  # Used for CP2K config
         assert len(self.hosts) > 0, 'No hosts detected'
 
         # Write the nodefiles
@@ -419,70 +448,9 @@ hostname"""
         )
 
 
-# TODO (wardlt): Update with changes in schema
-class SunspotConfig(PolarisConfig):
-    """Configuration for running on Sunspot
-
-    Each GPU tasks uses a single tile"""
-
-    torch_device = 'xpu'
-    lammps_cmd = ('/home/knight/lammps-git/src/lmp_aurora_gpu-lward '
-                  '-pk gpu 1 -sf gpu').split()
-    lammps_env = {'OMP_NUM_THREADS': '1'}
-    cpus_per_node = 208
-    gpus_per_node = 12
-
-    def launch_monitor_process(self, log_dir: Path, freq: int = 20) -> Popen:
-        host_file = os.environ['PBS_NODEFILE']
-        util_path = '/lus/gila/projects/CSC249ADCD08_CNDA/mof-generation-at-scale/bin/monitor_sunspot'
-        return Popen(
-            args=f"parallel --onall --sshloginfile {host_file} {util_path} --frequency {freq} ::: {log_dir}".split()
-        )
-
-    def make_parsl_config(self, run_dir: Path) -> Config:
-        num_nodes = len(self.hosts)
-
-        accel_ids = [
-            f"{gid}.{tid}"
-            for gid in range(6)
-            for tid in range(2)
-        ]
-        return Config(
-            executors=[
-                HighThroughputExecutor(
-                    available_accelerators=accel_ids,  # Ensures one worker per accelerator
-                    cpu_affinity="block",  # Assigns cpus in sequential order
-                    prefetch_capacity=0,
-                    max_workers_per_node=12,
-                    cores_per_worker=16,
-                    provider=LocalProvider(
-                        worker_init="""
-source activate /lus/gila/projects/CSC249ADCD08_CNDA/mof-generation-at-scale/env
-module reset
-module use /soft/modulefiles/
-module use /home/ftartagl/graphics-compute-runtime/modulefiles
-module load oneapi/release/2023.12.15.001
-module load intel_compute_runtime/release/775.20
-module load gcc/12.2.0
-module list
-pwd
-which python
-hostname""",
-                        launcher=MpiExecLauncher(
-                            bind_cmd="--cpu-bind", overrides="--depth=208 --ppn 1"
-                        ),  # Ensures 1 manger per node and allows it to divide work among all 208 threads
-                        nodes_per_block=num_nodes,
-                    ),
-                ),
-            ],
-            run_dir=str(run_dir)
-        )
-
-
 configs: dict[str, type[HPCConfig]] = {
     'local': LocalConfig,
     'localXY': LocalXYConfig,
     'UICXY': UICXYConfig,
-    'polaris': PolarisConfig,
-    'sunspot': SunspotConfig
+    'polaris': SingleJobHPCConfig,
 }

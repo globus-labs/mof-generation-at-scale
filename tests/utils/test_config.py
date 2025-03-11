@@ -4,7 +4,8 @@ from pathlib import Path
 
 from pytest import mark
 
-from mofa.hpc.config import configs, PolarisConfig
+from mofa.hpc.config import configs, SingleJobHPCConfig
+from mofa.utils.config import load_variable
 
 
 @mark.parametrize('name', ['local', 'localXY'])
@@ -12,7 +13,8 @@ def test_local(tmpdir, name):
     config = configs[name]()
     assert config.torch_device == 'cuda'
     assert config.num_workers == 3
-    parsl_cfg = config.make_parsl_config(Path(tmpdir))
+    config.run_dir = tmpdir
+    parsl_cfg = config.make_parsl_config()
     assert str(tmpdir) in parsl_cfg.run_dir
 
 
@@ -24,7 +26,8 @@ def test_polaris(tmpdir):
     os.environ['PBS_NODEFILE'] = str(hostfile_path)
 
     try:
-        config: PolarisConfig = configs['polaris']()
+        config: SingleJobHPCConfig = SingleJobHPCConfig()
+        config.run_dir = Path(tmpdir)
         config.dft_fraction = 0.5
         config.nodes_per_cp2k = 2
         config.ai_fraction = 0.5
@@ -37,7 +40,7 @@ def test_polaris(tmpdir):
         assert len(config.lammps_hosts) == 1
 
         assert config.num_workers == 4 + 8 + 1
-        parsl_cfg = config.make_parsl_config(Path(tmpdir))
+        parsl_cfg = config.make_parsl_config()
         assert str(tmpdir) in parsl_cfg.run_dir
 
         # Make sure nodes are allocated appropriately
@@ -56,3 +59,8 @@ def test_polaris(tmpdir):
 
     finally:
         del os.environ['PBS_NODEFILE']
+
+
+def test_load_from_file():
+    config_path = Path(__file__).parents[1] / 'configs' / 'polaris' / 'polaris-raspa.py'
+    assert config_path.is_file()
