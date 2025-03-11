@@ -1,8 +1,7 @@
 """Tools for loading the configuration files associated with a run"""
-import os
 from typing import Sequence
 from pathlib import Path
-from os import chdir
+import os
 
 
 def load_variable(config_path: str | Path,

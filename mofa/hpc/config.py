@@ -5,13 +5,12 @@ from subprocess import Popen
 from typing import Literal
 from pathlib import Path
 from math import ceil
-import os
 
 from more_itertools import batched
 
 from parsl import HighThroughputExecutor
 from parsl import Config
-from parsl.launchers import MpiExecLauncher, WrappedLauncher, SimpleLauncher
+from parsl.launchers import WrappedLauncher, SimpleLauncher
 from parsl.providers import LocalProvider
 
 

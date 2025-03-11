@@ -2,7 +2,7 @@
 import os
 from pathlib import Path
 
-from pytest import mark
+from pytest import mark, raises
 
 from mofa.hpc.config import configs, SingleJobHPCConfig
 from mofa.utils.config import load_variable
@@ -62,5 +62,13 @@ def test_polaris(tmpdir):
 
 
 def test_load_from_file():
-    config_path = Path(__file__).parents[1] / 'configs' / 'polaris' / 'polaris-raspa.py'
+    config_path = Path(__file__).parents[2] / 'configs' / 'polaris' / 'polaris-raspa.py'
     assert config_path.is_file()
+
+    config = load_variable(config_path, 'hpc_config')
+    assert isinstance(config, SingleJobHPCConfig)
+
+    with raises(ValueError, match='not_there'):
+        load_variable(config_path, ('not_there',))
+    with raises(ValueError, match='not_there'):
+        load_variable(config_path, 'not_there')
