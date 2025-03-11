@@ -72,3 +72,20 @@ def test_load_from_file():
         load_variable(config_path, ('not_there',))
     with raises(ValueError, match='not_there'):
         load_variable(config_path, 'not_there')
+
+
+def test_raspa_vs_graspa():
+    config = SingleJobHPCConfig()
+
+    # Check the defaults
+    assert config.raspa_cmd is None
+    assert config.raspa_version == 'raspa2'
+    assert 'simulate' in str(config.make_raspa_runner().raspa_command)
+
+    # Check changing the path
+    config.raspa_cmd = '/not/a/path'
+    assert config.make_raspa_runner().raspa_command == '/not/a/path'
+
+    # Check changing to gRASPA
+    config.raspa_version = 'graspa'
+    assert config.make_raspa_runner().graspa_command == '/not/a/path'

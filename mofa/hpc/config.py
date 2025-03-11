@@ -13,6 +13,9 @@ from parsl import Config
 from parsl.launchers import WrappedLauncher, SimpleLauncher
 from parsl.providers import LocalProvider
 
+from mofa.simulation.graspa import gRASPARunner
+from mofa.simulation.raspa import RASPARunner
+
 
 class HPCConfig:
     """Base class for HPC configuration
@@ -47,6 +50,10 @@ class HPCConfig:
     """Command used to launch the CP2K shell"""
     lammps_env: dict[str, str] = field(default_factory=dict)
     """Extra environment variables to include when running LAMMPS"""
+    raspa_version: Literal['raspa2', 'raspa3', 'graspa'] = 'raspa2'
+    """Version of RASPA used on this system"""
+    raspa_cmd: str | None = None
+    """Command used to launch RASPA"""
 
     # How tasks are distributed
     ai_fraction: float = 0.1
@@ -83,6 +90,19 @@ class HPCConfig:
     def num_cp2k_workers(self):
         """Number of workers available for CP2K tasks"""
         raise NotImplementedError
+
+    def make_raspa_runner(self) -> RASPARunner | gRASPARunner:
+        """Make the RASPA runner appropriate for this workflow"""
+
+        if self.raspa_version == 'raspa2':
+            if self.raspa_cmd is None:
+                return RASPARunner()
+            else:
+                return RASPARunner(raspa_command=self.raspa_cmd)
+        elif self.raspa_version == 'graspa':
+            return gRASPARunner(graspa_command=self.raspa_cmd)
+        else:
+            raise NotImplementedError(f'No support for {self.raspa_cmd} yet.')
 
     def launch_monitor_process(self, log_dir: Path, freq: int = 20) -> Popen:
         """Launch a monitor process on all resources

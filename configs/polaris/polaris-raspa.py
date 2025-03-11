@@ -4,7 +4,7 @@ from mofa.hpc.config import SingleJobHPCConfig
 
 @dataclass
 class Config(SingleJobHPCConfig):
-    """Use the basic """
+    """Use the basic Polaris config, which employs RASPA"""
     pass
 
 
