@@ -1,3 +1,4 @@
+"""Interface to the GPU Version of RASPA, `gRASPA <https://github.com/snurr-group/gRASPA>`_"""
 from dataclasses import dataclass
 import subprocess
 import os
@@ -6,11 +7,13 @@ import shutil
 import numpy as np
 import ase
 
+from .base import BaseRaspaRunner
+
 _file_dir = Path(__file__).parent / "files" / "graspa_template"
 
 
 @dataclass
-class gRASPARunner:
+class gRASPARunner(BaseRaspaRunner):
     """Interface for running pre-defined gRASPA workflows."""
 
     graspa_command: str = ""

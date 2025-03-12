@@ -1,4 +1,4 @@
-from mofa.simulation.graspa import gRASPARunner
+from mofa.simulation.raspa.graspa import gRASPARunner
 from pytest import mark
 
 

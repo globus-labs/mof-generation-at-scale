@@ -12,8 +12,9 @@ import logging
 import pandas as pd
 from ase.geometry.cell import cell_to_cellpar
 
-from .cif2lammps.main_conversion import single_conversion
-from .cif2lammps.UFF4MOF_construction import UFF4MOF
+from mofa.simulation.cif2lammps.main_conversion import single_conversion
+from mofa.simulation.cif2lammps.UFF4MOF_construction import UFF4MOF
+from .base import BaseRaspaRunner
 
 logger = logging.getLogger(__name__)
 
@@ -211,7 +212,7 @@ yes
         wf.write(force_field_mixing_rules_str)
 
 
-class RASPARunner:
+class RASPARunner(BaseRaspaRunner):
     """Interface for running pre-defined RASPA workflows
 
     Args:
