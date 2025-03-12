@@ -5,6 +5,62 @@ Install MOFA and its dependencies by following these guides.
 
 ## Building CP2K
 
+We use at CP2K 2025.1 in our latest builds and compile a version with ELPA for the distributed eigenvalue solver.
+
+```bash
+module reset
+module use /soft/modulefiles 
+module swap PrgEnv-nvhpc PrgEnv-gnu
+module load cray-fftw
+module load cudatoolkit-standalone/12.2
+module load cray-libsci
+module list
+
+export CRAY_LIBSCI_PREFIX_DIR=$CRAY_PE_LIBSCI_PREFIX_DIR
+
+# Debug the environmental variables
+echo $NVIDIA_PATH
+echo $LD_LIBRARY_PATH
+
+# Make the dependencies
+cd tools/toolchain
+./install_cp2k_toolchain.sh --gpu-ver=A100 --enable-cuda --target-cpu=znver3 --mpi-mode=mpich --with-elpa=install -j 8 | tee install.log
+cp install/arch/* ../../arch/
+cd ../../
+
+# Make the code
+source ./tools/toolchain/install/setup
+make -j 4 ARCH=local VERSION="ssmp psmp"
+make -j 4 ARCH=local_cuda VERSION="ssmp psmp"
+```
+
+Run CP2K using a version of the [GPU binding script from ALCF](https://docs.alcf.anl.gov/polaris/running-jobs/#binding-mpi-ranks-to-gpus)
+modified to map multiple MPI ranks to each GPU:
+
+```bash
+#!/bin/bash -l
+# Compute the number of ranks per GPU
+num_gpus=4
+local_size=$PMI_LOCAL_SIZE
+ranks_per_gpu=$(( $local_size / $num_gpus ))
+
+# need to assign GPUs in reverse order due to topology
+# See Polaris Device Affinity Information https://www.alcf.anl.gov/support/user-guides/polaris/hardware-overview/machine-overview/index.html
+gpu=$(( ($local_size - 1 - ${PMI_LOCAL_RANK}) / $ranks_per_gpu))
+export CUDA_VISIBLE_DEVICES=$gpu
+#echo “RANK= ${PMI_RANK} LOCAL_RANK= ${PMI_LOCAL_RANK} gpu= ${gpu}”
+exec "$@"
+
+```
+
+An example mpiexec command:
+
+```bash
+mpiexec -n 16 --ppn 8 --cpu-bind depth --depth 4 -env OMP_NUM_THREADS=4 \
+    /lus/eagle/projects/MOFA/lward/cp2k-2025.1/set_affinity_gpu_polaris.sh \
+    /lus/eagle/projects/MOFA/lward/cp2k-2025.1/exe/local_cuda/cp2k.psmp
+```
+
 ## Building LAMMPS on Polaris
 
 We need a copy of LAMMPS that uses GPUs and not MPI.
