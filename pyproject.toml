@@ -34,17 +34,20 @@ dependencies = [
     # Chemistry related stuff
     "ase>3.22",
     "rdkit>2024",
+    "pymatgen",
 
     # ML-related dependencies
     "pytorch-lightning",
     "wandb",
     "imageio",
+    "scikit-learn",
 
     # Performance tracking
     "gpustat",
 
     # Data management
-    "pymongo>=4"
+    "pymongo>=4",
+    "pandas"
 ]
 
 [tool.setuptools.packages.find]
