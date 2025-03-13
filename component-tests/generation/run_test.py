@@ -71,15 +71,12 @@ if __name__ == "__main__":
                 available_accelerators=4,
                 provider=PBSProProvider(
                     launcher=MpiExecLauncher(bind_cmd="--cpu-bind", overrides="--depth=64 --ppn 1"),
-                    account='ExaMol',
+                    account='MOFA',
                     queue='debug',
                     select_options="ngpus=4",
                     scheduler_options="#PBS -l filesystems=home:eagle",
                     worker_init="""
-module load kokkos
-module load nvhpc/23.3
-module list
-source activate /lus/eagle/projects/ExaMol/mofa/mof-generation-at-scale/env-polaris
+source activate /lus/eagle/projects/MOFA/lward/mof-generation-at-scale/env
 
 cd $PBS_O_WORKDIR
 pwd

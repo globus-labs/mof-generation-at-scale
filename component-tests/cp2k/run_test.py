@@ -66,26 +66,20 @@ if __name__ == "__main__":
     elif args.config == "polaris":
         cp2k_cmd = (f'mpiexec -n {args.num_nodes * args.ranks_per_node} --ppn {args.ranks_per_node}'
                     f' --cpu-bind depth --depth {32 // args.ranks_per_node} -env OMP_NUM_THREADS={32 // args.ranks_per_node} '
-                    '/lus/eagle/projects/ExaMol/cp2k-2024.1/set_affinity_gpu_polaris.sh '
-                    '/lus/eagle/projects/ExaMol/cp2k-2024.1/exe/local_cuda/cp2k_shell.psmp')
+                    '/lus/eagle/projects/MOFA/lward/cp2k-2025.1/set_affinity_gpu_polaris.sh '
+                    '/lus/eagle/projects/MOFA/lward/cp2k-2025.1/exe/local_cuda/cp2k_shell.psmp')
         config = Config(retries=1, executors=[
             HighThroughputExecutor(
                 max_workers_per_node=1,
                 provider=PBSProProvider(
                     launcher=SimpleLauncher(),
-                    account='ExaMol',
-                    queue='debug-scaling',
+                    account='MOFA',
+                    queue='debug',
                     select_options="ngpus=4",
                     scheduler_options="#PBS -l filesystems=home:eagle",
                     worker_init="""
-module reset
-module use /soft/modulefiles 
-module swap PrgEnv-nvhpc PrgEnv-gnu
-module load cray-fftw
-module load cudatoolkit-standalone/12.2
-module load cray-libsci
 module list
-source activate /lus/eagle/projects/ExaMol/mofa/mof-generation-at-scale/env-polaris
+source activate /lus/eagle/projects/MOFA/lward/mof-generation-at-scale/env
 
 # Launch MPS daemon
 NNODES=`wc -l < $PBS_NODEFILE`
@@ -151,37 +145,37 @@ hostname
         raise ValueError(f'Configuration not defined: {args.config}')
 
     # Prepare parsl
-    parsl.load(config)
-    test_app = PythonApp(test_function)
+    with parsl.load(config):
+        test_app = PythonApp(test_function)
 
-    # Submit each MOF
-    futures = []
-    with open('../lammps-md/example-mofs.json') as fp:
-        for line, _ in zip(fp, range(args.num_to_run)):
-            mof = MOFRecord(**json.loads(line))
-            future = test_app(mof, cp2k_cmd, args.steps)
-            future.mof = mof
-            futures.append(future)
+        # Submit each MOF
+        futures = []
+        with open('../lammps-md/example-mofs.json') as fp:
+            for line, _ in zip(fp, range(args.num_to_run)):
+                mof = MOFRecord(**json.loads(line))
+                future = test_app(mof, cp2k_cmd, args.steps)
+                future.mof = mof
+                futures.append(future)
 
-    # Store results
-    for future in tqdm(as_completed(futures), total=len(futures)):
-        if future.exception() is not None:
-            print(f'{future.mof.name} failed: {future.exception()}')
-            continue
-        runtime, (atoms, run_path) = future.result()
+        # Store results
+        for future in tqdm(as_completed(futures), total=len(futures)):
+            if future.exception() is not None:
+                print(f'{future.mof.name} failed: {future.exception()}')
+                continue
+            runtime, (atoms, run_path) = future.result()
 
-        # Get the strain
-#        charges = compute_partial_charges(run_path).arrays['q']
-        # Store the result
-        with open('runtimes.json', 'a') as fp:
-            print(json.dumps({
-                'host': node(),
-                'nodes': args.num_nodes,
-                'ranks-per-node': args.ranks_per_node,
-                'cp2k_cmd': cp2k_cmd,
-                'steps': args.steps,
-                'mof': future.mof.name,
-                'runtime': runtime,
-#                'charges': charges.tolist(),
-                'strc': write_to_string(atoms, 'vasp')
-            }), file=fp)
+            # Get the strain
+    #        charges = compute_partial_charges(run_path).arrays['q']
+            # Store the result
+            with open('runtimes.json', 'a') as fp:
+                print(json.dumps({
+                    'host': node(),
+                    'nodes': args.num_nodes,
+                    'ranks-per-node': args.ranks_per_node,
+                    'cp2k_cmd': cp2k_cmd,
+                    'steps': args.steps,
+                    'mof': future.mof.name,
+                    'runtime': runtime,
+    #                'charges': charges.tolist(),
+                    'strc': write_to_string(atoms, 'vasp')
+                }), file=fp)

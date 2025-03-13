@@ -59,8 +59,10 @@ if __name__ == "__main__":
         lammps_env = None
         config = Config(executors=[HighThroughputExecutor(max_workers=1, cpu_affinity='block')])
     elif args.config == "polaris":
-        lammps_cmd = ('/lus/eagle/projects/ExaMol/mofa/lammps-2Aug2023/build-kokkos-nompi/lmp '
-                      '-k on g 1 -sf kk').split()
+        lammps_cmd = (
+            '/lus/eagle/projects/MOFA/lward/lammps-29Aug2024/build-gpu-nompi-mixed/lmp '
+            '-sf gpu -pk gpu 1'
+        ).split()
         lammps_env = {'OMP_NUM_THREADS': '1'}
         config = Config(retries=4, executors=[
             HighThroughputExecutor(
@@ -69,15 +71,13 @@ if __name__ == "__main__":
                 available_accelerators=4,
                 provider=PBSProProvider(
                     launcher=MpiExecLauncher(bind_cmd="--cpu-bind", overrides="--depth=64 --ppn 1"),
-                    account='ExaMol',
+                    account='MOFA',
                     queue='debug',
                     select_options="ngpus=4",
                     scheduler_options="#PBS -l filesystems=home:eagle",
                     worker_init="""
-module load kokkos
-module load nvhpc/23.3
 module list
-source activate /lus/eagle/projects/ExaMol/mofa/mof-generation-at-scale/env-polaris
+source activate /lus/eagle/projects/MOFA/lward/mof-generation-at-scale/env
 
 cd $PBS_O_WORKDIR
 pwd
@@ -149,42 +149,40 @@ hostname
         raise ValueError(f'Configuration not defined: {args.config}')
 
     # Prepare parsl
-    parsl.load(config)
-    test_app = PythonApp(test_function)
+    with parsl.load(config):
+        test_app = PythonApp(test_function)
 
-    # Submit each MOF
-    futures = []
-    with open('example-mofs.json') as fp:
-        for line in fp:
-            mof = MOFRecord(**json.loads(line))
-            future = test_app(mof, lammps_cmd, args.timesteps, lammps_env)
-            future.mof = mof
-            futures.append(future)
+        # Submit each MOF
+        futures = []
+        with open('example-mofs.json') as fp:
+            for line in fp:
+                mof = MOFRecord(**json.loads(line))
+                future = test_app(mof, lammps_cmd, args.timesteps, lammps_env)
+                future.mof = mof
+                futures.append(future)
 
-    # Store results
-    scorer = LatticeParameterChange()
-    for future in tqdm(as_completed(futures), total=len(futures)):
-        if future.exception() is not None:
-            print(f'{future.mof.name} failed: {future.exception}')
-            continue
-        runtime, traj = future.result()
+        # Store results
+        scorer = LatticeParameterChange(md_length=args.timesteps)
+        for future in tqdm(as_completed(futures), total=len(futures)):
+            if future.exception() is not None:
+                print(f'{future.mof.name} failed: {future.exception}')
+                continue
+            runtime, traj = future.result()
 
-        # Get the strain
-        # TODO (wardlt): Simplify how we compute strain
-        traj_vasp = [write_to_string(t, 'vasp') for t in traj]
-        mof = future.mof
-        mof.md_trajectory['uff'] = traj_vasp
-        strain = scorer.score_mof(mof)
+            # Get the strain
+            # TODO (wardlt): Simplify how we compute strain
+            traj_vasp = [write_to_string(t, 'vasp') for t in traj]
+            mof = future.mof
+            mof.md_trajectory['uff'] = {str(args.timesteps): traj_vasp}
+            strain = scorer.score_mof(mof)
 
-        # Store the result
-        with open('runtimes.json', 'a') as fp:
-            print(json.dumps({
-                'host': node(),
-                'lammps_cmd': lammps_cmd,
-                'timesteps': args.timesteps,
-                'mof': mof.name,
-                'runtime': runtime,
-                'strain': strain
-            }), file=fp)
-
-    parsl.dfk().cleanup()
+            # Store the result
+            with open('runtimes.json', 'a') as fp:
+                print(json.dumps({
+                    'host': node(),
+                    'lammps_cmd': lammps_cmd,
+                    'timesteps': args.timesteps,
+                    'mof': mof.name,
+                    'runtime': runtime,
+                    'strain': strain
+                }), file=fp)
