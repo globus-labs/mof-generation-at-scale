@@ -24,7 +24,7 @@ echo $LD_LIBRARY_PATH
 
 # Make the dependencies
 cd tools/toolchain
-./install_cp2k_toolchain.sh --gpu-ver=A100 --enable-cuda --target-cpu=znver3 --mpi-mode=mpich --with-elpa=install -j 8 | tee install.log
+./install_cp2k_toolchain.sh --gpu-ver=A100 --enable-cuda --target-cpu=znver3 --mpi-mode=mpich --with-elpa=install --with-sirius=no -j 8 | tee install.log
 cp install/arch/* ../../arch/
 cd ../../
 
@@ -33,6 +33,9 @@ source ./tools/toolchain/install/setup
 make -j 4 ARCH=local VERSION="ssmp psmp"
 make -j 4 ARCH=local_cuda VERSION="ssmp psmp"
 ```
+
+> Notes:
+>  - The current version of SIRIUS prints a version message to stdout on launch, which breaks the ASE CP2K wrapper. Until that's resolved, we build without SIRIUS
 
 Run CP2K using a version of the [GPU binding script from ALCF](https://docs.alcf.anl.gov/polaris/running-jobs/#binding-mpi-ranks-to-gpus)
 modified to map multiple MPI ranks to each GPU:
