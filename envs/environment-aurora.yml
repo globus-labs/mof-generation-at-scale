@@ -3,54 +3,31 @@
 # https://intel.github.io/intel-extension-for-pytorch/index.html#installation?platform=gpu&version=v2.1.10%2Bxpu
 name: mofa
 channels:
-  - intel
   - defaults
   - conda-forge
 dependencies:
   - python==3.10.*
-
-  # Standard data analysis tools
-  - pandas==1.*
-  - scipy==1.10.*
-  - scikit-learn
-  - jupyterlab
-  - matplotlib
-  - pytest
-
-  # Tools used as part of the ML packages
-  - imageio
-  - wandb
-
-  # Tools to work with crystalline and molecular data
-  - openbabel==3.1.*
-  - rdkit==2023.03.2
-  - pymatgen==2023.8.10
-  - scikit-learn==1.3.0
-  - conda-forge::chargemol
-  - conda-forge::raspa2
 
   # Services used by the workflow
   - redis==5.*
   - mongodb
   - parallel  # Used to launch monitor
 
-  # PyTorch + IPEX from Intel's Conda channel
-  - pytorch==2.1.0
-  - intel-extension-for-pytorch==2.1.10
-
-  # Tools to build CCL locally
-  - conda-forge::cmake
-  - ninja
+  # Tools to work with crystalline and molecular data
+  - conda-forge::chargemol
+  - conda-forge::raspa2
+  - openbabel
 
   - pip
   - pip:
     - git+https://gitlab.com/ase/ase.git
     - git+https://github.com/exalearn/colmena.git  # Fixes for streaming not yet on PyPI
     - mace-torch
+    # Install requirements from https://pytorch.org/docs/stable/notes/get_start_xpu.html
+    - --extra-index-url https://download.pytorch.org/whl/test/xpu
+    - torch==2.1.0
+    - numpy<2  # torch 2.1 is built with numpy 1
 
-    # Install ccl manually for now, uncomment when SSL doesn't disagree between
-    #  the following wheel's version and Sunspot/Aurora
-    #- --extra-index-url https://pytorch-extension.intel.com/release-whl/stable/xpu/us/
-    #    - oneccl_bind_pt==2.1.200+xpu
+    # Other stuff
+    - tqdm
     - -e ..[test]
-

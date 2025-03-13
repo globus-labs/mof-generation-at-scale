@@ -25,11 +25,15 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ]
 dependencies = [
+    # General workflow
     "colmena>=0.7",
     "more-itertools",
     "parsl>=2023.04",
-    "ase>3.22",
     "tqdm",
+
+    # Chemistry related stuff
+    "ase>3.22",
+    "rdkit>2024",
 
     # ML-related dependencies
     "pytorch-lightning",
