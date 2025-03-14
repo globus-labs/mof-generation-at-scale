@@ -237,7 +237,7 @@ class PolarisConfig(HPCConfig):
 
     nodes_per_cp2k: int = 2
     """Number of nodes per CP2K task"""
-    lammps_per_gpu: int = 2
+    lammps_per_gpu: int = 4
     """Number of LAMMPS to run per GPU"""
 
     ai_hosts: list[str] = field(default_factory=list)
@@ -341,7 +341,6 @@ hostname"""
         helpers_per_worker = 1  # One core per worker set aside for "helpers"
         sim_cores = [f"{i * cpus_per_worker}-{(i + 1) * cpus_per_worker - helpers_per_worker - 1}" for i in range(lammps_per_node)][::-1]  # GPU3 ~ c0-7
         helper_cores = [str(i) for w in range(lammps_per_node) for i in range((w + 1) * cpus_per_worker - helpers_per_worker, (w + 1) * cpus_per_worker)]
-        lammps_accel = [str(i) for i in range(self.gpus_per_node) for _ in range(self.lammps_per_gpu)]
 
         cpus_per_worker = self.cpus_per_node // self.gpus_per_node
         ai_cores = [f"{i * cpus_per_worker}-{(i + 1) * cpus_per_worker - 1}" for i in range(4)][::-1]  # All CPUs to AI tasks
@@ -376,9 +375,9 @@ hostname"""
             ),
             HighThroughputExecutor(
                 label='lammps',
-                max_workers_per_node=len(lammps_accel),
+                max_workers_per_node=lammps_per_node,
                 cpu_affinity='list:' + ":".join(sim_cores),
-                available_accelerators=lammps_accel,
+                available_accelerators=lammps_per_node,
                 provider=LocalProvider(
                     launcher=WrappedLauncher(
                         f"mpiexec -n {len(self.lammps_hosts)} --ppn 1 --hostfile {lammps_nodefile} --depth=64 --cpu-bind depth"
