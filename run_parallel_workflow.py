@@ -197,7 +197,7 @@ if __name__ == "__main__":
     # Turn on logging
     my_logger = logging.getLogger('main')
     handlers = [logging.StreamHandler(sys.stdout), logging.FileHandler(run_dir / 'run.log')]
-    for logger in [my_logger, thinker.logger, logging.getLogger('colmena')]:
+    for logger in [my_logger, thinker.logger]:
         for handler in handlers:
             handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
             logger.addHandler(handler)
