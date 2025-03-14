@@ -187,8 +187,8 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         anchor_type = self.generator_config.templates[ligand_id].anchor_type
 
         # The generation topic includes both the generator and process functions
-        self.logger.info(f'Generator task intermediate={not result.complete} for anchor_type={anchor_type} size={size} finished')
-        if result.complete:  # The generate method has finished making ligands
+        self.logger.info(f'Generator task method={result.method} for anchor_type={anchor_type} size={size} finished')
+        if result.method == 'run_generator':  # The generate method has finished making ligands
             # Start a new task
             self.rec.release('generation')
             with self.generate_write_lock:

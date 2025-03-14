@@ -160,6 +160,7 @@ def make_gen_outputs(task: Result, cache_dir: Path):
     done_res.set_result(None, intermediate=False)
     done_res.serialize()
 
+    task.method = 'process_ligands'
     task.set_result(result, intermediate=True)
     task.serialize()
     return done_res, task
