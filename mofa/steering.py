@@ -411,8 +411,9 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         last_train_size = 0
         while not self.done.is_set():
             # Determine how to select the best MOFs
+            md_length = self.sim_config.md_length[-1]  # Use the maximum MD length
             if self.num_raspa_completed < self.trainer_config.minimum_train_size:
-                sort_field = 'structure_stability.uff'
+                sort_field = f'structure_stability.uff.{md_length}'
                 to_include = min(int(self.num_lammps_completed * self.trainer_config.best_fraction), self.trainer_config.maximum_train_size)
                 sort_order = pymongo.ASCENDING
             else:
@@ -423,7 +424,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             # Build the query
             query = defaultdict(dict)
             query[sort_field] = {'$exists': True}
-            query['structure_stability.uff'] = {'$lt': self.trainer_config.maximum_strain}
+            query[f'structure_stability.uff.{md_length}'] = {'$lt': self.trainer_config.maximum_strain}
 
             cursor = (
                 self.collection.find(
