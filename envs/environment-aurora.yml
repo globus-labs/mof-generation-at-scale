@@ -20,6 +20,9 @@ dependencies:
 
   - pip
   - pip:
+    - git+https://gitlab.com/ase/ase.git
+    - git+https://github.com/exalearn/colmena.git  # Fixes for streaming not yet on PyPI
+    - mace-torch
     # Install requirements from https://pytorch.org/docs/stable/notes/get_start_xpu.html
     - --extra-index-url https://download.pytorch.org/whl/test/xpu
     - torch==2.1.0
