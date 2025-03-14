@@ -189,6 +189,7 @@ if __name__ == "__main__":
                           hpc_config=hpc_config,
                           generator_config=generator,
                           trainer_config=trainer,
+                          simulation_config=sim_config,
                           simulation_budget=args.simulation_budget,
                           node_template=node_template,
                           out_dir=run_dir)
@@ -196,7 +197,7 @@ if __name__ == "__main__":
     # Turn on logging
     my_logger = logging.getLogger('main')
     handlers = [logging.StreamHandler(sys.stdout), logging.FileHandler(run_dir / 'run.log')]
-    for logger in [my_logger, thinker.logger]:
+    for logger in [my_logger, thinker.logger, logging.getLogger('colmena')]:
         for handler in handlers:
             handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
             logger.addHandler(handler)

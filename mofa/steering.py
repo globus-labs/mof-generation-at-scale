@@ -195,6 +195,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
                 print(result.json(exclude={'inputs', 'value'}), file=self._output_files['generation-results'], flush=True)
         else:
             # The message contains the ligands
+            self.logger.info(f'Pushing linkers to the processing queue. Backlog: {self.ligand_process_queue.qsize()}')
             self.ligand_process_queue.put(result)
 
         if not result.success:
@@ -248,6 +249,8 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
                     if first_write:
                         writer.writeheader()
                     writer.writerows(all_records)
+            else:
+                self.logger.warning(f'Generation failed: {result.failure_info.exception}')
 
             # Write the result file
             with self.generate_write_lock:

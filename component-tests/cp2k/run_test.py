@@ -83,7 +83,7 @@ source activate /lus/eagle/projects/MOFA/lward/mof-generation-at-scale/env
 
 # Launch MPS daemon
 NNODES=`wc -l < $PBS_NODEFILE`
-mpiexec -n ${NNODES} --ppn 1 /lus/eagle/projects/ExaMol/mofa/mof-generation-at-scale/bin/enable_mps_polaris.sh &
+#mpiexec -n ${NNODES} --ppn 1 /lus/eagle/projects/ExaMol/mofa/mof-generation-at-scale/bin/enable_mps_polaris.sh &
 
 cd $PBS_O_WORKDIR
 pwd
