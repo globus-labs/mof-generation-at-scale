@@ -25,7 +25,7 @@ dependencies:
     - mace-torch
     # Install requirements from https://pytorch.org/docs/stable/notes/get_start_xpu.html
     - --extra-index-url https://download.pytorch.org/whl/test/xpu
-    - torch==2.1.0
+    - torch==2.5.0+xpu
     - numpy<2  # torch 2.1 is built with numpy 1
 
     # Other stuff
