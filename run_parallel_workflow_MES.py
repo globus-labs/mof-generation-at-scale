@@ -46,13 +46,15 @@ from mofa.assembly.validate import process_ligands
 from mofa.generator import run_generator, train_generator
 from mofa.model import MOFRecord, NodeDescription, LigandTemplate, LigandDescription
 from mofa.scoring.geometry import LatticeParameterChange
+from mofa.scoring.acquisition import acquisition_reorder
 from mofa.simulation.cp2k import CP2KRunner, compute_partial_charges
 from mofa.simulation.lammps import LAMMPSRunner
 from mofa.simulation.raspa import RASPARunner
 from mofa.utils.conversions import write_to_string
 from mofa.hpc.colmena import DiffLinkerInference
 from mofa import db as mofadb
-from mofa.hpc.config import configs as hpc_configs, HPCConfig
+#from mofa.hpc.config import configs as hpc_configs, HPCConfig
+from mofa.hpc.config import configs as hpc_configs, ALConfig
 
 RDLogger.DisableLog('rdApp.*')
 ob.obErrorLog.SetOutputLevel(0)
@@ -105,11 +107,13 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
     def __init__(self,
                  queues: ColmenaQueues,
                  out_dir: Path,
-                 hpc_config: HPCConfig,
+                 #hpc_config: HPCConfig,
+                 hpc_config: ALConfig,
                  simulation_budget: int,
                  generator_config: GeneratorConfig,
                  trainer_config: TrainingConfig,
-                 node_template: NodeDescription):
+                 node_template: NodeDescription,
+                 al_config_dict: dict):
         if hpc_config.num_workers < 2:
             raise ValueError(f'There must be at least two workers. Supplied: {hpc_config}')
         self.assemble_workers = max(1, hpc_config.num_lammps_workers // 256)  # Ensure we keep a steady stream of MOFs
@@ -174,7 +178,11 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         self.xgbr = XGBRegressor()
         self.xgbr.load_model(os.path.join('input-files','xgb_stationary_model.json'))
         self.X_init, self.y_init = init_learning_inputs()
-        self.al_retrain_interval = 1
+        self.use_al = al_config_dict['use_al']
+        self.al_retrain_interval = al_config_dict['al_retrain_interval']
+        self.al_acquisition = al_config_dict['al_acquisition']
+        self.no_cp2k = al_config_dict['no_cp2k']
+        
         self.al_retrain_counter = 0
         self.mofa_db_length = 0
 
@@ -259,47 +267,46 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
                     ligand.metadata['model_version'] = model_version
                 
                 ######### MARCUS ADDITIONS/CHANGES #########
-
                 db_len = self.collection.count_documents(filter={})
-                print(f'-------------- COLLECTION LENGTH: {db_len} ----------------')
-                if db_len>self.mofa_db_length:
-                    self.mofa_db_length = db_len
-                    if db_len // self.al_retrain_interval > self.al_retrain_counter: #Trigger retrain
-                        self.al_retrain_counter = db_len // self.al_retrain_interval
-                        #Use the document length to check if retraining is needed
-                        cursor = (self.collection.find({}))
-                        new_X = []
-                        new_y = []
-                        for record in cursor:
-                            new_X+=[i['smiles']['metadata']['rd_embed'] for i in record['ligands'][1:]] #Skipping first ligand (duplicate)
-                            new_y+=[record['structure_stability']['uff'],record['structure_stability']['uff']]
-                            #print('RECORD GAS STORAGE',record['gas_storage'])
-                        X = np.concatenate([self.X_init,np.array(new_X)])
-                        y = np.concatenate([self.y_init,np.array(new_y)])
-                        new_xgbr = XGBRegressor()
-                        new_xgbr.fit(X,y)
-                        new_model_file = self.out_dir / f'xgbr_al_params_{str(self.al_retrain_counter).zfill(5)}.json'
-                        new_xgbr.save_model(new_model_file)
-                        self.xgbr = new_xgbr
+                if self.use_al:
+                    if db_len>self.mofa_db_length:
+                        self.mofa_db_length = db_len
+                        if db_len // self.al_retrain_interval > self.al_retrain_counter: #Trigger retrain
+                            self.al_retrain_counter = db_len // self.al_retrain_interval
+                            #Use the document length to check if retraining is needed
+                            cursor = (self.collection.find({}))
+                            new_X = []
+                            new_y = []
+                            for record in cursor:
+                                new_X+=[i['rd_embed'] for i in record['ligands'][1:]] #Skipping first ligand (duplicate)
+                                new_y+=[record['structure_stability']['uff'],record['structure_stability']['uff']]
+                            X = np.concatenate([self.X_init,np.array(new_X)])
+                            y = np.concatenate([self.y_init,np.array(new_y)])
+                            new_xgbr = XGBRegressor()
+                            new_xgbr.fit(X,y)
+                            new_model_file = self.out_dir / f'xgbr_al_params_{str(self.al_retrain_counter).zfill(5)}.json'
+                            new_xgbr.save_model(new_model_file)
+                            self.xgbr = new_xgbr
+                            
+                    if len(valid_ligands) == 0:
+                        new_stability_predictions = []
+                        new_tani_sims = []
+                        new_sascores = []
+                    else:
+                        embeddings = np.array([lig.rd_embed for lig in valid_ligands])
+                        new_stability_predictions = self.xgbr.predict(embeddings)
+                        new_tani_sims = np.array([lig.hmof_tani_sim for lig in valid_ligands])
+                        new_sascores = np.array([lig.sascore for lig in valid_ligands])
                         
-                if len(valid_ligands) == 0:
-                    new_stability_predictions = []
-                    new_tani_sims = []
-                    new_sascores = []
+                    for lig_ind in range(len(valid_ligands)):
+                        valid_ligands[lig_ind].metadata['pred_stability'] = float(new_stability_predictions[lig_ind])
+                
+                    all_lig_list = list(self.ligand_assembly_queue[anchor_type]) + valid_ligands
+                    ordered_inds = acquisition_reorder(all_lig_list,self.al_acquisition) #Reorder according to acquisition function
+                    reordered_ligands_list = [all_lig_list[lig_ind] for lig_ind in ordered_inds]
                 else:
-                    embeddings = np.array([lig.rd_embed for lig in valid_ligands])
-                    new_stability_predictions = self.xgbr.predict(embeddings)
-                    new_tani_sims = np.array([lig.hmof_tani_sim for lig in valid_ligands])
-                    new_sascores = np.array([lig.sascore for lig in valid_ligands])
-                    
-                for lig_ind in range(len(valid_ligands)):
-                    valid_ligands[lig_ind].metadata['pred_stability'] = float(new_stability_predictions[lig_ind])
-                
-                all_lig_list = list(self.ligand_assembly_queue[anchor_type]) + valid_ligands
-                #MARCUS TODO: ADD ALTERNATIVE ACQUISITION FUNCTIONS FOR REORDERING THAT USE ALL PROPERTIES. CURRENTLY STRAIN ONLY.
-                stability_ordered_inds = np.argsort([lig.metadata['pred_stability'] for lig in all_lig_list])[::-1]
-                reordered_ligands_list = [all_lig_list[lig_ind] for lig_ind in stability_ordered_inds]
-                
+                    reordered_ligands_list = list(self.ligand_assembly_queue[anchor_type]) + valid_ligands
+
                 # Append the ligands to the task queue
                 self.ligand_assembly_queue[anchor_type].extend(reordered_ligands_list)  # Shoves old ligands out of the deque
                 ######### END OF MARCUS ADDITIONS/CHANGES #########
@@ -404,10 +411,10 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         self.in_progress[to_run.name] = to_run  # Store the MOF record for later use
         self.logger.info(f'Started MD simulation for mof={to_run.name}. '
                          f'Simulation queue depth: {len(self.mof_queue)}.')
-
-#        if self.simulations_left == 0:
-#            self.done.set()
-#            self.logger.info('No longer submitting tasks.')
+        #Marcus: Uncommenting these lines to have a cutoff after a certain number of simulations has completed...
+        if self.simulations_left == 0:
+            self.done.set()
+            self.logger.info('No longer submitting tasks.')
 
     @result_processor(topic='lammps')
     def store_lammps(self, result: Result):
@@ -545,6 +552,10 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
     @task_submitter(task_type='cp2k')
     def submit_cp2k(self):
         """Start a CP2K submission"""
+        self.logger.info('No MOFs ready for CP2K. Waiting for MD to finish')
+        self.cp2k_ready.clear()
+        self.cp2k_ready.wait()
+        return #Short-circuit any CP2K runs.
 
         # Query the database to find the best MOF we have not run CP2K on yet
         while True:  # Runs until something gets submitted
@@ -668,6 +679,13 @@ if __name__ == "__main__":
     group.add_argument('--redis-host', default=node(), help='Host for the Redis server')
     group.add_argument('--proxy-threshold', default=10000, type=int, help='Size threshold to use proxystore for data (bytes)')
 
+    group = parser.add_argument_group(title='AL Model Settings', description='Options related to running active learning calculations')
+    group.add_argument('--use-al',default=False,type=bool,help='Whether to use active learning to reorder stability queue')
+    group.add_argument('--al-retrain-interval',default=1,type=int,help='How often to retrain and replace new AL model')
+    group.add_argument('--al-acquisition',default='ucb_lambda01',type=str,help='Acquisition function to use for queue reordering')
+    group.add_argument('--no-cp2k',default=True,type=bool,help='Turn off CP2K and RASPA optimization and gas capacity calculations')
+    
+
     args = parser.parse_args()
 
     # Load the example MOF
@@ -770,6 +788,14 @@ if __name__ == "__main__":
         stderr=(run_dir / 'mongo.err').open('w')
     )
 
+    #Active learning model config
+    al_config_dict = {'use_al':args.use_al,'al_retrain_interval':args.al_retrain_interval,\
+                        'al_acquisition':args.al_acquisition,'no_cp2k':args.no_cp2k}
+    #group.add_argument('--use-al',default=False,type=bool,help='Whether to use active learning to reorder stability queue')
+    #group.add_argument('--al-retrain-interval',default=1,type=int,help='How often to retrain and replace new AL model')
+    #group.add_argument('--al-acquisition',default='ucb_lambda01',type=str,help='Acquisition function to use for queue reordering')
+    #group.add_argument('--no-cp2k',default=True,type=bool,help='Turn off CP2K and RASPA optimization and gas capacity calculations')
+
     # Make the thinker
     thinker = MOFAThinker(queues,
                           hpc_config=hpc_config,
@@ -777,7 +803,8 @@ if __name__ == "__main__":
                           trainer_config=trainer,
                           simulation_budget=args.simulation_budget,
                           node_template=node_template,
-                          out_dir=run_dir)
+                          out_dir=run_dir,
+                          al_config_dict=al_config_dict)
 
     # Turn on logging
     my_logger = logging.getLogger('main')

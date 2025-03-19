@@ -347,9 +347,9 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         self.logger.info(f'Started MD simulation for mof={to_run.name}. '
                          f'Simulation queue depth: {len(self.mof_queue)}.')
 
-#        if self.simulations_left == 0:
-#            self.done.set()
-#            self.logger.info('No longer submitting tasks.')
+        if self.simulations_left == 0:
+            self.done.set()
+            self.logger.info('No longer submitting tasks.')
 
     @result_processor(topic='lammps')
     def store_lammps(self, result: Result):
