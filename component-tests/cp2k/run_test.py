@@ -100,8 +100,10 @@ hostname
             )
         ])
     elif args.config == "aurora":
+        assert args.ranks_per_node == 12, 'We only support 1 rank per tile on Aurora'
         cp2k_cmd = (f'mpiexec -n {args.num_nodes * args.ranks_per_node} --ppn {args.ranks_per_node}'
-                    f' --cpu-bind depth --depth {104 // args.ranks_per_node} -env OMP_NUM_THREADS={104 // args.ranks_per_node} '
+                    f' --cpu-bind depth --depth={104 // args.ranks_per_node} -env OMP_NUM_THREADS={104 // args.ranks_per_node} '
+                    '--env OMP_PLACES=cores '
                     '/lus/flare/projects/MOFA/lward/mof-generation-at-scale/bin/cp2k_shell')
         config = Config(
             retries=2,
@@ -114,15 +116,15 @@ hostname
                         account="MOFA",
                         queue="debug",
                         worker_init="""
-source activate /lus/flare/projects/MOFA/lward/mof-generation-at-scale/env
-
+module load frameworks
+source /lus/flare/projects/MOFA/lward/mof-generation-at-scale/venv/bin/activate
 cd $PBS_O_WORKDIR
+
 pwd
-which cp2k.psmp
 which python
 hostname
                         """,
-                        walltime="0:30:00",
+                        walltime="1:00:00",
                         launcher=SimpleLauncher(),
                         scheduler_options="#PBS -l filesystems=home:flare",
                         nodes_per_block=1,
