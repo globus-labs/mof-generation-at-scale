@@ -2,12 +2,12 @@
 from typing import Sequence
 from subprocess import run, CompletedProcess
 from pathlib import Path
-import os
-
-import ase
 import io
 import shutil
 import logging
+import os
+
+import ase
 import pandas as pd
 from ase.io.lammpsrun import read_lammps_dump_text
 
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 class LAMMPSRunner:
-    """Interface for running pre-defined LAMMPS workflows
+    """Interface for running pre-defined LAMMPS workflows with UFF4MOF forcefield
 
     Args:
         lammps_command: Command used to launch LAMMPS
@@ -117,7 +117,7 @@ write_data          relaxing.*.data
 
         return lmp_path
 
-    def run_molecular_dynamics(self, mof: MOFRecord, timesteps: int, report_frequency: int) -> list[ase.Atoms]:
+    def run_molecular_dynamics(self, mof: MOFRecord, timesteps: int, report_frequency: int) -> list[tuple[int, ase.Atoms]]:
         """Run a molecular dynamics trajectory
 
         Args:
@@ -139,7 +139,7 @@ write_data          relaxing.*.data
 
             # Read the output file
             with open(Path(lmp_path) / 'dump.lammpstrj.all') as fp:
-                return read_lammps_dump_text(fp, slice(None))
+                return [(i * report_frequency, strc) for i, strc in enumerate(read_lammps_dump_text(fp, slice(None)))]
         finally:
             if self.delete_finished:
                 shutil.rmtree(lmp_path)
