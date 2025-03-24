@@ -5,6 +5,7 @@ from pathlib import Path
 
 from pytorch_lightning import Trainer, callbacks
 from pytorch_lightning.callbacks import TQDMProgressBar
+from pytorch_lightning.strategies import SingleDeviceStrategy
 
 from mofa.utils.lightning import XPUAccelerator
 from mofa.utils.src.const import NUMBER_OF_ATOM_TYPES, GEOM_NUMBER_OF_ATOM_TYPES
@@ -144,6 +145,7 @@ def main(
             strategy = 'ddp' if args.strategy is None else args.strategy
             if args.device == 'xpu':
                 accelerator = XPUAccelerator()
+                strategy = SingleDeviceStrategy(device='xpu')
             else:
                 accelerator = args.device
 
