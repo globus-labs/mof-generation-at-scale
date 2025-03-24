@@ -11,6 +11,16 @@ This enviornment contains PyTorch versions that are suited for
 the Intel GPUs on Aurora and many of the math libraries we require
 for MOFA.
 
+```bash
+# Make a virtual environment from the frameworks
+module load frameworks/2024.2.1_u1
+python3 -m venv ./venv --system-site-packages
+source ./venv/bin/activate
+
+# Install the MOFA stuff
+pip install -e .
+```
+
 ## Databases
 
 Install Redis and MongoDB with Anaconda.
