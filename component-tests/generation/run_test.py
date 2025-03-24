@@ -77,7 +77,6 @@ if __name__ == "__main__":
                     scheduler_options="#PBS -l filesystems=home:eagle",
                     worker_init="""
 source activate /lus/eagle/projects/MOFA/lward/mof-generation-at-scale/env
-
 cd $PBS_O_WORKDIR
 pwd
 which python
@@ -92,24 +91,17 @@ hostname
                 )
             )
         ])
-    elif args.config.startswith("sunspot"):
+    elif args.config.startswith("aurora"):
         # Map processes to specific tiles or whole devices
-        if args.config == "sunspot":
-            accel_ids = [
-               f"{gid}.{tid}"
-               for gid in range(6)
-               for tid in range(2)
-            ]
-        elif args.config == "sunspot-device":
-            accel_ids = [
-               f"{gid}.0,{gid}.1"
-               for gid in range(6)
-            ]
+        if args.config == "aurora":
+            accel_count = 12
+        elif args.config == "aurora-device":
+            accel_count = 6
         else:
             raise ValueError(f'Not supported: {args.config}')
 
         # Ensures processes are mapped to physical cores
-        workers_per_socket = len(accel_ids) // 2
+        workers_per_socket = accel_count // 2
         cores_per_socket = 52
         cores_per_worker = cores_per_socket // workers_per_socket
         assigned_cores = []
@@ -121,39 +113,32 @@ hostname
             retries=2,
             executors=[
                 HighThroughputExecutor(
-                    label="sunspot_test",
-                    available_accelerators=accel_ids,  # Ensures one worker per accelerator
-                    cpu_affinity='list:' + ":".join(assigned_cores),  # Assigns cpus in sequential order
+                    label="aurora_test",
+                    available_accelerators=accel_count,
+                    cpu_affinity='list:' + ":".join(assigned_cores),  # Assigns cpus in sequent
                     prefetch_capacity=0,
-                    max_workers_per_node=len(accel_ids),
-                    cores_per_worker=208 // len(accel_ids),
+                    max_workers_per_node=accel_count,
+                    cores_per_worker=208 // accel_count,
                     provider=PBSProProvider(
-                        account="CSC249ADCD08_CNDA",
-                        queue="workq",
+                        account="MOFA",
+                        queue="debug",
                         worker_init=f"""
-source activate /lus/gila/projects/CSC249ADCD08_CNDA/mof-generation-at-scale/env
-module reset
-module use /soft/modulefiles/
-module use /home/ftartagl/graphics-compute-runtime/modulefiles
-module load oneapi/release/2023.12.15.001
-module load intel_compute_runtime/release/775.20
-module load gcc/12.2.0
-module list
-
-{"" if len(accel_ids) == 12 else "export IPEX_TILE_AS_DEVICE=0"}
+module load frameworks
+source /lus/flare/projects/MOFA/lward/mof-generation-at-scale/venv/bin/activate
+export ZE_FLAT_DEVICE_HIERARCHY={'FLAT' if accel_count == 12 else 'COMPOSITE'}
 cd $PBS_O_WORKDIR
 pwd
 which python
 hostname
                         """,
-                        walltime="1:10:00",
+                        walltime="1:00:00",
                         launcher=MpiExecLauncher(
                             bind_cmd="--cpu-bind", overrides="--depth=208 --ppn 1"
                         ),  # Ensures 1 manger per node and allows it to divide work among all 208 threads
-                        select_options="system=sunspot,place=scatter",
+                        scheduler_options="#PBS -l filesystems=home:flare",
                         nodes_per_block=1,
                         min_blocks=0,
-                        max_blocks=1, # Can increase more to have more parallel batch jobs
+                        max_blocks=1,
                         cpus_per_node=208,
                     ),
                 ),
@@ -163,28 +148,28 @@ hostname
         raise ValueError(f'Configuration not defined: {args.config}')
 
     # Prepare parsl
-    parsl.load(config)
-    test_app = PythonApp(test_function)
+    with parsl.load(config):
+        test_app = PythonApp(test_function)
 
-    # Submit all combinations
-    futures = []
-    for template, n_atoms, n_samples in product(args.template_paths, args.num_atoms, args.num_samples):
-        kwargs = {'template': str(template), 'n_atoms': n_atoms, 'n_samples': n_samples}
-        future = test_app(args.model_path, n_atoms, template, n_samples, device=args.device)
-        future.info = kwargs
-        futures.append(future)
+        # Submit all combinations
+        futures = []
+        for template, n_atoms, n_samples in product(args.template_paths, args.num_atoms, args.num_samples):
+            kwargs = {'template': str(template), 'n_atoms': n_atoms, 'n_samples': n_samples}
+            future = test_app(args.model_path, n_atoms, template, n_samples, device=args.device)
+            future.info = kwargs
+            futures.append(future)
 
-    # Store results
-    for future in tqdm(as_completed(futures), total=len(futures)):
-        runtime = future.result()
+        # Store results
+        for future in tqdm(as_completed(futures), total=len(futures)):
+            runtime = future.result()
 
-        # Store the result
-        with open('runtimes.json', 'a') as fp:
-            print(json.dumps({
-                'host': node(),
-                'model_path': str(args.model_path),
-                'device': args.device,
-                'runtime': runtime,
-                'config': args.config,
-                **future.info
-            }), file=fp)
+            # Store the result
+            with open('runtimes.json', 'a') as fp:
+                print(json.dumps({
+                    'host': node(),
+                    'model_path': str(args.model_path),
+                    'device': args.device,
+                    'runtime': runtime,
+                    'config': args.config,
+                    **future.info
+                }), file=fp)

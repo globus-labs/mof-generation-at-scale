@@ -108,39 +108,31 @@ hostname
                 )
             )
         ])
-    elif args.config.startswith("sunspot"):
+    elif args.config.startswith("aurora"):
         config = Config(
+            retries=2,
             executors=[
                 HighThroughputExecutor(
-                    label="sunspot_test",
+                    label="aurora_test",
                     prefetch_capacity=0,
                     max_workers_per_node=1,
                     provider=PBSProProvider(
-                        account="CSC249ADCD08_CNDA",
-                        queue="workq",
+                        account="MOFA",
+                        queue="debug",
                         worker_init=f"""
-source activate /lus/gila/projects/CSC249ADCD08_CNDA/mof-generation-at-scale/env
-module reset
-module use /soft/modulefiles/
-module use /home/ftartagl/graphics-compute-runtime/modulefiles
-module load oneapi/release/2023.12.15.001
-module load intel_compute_runtime/release/775.20
-module load gcc/12.2.0
-module list
-
-python -c "import intel_extension_for_pytorch as ipex; print(ipex.xpu.device_count())"
-
+module load frameworks
+source /lus/flare/projects/MOFA/lward/mof-generation-at-scale/venv/bin/activate
 cd $PBS_O_WORKDIR
 pwd
 which python
 hostname
                         """,
-                        walltime="1:10:00",
+                        walltime="1:00:00",
                         launcher=SimpleLauncher(),
-                        select_options="system=sunspot,place=scatter",
+                        scheduler_options="#PBS -l filesystems=home:flare",
                         nodes_per_block=1,
                         min_blocks=0,
-                        max_blocks=1,  # Can increase more to have more parallel batch jobs
+                        max_blocks=1,
                         cpus_per_node=208,
                     ),
                 ),

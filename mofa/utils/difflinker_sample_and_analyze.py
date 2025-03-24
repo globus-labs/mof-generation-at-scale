@@ -6,10 +6,6 @@ import os
 import torch
 import numpy as np
 from rdkit import Chem
-try:
-    import intel_extension_for_pytorch as ipex
-except ImportError:
-    ipex = None
 
 from mofa.model import LigandTemplate, LigandDescription
 from mofa.utils.src import const
@@ -53,7 +49,7 @@ def generate_animation(ddpm, chain_batch, node_mask, n_mol):
 @lru_cache(maxsize=1)  # Keep only one model in memory
 def load_model(path, device) -> DDPM:
     """Load the DDPM model from disk"""
-    return DDPM.load_from_checkpoint(path, map_location=device).eval().to(device)
+    return DDPM.load_from_checkpoint(path, map_location='cpu').eval().to(device)
 
 
 def main_run(templates: list[LigandTemplate],
@@ -81,10 +77,6 @@ def main_run(templates: list[LigandTemplate],
 
     # Pull the model from disk, evicting the old one if needed
     ddpm = load_model(model, device)
-
-    # If xpu, optimize
-    if device == "xpu":
-        ddpm = ipex.optimize(ddpm)
 
     if n_steps is not None:
         ddpm.edm.T = n_steps  # otherwise, ddpm.edm.T = 1000 default

@@ -7,10 +7,20 @@ from tempfile import TemporaryDirectory
 from typing import Iterator
 from pathlib import Path
 
+import yaml
+# TODO (wardlt): Torch is imported in the subsequent MOFA modules
+#  I plan to refactor those modules eventually,
+#  so am putting the Intel GPU imports here until I
+#  shuffle everything into a good structure
+try:
+    import intel_extension_for_pytorch as ipex  # noqa: F401
+    import oneccl_bindings_for_pytorch as torch_ccl  # noqa: F401
+except ImportError:
+    pass
+
 from mofa.model import LigandDescription, LigandTemplate, MOFRecord
 from mofa.utils.difflinker_sample_and_analyze import main_run
 from mofa.difflinker_train import get_args, main
-import yaml
 
 
 def train_generator(
