@@ -123,9 +123,9 @@ hostname
                         account="MOFA",
                         queue="debug",
                         worker_init=f"""
-source activate /lus/flare/projects/MOFA/lward/mof-generation-at-scale/env
+module load frameworks
+source /lus/flare/projects/MOFA/lward/mof-generation-at-scale/venv/bin/activate
 export ZE_FLAT_DEVICE_HIERARCHY={'FLAT' if accel_count == 12 else 'COMPOSITE'}
-#module unload oneapi/eng-compiler  # To use the SYCL from PyPI
 cd $PBS_O_WORKDIR
 pwd
 which python
