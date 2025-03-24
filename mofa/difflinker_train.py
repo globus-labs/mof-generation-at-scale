@@ -141,7 +141,7 @@ def main(
                 context_node_nf += 1
 
             # Lock XPU to single device for now
-            strategy = 'ddp_spawn' if args.strategy is None else args.strategy
+            strategy = 'ddp' if args.strategy is None else args.strategy
             if args.device == 'xpu':
                 accelerator = XPUAccelerator()
             else:
