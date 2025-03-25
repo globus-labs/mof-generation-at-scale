@@ -29,7 +29,7 @@ def _load_structure(mof: MOFRecord, structure_source: tuple[str, int] | None):
         return mof.atoms
     else:
         traj, ind = structure_source
-        return read_from_string(mof.md_trajectory[traj][ind], "vasp")
+        return read_from_string(mof.md_trajectory[traj][ind][-1], "vasp")
 
 
 @dataclass

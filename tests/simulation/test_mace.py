@@ -16,7 +16,7 @@ def test_mace_single(cif_name, cif_dir, tmpdir):
 
     test_file = cif_dir / f"{cif_name}.cif"
     record = MOFRecord.from_file(test_file)
-    record.md_trajectory["uff"] = [write_to_string(record.atoms, "vasp")]
+    record.md_trajectory["uff"] = [(0, write_to_string(record.atoms, "vasp"))]
     atoms, mace_path = runner.run_single_point(record, structure_source=("uff", -1))
 
     # Check that the computation completed and produced expected outputs
@@ -37,7 +37,7 @@ def test_mace_optimize(cif_name, cif_dir, tmpdir):
 
     test_file = cif_dir / f"{cif_name}.cif"
     record = MOFRecord.from_file(test_file)
-    record.md_trajectory["uff"] = [write_to_string(record.atoms, "vasp")]
+    record.md_trajectory["uff"] = [(0, write_to_string(record.atoms, "vasp"))]
     atoms, mace_path = runner.run_optimization(record, steps=2, fmax=0.1)
 
     # Check that optimization produced expected changes and outputs
