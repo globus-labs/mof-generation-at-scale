@@ -60,3 +60,28 @@ def test_mace_options(level, cif_dir):
     record = MOFRecord.from_file(test_file)
     atoms, mace_path = runner.run_single_point(record, level=level)
     assert atoms.get_potential_energy() is not None
+
+
+def test_mace_md(cif_dir):
+    test_file = cif_dir / "hMOF-0.cif"
+    record = MOFRecord.from_file(test_file)
+
+    # Initial run
+    runner = MACERunner()
+    output = runner.run_molecular_dynamics(
+        mof=record,
+        timesteps=4,
+        report_frequency=2
+    )
+    assert len(output) == 3
+    record.md_trajectory[runner.traj_name] = [
+        (f, write_to_string(a, 'vasp')) for f, a in output
+    ]
+
+    # Continuation
+    output = runner.run_molecular_dynamics(
+        mof=record,
+        timesteps=8,
+        report_frequency=2
+    )
+    assert len(output) == 2

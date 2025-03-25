@@ -5,18 +5,21 @@ from pathlib import Path
 import os
 
 import ase
+from ase import units, io
+from ase.md.nptberendsen import NPTBerendsen
+from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
 from mace.calculators import mace_mp
 from ase.filters import UnitCellFilter
 from ase.io import Trajectory
 from ase.optimize import LBFGS
 
 from mofa.model import MOFRecord
+from mofa.simulation.interfaces import MDInterface
 from mofa.utils.conversions import read_from_string
 
 _mace_options = {
     "default": {
         "model": "medium",  # Can be 'small', 'medium', or 'large'
-        "device": "cpu",  # Can be 'cpu' or 'cuda'
         "default_dtype": "float32",
         "dispersion": False,  # Whether to include dispersion corrections
     }
@@ -33,17 +36,22 @@ def _load_structure(mof: MOFRecord, structure_source: tuple[str, int] | None):
 
 
 @dataclass
-class MACERunner:
+class MACERunner(MDInterface):
     """Interface for running pre-defined MACE workflows"""
 
     run_dir: Path = Path("mace-runs")
     """Path in which to store MACE computation files"""
+    traj_name = 'mace_mp'
+    md_supercell: int = 2
+    """How large of a supercell to use for the MD calculation"""
+    device: str = 'cpu'
+    """Which device to use for the calculations"""
 
     def run_single_point(
-        self,
-        mof: MOFRecord,
-        level: str = "default",
-        structure_source: tuple[str, int] | None = None,
+            self,
+            mof: MOFRecord,
+            level: str = "default",
+            structure_source: tuple[str, int] | None = None,
     ) -> tuple[ase.Atoms, Path]:
         """Perform a single-point computation at a certain level
 
@@ -60,12 +68,12 @@ class MACERunner:
         return self._run_mace(mof.name, atoms, "single", level)
 
     def run_optimization(
-        self,
-        mof: MOFRecord,
-        level: str = "default",
-        structure_source: tuple[str, int] | None = None,
-        steps: int = 8,
-        fmax: float = 1e-2,
+            self,
+            mof: MOFRecord,
+            level: str = "default",
+            structure_source: tuple[str, int] | None = None,
+            steps: int = 8,
+            fmax: float = 1e-2,
     ) -> tuple[ase.Atoms, Path]:
         """Perform a geometry optimization computation
 
@@ -84,13 +92,14 @@ class MACERunner:
         return self._run_mace(mof.name, atoms, "optimize", level, steps, fmax)
 
     def _run_mace(
-        self,
-        name: str,
-        atoms: ase.Atoms,
-        action: str,
-        level: str,
-        steps: int = 8,
-        fmax: float = 1e-2,
+            self,
+            name: str,
+            atoms: ase.Atoms,
+            action: str,
+            level: str,
+            steps: int = 8,
+            fmax: float = 1e-2,
+            loginterval: int = 1,
     ) -> tuple[ase.Atoms, Path]:
         """Run MACE in a special directory
 
@@ -101,6 +110,7 @@ class MACERunner:
             level: Level of accuracy to use
             steps: Number of steps to run
             fmax: Convergence threshold for optimization
+            loginterval: How often to log to a trajectory
         Returns:
             - Structure with computed properties
             - Absolute path to the run directory
@@ -117,7 +127,7 @@ class MACERunner:
 
         try:
             # Initialize MACE calculator
-            calc = mace_mp(**options)
+            calc = mace_mp(device=self.device, **options)
             atoms = atoms.copy()
             atoms.calc = calc
 
@@ -129,6 +139,15 @@ class MACERunner:
                 with Trajectory("relax.traj", mode="w") as traj:
                     dyn = LBFGS(ecf, logfile="relax.log", trajectory=traj)
                     dyn.run(fmax=fmax, steps=steps)
+            elif action == "md":
+                MaxwellBoltzmannDistribution(temperature_K=300, atoms=atoms)
+                with Trajectory("md.traj", mode="w") as traj:
+                    dyn = NPTBerendsen(atoms,
+                                       timestep=0.5 * units.fs, temperature_K=300,
+                                       taut=1000 * units.fs, pressure_au=0,
+                                       taup=1000 * units.fs, compressibility_au=40 / units.GPa,
+                                       trajectory=traj, logfile='npt.log', loginterval=loginterval)
+                    dyn.run(steps=steps)
             else:
                 raise ValueError(f"Action not supported: {action}")
 
@@ -138,3 +157,38 @@ class MACERunner:
             os.chdir(start_dir)
 
         return atoms, out_dir.absolute()
+
+    def run_molecular_dynamics(self,
+                               mof: MOFRecord,
+                               timesteps: int,
+                               report_frequency: int) -> list[tuple[int, ase.Atoms]]:
+        # Get the initial structure
+        if self.traj_name in mof.md_trajectory:
+            start_frame, strc = mof.md_trajectory[self.traj_name][-1]
+            atoms = read_from_string(strc, 'vasp')
+            continuation = True
+        else:
+            atoms = mof.atoms * ([self.md_supercell] * 3)
+            start_frame = 0
+            continuation = False
+
+        # Run the MD trajectory
+        out_atoms, out_dir = self._run_mace(
+            name=mof.name,
+            level='default',
+            action='md',
+            atoms=atoms,
+            steps=timesteps - start_frame,
+            loginterval=report_frequency,
+        )
+
+        # Read in the trajectory file
+        output = []
+        for i, atoms in enumerate(io.iread(out_dir / 'md.traj')):
+            if continuation and i == 0:
+                continue
+            timestep = start_frame + report_frequency * i
+            output.append((timestep, atoms))
+        if output[-1][0] != timesteps:
+            output.append((timesteps, out_atoms))
+        return output

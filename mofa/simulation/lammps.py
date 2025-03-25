@@ -15,11 +15,12 @@ from .cif2lammps.main_conversion import single_conversion
 from .cif2lammps.UFF4MOF_construction import UFF4MOF
 
 from mofa.model import MOFRecord
+from .interfaces import MDInterface
 
 logger = logging.getLogger(__name__)
 
 
-class LAMMPSRunner:
+class LAMMPSRunner(MDInterface):
     """Interface for running pre-defined LAMMPS workflows with UFF4MOF forcefield
 
     Args:
@@ -28,6 +29,8 @@ class LAMMPSRunner:
         lammps_environ: Additional environment variables to provide to LAMMPS
         delete_finished: Whether to delete run files once completed
     """
+
+    traj_name = 'uff'
 
     def __init__(self,
                  lammps_command: Sequence[str] = ("lmp_serial",),
