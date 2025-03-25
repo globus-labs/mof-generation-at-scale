@@ -66,8 +66,12 @@ class TrainingConfig:
 class SimulationConfig:
     """Configuration for the simulation inputs"""
 
+    md_level: str = 'uff'
+    """Name of the accuracy level at which to run MD"""
     md_length: Sequence[int] = (1000,)
     """Number of timesteps to perform with MD at different levels"""
+    md_report: int = 10
+    """Number of frames to report per MD interval"""
 
 
 class MOFAThinker(BaseThinker, AbstractContextManager):
@@ -336,7 +340,9 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             to_run, steps,
             method='run_molecular_dynamics',
             topic='lammps',
-            task_info={'name': to_run.name, 'length': steps}
+            task_info={'name': to_run.name,
+                       'length': steps,
+                       'level': self.sim_config.md_level}
         )
         self.in_progress[to_run.name] = to_run  # Store the MOF record for later use
         self.logger.info(f'Started MD simulation for mof={to_run.name}. '
@@ -375,23 +381,25 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             # Store the trajectory
             traj = result.value
             name = result.task_info['name']
+            level = result.task_info['level']
             record = self.in_progress.pop(name)
-            self.logger.info(f'Received a trajectory of {len(traj)} frames for mof={name}. Backlog: {self.post_md_queue.qsize()}')
+            self.logger.info(f'Received a trajectory of {len(traj)} frames for mof={name} at level={level}.'
+                             f' Backlog: {self.post_md_queue.qsize()}')
 
             # Compute the lattice strain
             scorer = LatticeParameterChange()
             traj = [(i, write_to_string(t, 'vasp')) for i, t in traj]
-            if 'uff' not in record.md_trajectory:
-                record.md_trajectory['uff'] = []
-            record.md_trajectory['uff'] = traj
+            if level not in record.md_trajectory:
+                record.md_trajectory[level] = []
+            record.md_trajectory[level] = traj
 
-            if 'uff' not in record.structure_stability:
-                record.structure_stability['uff'] = {}
-            latest_length, _ = record.md_trajectory['uff'][-1]
+            if level not in record.structure_stability:
+                record.structure_stability[level] = {}
+            latest_length, _ = record.md_trajectory[level][-1]
             strain = scorer.score_mof(record)
-            record.structure_stability['uff'][str(latest_length)] = strain
+            record.structure_stability[level][str(latest_length)] = strain
             record.times['md-done'] = datetime.now()
-            self.logger.info(f'Lattice change after {latest_length} timesteps of MD for mof={name}: {strain * 100:.1f}%')
+            self.logger.info(f'Lattice change after {latest_length} timesteps of MD for mof={name} level={level}: {strain * 100:.1f}%')
 
             # Store the result in MongoDB
             mofadb.create_records(self.collection, [record])
