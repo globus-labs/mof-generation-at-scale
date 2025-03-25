@@ -13,6 +13,12 @@ from ase.filters import UnitCellFilter
 from ase.io import Trajectory
 from ase.optimize import LBFGS
 
+try:
+    import intel_extension_for_pytorch as ipex  # noqa: F401
+    import oneccl_bindings_for_pytorch as torch_ccl  # noqa: F401
+except ImportError:
+    pass
+
 from mofa.model import MOFRecord
 from mofa.simulation.interfaces import MDInterface
 from mofa.utils.conversions import read_from_string
