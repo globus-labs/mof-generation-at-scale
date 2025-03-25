@@ -1,7 +1,9 @@
 from concurrent.futures import as_completed
 import argparse
 import json
+from pathlib import Path
 
+import pandas as pd
 import parsl
 from parsl import Config, HighThroughputExecutor
 from parsl.app.python import PythonApp
@@ -15,6 +17,7 @@ from mofa.scoring.geometry import LatticeParameterChange
 from mofa.model import MOFRecord
 from mofa.utils.conversions import write_to_string
 
+
 def test_function(mof: MOFRecord, timesteps: int, device: str) -> tuple[float, list[Atoms]]:
     """Run a LAMMPS simulation, report runtime and resultant traj
 
@@ -26,7 +29,7 @@ def test_function(mof: MOFRecord, timesteps: int, device: str) -> tuple[float, l
         - Runtime (s)
         - MD trajectory
     """
-    from mofa.simulation.mace import MACERunner
+    from mofa.simulation.mace import MACERunner, load_model
     from time import perf_counter
     from pathlib import Path
 
@@ -34,6 +37,7 @@ def test_function(mof: MOFRecord, timesteps: int, device: str) -> tuple[float, l
     run_dir.mkdir(exist_ok=True, parents=True)
 
     # Run
+    load_model(device)  # Cache the model _before_ we run MD
     runner = MACERunner(run_dir=run_dir, device=device)
     start_time = perf_counter()
     output = runner.run_molecular_dynamics(mof, timesteps, timesteps // 5)
@@ -48,6 +52,7 @@ if __name__ == "__main__":
     parser.add_argument('--timesteps', help='Number of timesteps to run', default=1000, type=int)
     parser.add_argument('--config', help='Which compute configuration to use', default='local')
     parser.add_argument('--device', help='Which device to use for executing LAMMPS')
+    parser.add_argument('--max-repeats', help='How many repeats to perform at most', default=None, type=int)
     args = parser.parse_args()
 
     # Select the correct configuration
@@ -113,14 +118,24 @@ if __name__ == "__main__":
     with parsl.load(config):
         test_app = PythonApp(test_function)
 
+        # Determine which MOFs to skip
+        runtimes_path = Path('runtimes.json')
+        to_skip = set()
+        if args.max_repeats is not None and runtimes_path.is_file():
+            count_run = pd.read_json(runtimes_path, lines=True).query(f'timesteps == {args.timesteps}')['mof'].value_counts()
+            for name, count in count_run:
+                if count >= args.max_repeats:
+                    to_skip.add(name)
+
         # Submit each MOF
         futures = []
         with open('../lammps-md/example-mofs.json') as fp:
             for line in fp:
                 mof = MOFRecord(**json.loads(line))
-                future = test_app(mof, args.timesteps, args.device)
-                future.mof = mof
-                futures.append(future)
+                if mof.name not in to_skip:
+                    future = test_app(mof, args.timesteps, args.device)
+                    future.mof = mof
+                    futures.append(future)
 
         # Store results
         scorer = LatticeParameterChange()
@@ -138,7 +153,7 @@ if __name__ == "__main__":
             strain = scorer.score_mof(mof)
 
             # Store the result
-            with open('runtimes.json', 'a') as fp:
+            with open(runtimes_path, 'a') as fp:
                 print(json.dumps({
                     'host': node(),
                     'timesteps': args.timesteps,
