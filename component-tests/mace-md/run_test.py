@@ -144,5 +144,7 @@ if __name__ == "__main__":
                     'timesteps': args.timesteps,
                     'mof': mof.name,
                     'runtime': runtime,
-                    'strain': strain
+                    'strain': strain,
+                    'device': args.device,
+                    'config': args.config,
                 }), file=fp)
