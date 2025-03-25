@@ -375,23 +375,23 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             # Store the trajectory
             traj = result.value
             name = result.task_info['name']
-            length = str(result.task_info['length'])
             record = self.in_progress.pop(name)
-            self.logger.info(f'Received a trajectory of {len(traj)} frames for mof={name} length={length}. Backlog: {self.post_md_queue.qsize()}')
+            self.logger.info(f'Received a trajectory of {len(traj)} frames for mof={name}. Backlog: {self.post_md_queue.qsize()}')
 
             # Compute the lattice strain
-            scorer = LatticeParameterChange(md_length=length)
-            traj_vasp = [write_to_string(t, 'vasp') for t in traj]
+            scorer = LatticeParameterChange()
+            traj = [(i, write_to_string(t, 'vasp')) for i, t in traj]
             if 'uff' not in record.md_trajectory:
-                record.md_trajectory['uff'] = {}
-            record.md_trajectory['uff'][length] = traj_vasp
+                record.md_trajectory['uff'] = []
+            record.md_trajectory['uff'] = traj
 
             if 'uff' not in record.structure_stability:
                 record.structure_stability['uff'] = {}
+            latest_length, _ = record.md_trajectory['uff'][-1]
             strain = scorer.score_mof(record)
-            record.structure_stability['uff'][length] = strain
+            record.structure_stability['uff'][str(latest_length)] = strain
             record.times['md-done'] = datetime.now()
-            self.logger.info(f'Lattice change after MD simulation for mof={name}: {strain * 100:.1f}%')
+            self.logger.info(f'Lattice change after {latest_length} timesteps of MD for mof={name}: {strain * 100:.1f}%')
 
             # Store the result in MongoDB
             mofadb.create_records(self.collection, [record])
