@@ -42,6 +42,8 @@ dependencies = [
     "wandb",
     "imageio",
     "scikit-learn",
+    "mace-torch",
+    "torch-dftd",
 
     # Performance tracking
     "gpustat",

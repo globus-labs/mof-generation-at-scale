@@ -23,7 +23,7 @@ def test_mace_single(cif_name, cif_dir, tmpdir):
     assert mace_path.exists()
     assert mace_path.is_absolute()
     assert "single" in mace_path.name
-    assert (mace_path / "atoms.json").exists()
+    assert (mace_path / "atoms.extxyz").exists()
     assert atoms.get_potential_energy() is not None
 
 
@@ -45,7 +45,7 @@ def test_mace_optimize(cif_name, cif_dir, tmpdir):
     assert mace_path.exists()
     assert mace_path.is_absolute()
     assert "optimize" in mace_path.name
-    assert (mace_path / "atoms.json").exists()
+    assert (mace_path / "atoms.extxyz").exists()
     assert (mace_path / "relax.traj").exists()
     assert (mace_path / "relax.log").exists()
     assert atoms.get_potential_energy() is not None

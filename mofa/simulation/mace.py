@@ -1,6 +1,7 @@
 """Run computations backed by MACE"""
 
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 import os
 
@@ -27,9 +28,23 @@ _mace_options = {
     "default": {
         "model": "medium",  # Can be 'small', 'medium', or 'large'
         "default_dtype": "float32",
-        "dispersion": False,  # Whether to include dispersion corrections
+        "dispersion": True,  # Whether to include dispersion corrections
     }
 }
+
+
+@lru_cache(1)
+def load_model(device: str, level: str = 'default'):
+    """Load a MACE calculator and cache it in device memory
+
+    Args:
+        device: Which device on which to load MACE
+        level: What level of MACE to use
+    """
+    if level not in _mace_options:
+        raise ValueError(f"No presets for {level}")
+    options = _mace_options[level]
+    return mace_mp(device=device, **options)
 
 
 def _load_structure(mof: MOFRecord, structure_source: tuple[str, int] | None):
@@ -121,10 +136,6 @@ class MACERunner(MDInterface):
             - Structure with computed properties
             - Absolute path to the run directory
         """
-        if level not in _mace_options:
-            raise ValueError(f"No presets for {level}")
-        options = _mace_options[level]
-
         # Create and move to output directory
         out_dir = self.run_dir / f"{name}-{action}-{level}"
         start_dir = Path().cwd()
@@ -133,7 +144,8 @@ class MACERunner(MDInterface):
 
         try:
             # Initialize MACE calculator
-            calc = mace_mp(device=self.device, **options)
+            #  TODO (wardlt): Cache it in memory!
+            calc = load_model(self.device, level)
             atoms = atoms.copy()
             atoms.calc = calc
 
@@ -149,16 +161,18 @@ class MACERunner(MDInterface):
                 MaxwellBoltzmannDistribution(temperature_K=300, atoms=atoms)
                 with Trajectory("md.traj", mode="w") as traj:
                     dyn = NPTBerendsen(atoms,
+                                       # TODO (wardlt): Tweak these. Assumign a 40GPa bulk modulus as a high estimate
+                                       #  from https://pubs.rsc.org/en/content/articlehtml/2019/sc/c9sc04249k
                                        timestep=0.5 * units.fs, temperature_K=300,
                                        taut=1000 * units.fs, pressure_au=0,
-                                       taup=1000 * units.fs, compressibility_au=40 / units.GPa,
+                                       taup=1000 * units.fs, compressibility_au=1 / (40 * units.GPa),
                                        trajectory=traj, logfile='npt.log', loginterval=loginterval)
                     dyn.run(steps=steps)
             else:
                 raise ValueError(f"Action not supported: {action}")
 
             # Write the result to disk for easy retrieval
-            atoms.write("atoms.json")
+            atoms.write("atoms.extxyz")
         finally:
             os.chdir(start_dir)
 
