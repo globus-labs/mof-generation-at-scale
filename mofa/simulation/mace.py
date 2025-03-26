@@ -7,7 +7,7 @@ import os
 
 import ase
 from ase import units, io
-from ase.md.nptberendsen import NPTBerendsen
+from ase.md.nptberendsen import Inhomogeneous_NPTBerendsen
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
 from mace.calculators import mace_mp
 from ase.filters import UnitCellFilter
@@ -28,7 +28,7 @@ _mace_options = {
     "default": {
         "model": "medium",  # Can be 'small', 'medium', or 'large'
         "default_dtype": "float32",
-        "dispersion": True,  # Whether to include dispersion corrections
+        "dispersion": False,  # Whether to include dispersion corrections
     }
 }
 
@@ -160,12 +160,12 @@ class MACERunner(MDInterface):
             elif action == "md":
                 MaxwellBoltzmannDistribution(temperature_K=300, atoms=atoms)
                 with Trajectory("md.traj", mode="w") as traj:
-                    dyn = NPTBerendsen(atoms,
-                                       # TODO (wardlt): Tweak these. Assumign a 40GPa bulk modulus as a high estimate
+                    dyn = Inhomogeneous_NPTBerendsen(atoms,
+                                       # TODO (wardlt): Tweak these. Assumign a 10GPa bulk modulus as a low estimate
                                        #  from https://pubs.rsc.org/en/content/articlehtml/2019/sc/c9sc04249k
                                        timestep=0.5 * units.fs, temperature_K=300,
-                                       taut=1000 * units.fs, pressure_au=0,
-                                       taup=1000 * units.fs, compressibility_au=1 / (40 * units.GPa),
+                                       taut=500 * units.fs, pressure_au=0,
+                                       taup=1000 * units.fs, compressibility_au=4.57e-5 / units.bar,
                                        trajectory=traj, logfile='npt.log', loginterval=loginterval)
                     dyn.run(steps=steps)
             else:
