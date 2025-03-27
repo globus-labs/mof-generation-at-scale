@@ -1,5 +1,6 @@
 import os
 import shutil
+from pathlib import Path
 
 from pytest import mark
 from mofa.model import MOFRecord
@@ -67,7 +68,12 @@ def test_mace_md(cif_dir):
     record = MOFRecord.from_file(test_file)
 
     # Initial run
-    runner = MACERunner()
+    lammps_path = Path("/home/lward/Software/lammps-mace/build-mace/lmp")
+    model_path = Path('../../input-files/mace/mace-mp0_medium-lammps.pt').absolute()
+    runner = MACERunner(
+        lammps_cmd=f"{lammps_path} -k on g 1 -sf kk".split() if lammps_path.exists() else None,
+        model_path=model_path
+    )
     output = runner.run_molecular_dynamics(
         mof=record,
         timesteps=4,
