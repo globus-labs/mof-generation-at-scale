@@ -96,13 +96,20 @@ if __name__ == "__main__":
                         account="MOFA",
                         queue="debug",
                         worker_init=f"""
-        module load frameworks
-        source /lus/flare/projects/MOFA/lward/mof-generation-at-scale/venv/bin/activate
-        export ZE_FLAT_DEVICE_HIERARCHY={'FLAT' if accel_count == 12 else 'COMPOSITE'}
-        cd $PBS_O_WORKDIR
-        pwd
-        which python
-        hostname
+# General environment variables
+module load frameworks
+source /lus/flare/projects/MOFA/lward/mof-generation-at-scale/venv/bin/activate
+export ZE_FLAT_DEVICE_HIERARCHY={'FLAT' if accel_count == 12 else 'COMPOSITE'}
+
+# Needed for LAMMPS
+FPATH=/opt/aurora/24.180.3/frameworks/aurora_nre_models_frameworks-2024.2.1_u1/lib/python3.10/site-packages
+export LD_LIBRARY_PATH=$FPATH/torch/lib:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=$FPATH/intel_extension_for_pytorch/lib:$LD_LIBRARY_PATH
+
+cd $PBS_O_WORKDIR
+pwd
+which python
+hostname
                                 """,
                         walltime="1:00:00",
                         launcher=MpiExecLauncher(
@@ -125,7 +132,7 @@ if __name__ == "__main__":
         test_app = PythonApp(test_function)
 
         # Determine which MOFs to skip
-        runtimes_path = Path('runtimes.json')
+        runtimes_path = Path('runtimes.jsonl')
         to_skip = set()
         if args.max_repeats is not None and runtimes_path.is_file():
             count_run = pd.read_json(runtimes_path, lines=True).query(f'timesteps == {args.timesteps}')['mof'].value_counts()
@@ -168,5 +175,4 @@ if __name__ == "__main__":
                     'strain': strain,
                     'device': args.device,
                     'config': args.config,
-                    'restarted': args.continue_runs
                 }), file=fp)
