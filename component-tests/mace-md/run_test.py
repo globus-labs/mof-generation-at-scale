@@ -18,7 +18,7 @@ from mofa.model import MOFRecord
 from mofa.utils.conversions import write_to_string
 
 
-def test_function(mof: MOFRecord, timesteps: int, device: str) -> tuple[float, list[Atoms]]:
+def test_function(mof: MOFRecord, lammps_cmd: list[str], model_path: str, timesteps: int, device: str) -> tuple[float, list[Atoms]]:
     """Run a LAMMPS simulation, report runtime and resultant traj
 
     Args:
@@ -38,7 +38,7 @@ def test_function(mof: MOFRecord, timesteps: int, device: str) -> tuple[float, l
 
     # Run
     load_model(device)  # Cache the model _before_ we run MD
-    runner = MACERunner(run_dir=run_dir, device=device)
+    runner = MACERunner(run_dir=run_dir, lammps_cmd=lammps_cmd, model_path=Path(model_path), device=device)
     start_time = perf_counter()
     output = runner.run_molecular_dynamics(mof, timesteps, timesteps // 5)
     run_time = perf_counter() - start_time
@@ -56,10 +56,16 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Select the correct configuration
+    model_path = Path('../../input-files/mace/mace-mp0_medium-lammps.pt').absolute()
     if args.config == "local":
         config = Config(executors=[HighThroughputExecutor(max_workers_per_node=1, cpu_affinity='block')])
+        lammps_cmd = "/home/lward/Software/lammps-mace/build-mace/lmp -k on g 1 -sf kk".split()
     elif args.config.startswith("aurora"):
         # Map processes to specific tiles or whole devices
+        lammps_cmd = (
+            "/lus/flare/projects/MOFA/lward/lammps-kokkos/src/lmp_macesunspotkokkos "
+            "-k on g 1 -sf kk"
+        ).split()
         if args.config == "aurora":
             accel_count = 12
         elif args.config == "aurora-device":
@@ -133,7 +139,7 @@ if __name__ == "__main__":
             for line in fp:
                 mof = MOFRecord(**json.loads(line))
                 if mof.name not in to_skip:
-                    future = test_app(mof, args.timesteps, args.device)
+                    future = test_app(mof, lammps_cmd, model_path, args.timesteps, args.device)
                     future.mof = mof
                     futures.append(future)
 
@@ -162,4 +168,5 @@ if __name__ == "__main__":
                     'strain': strain,
                     'device': args.device,
                     'config': args.config,
+                    'restarted': args.continue_runs
                 }), file=fp)
