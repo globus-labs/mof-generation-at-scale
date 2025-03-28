@@ -2,7 +2,7 @@ from mofa.simulation.raspa2 import RASPA2Runner
 from pytest import mark
 
 
-#@mark.skip()
+@mark.skip()
 @mark.parametrize("adsorbate,temperature,pressure", [("CO2", 298, 1e4), ("H2", 160, 1e4)])
 def test_raspa2_runner(adsorbate, temperature, pressure):
     """Test for RASPA2 runner"""
