@@ -222,12 +222,10 @@ class RASPA2Runner:
 
         # Get output from Output/ folder
         system_dir = os.path.join(out_dir, "Output", "System_0")
-        output_file = next((f for f in os.listdir(system_dir) if f.startswith("output_") and f.endswith(".data")),None)
+        output_file = next((f for f in os.listdir(system_dir) if f.startswith("output_") and f.endswith(".data")), None)
         if not output_file:
             raise FileNotFoundError("No output_*.data file found in Output/System_0")
-        
         output_path = os.path.join(system_dir, output_file)
-        
         mol_kg_line = mg_g_line = density_line = None
         with open(output_path, "r") as file:
             for line in file:
@@ -251,6 +249,4 @@ class RASPA2Runner:
         # Unit conversion to g/L
         uptake_g_L = uptake_mg_g * density_kg_m3 / 1000
         error_g_L = error_mg_g * density_kg_m3 / 1000
-            
         return uptake_mol_kg, error_mol_kg, uptake_g_L, error_g_L
-
