@@ -189,6 +189,7 @@ if __name__ == "__main__":
                           hpc_config=hpc_config,
                           generator_config=generator,
                           trainer_config=trainer,
+                          simulation_config=sim_config,
                           simulation_budget=args.simulation_budget,
                           node_template=node_template,
                           out_dir=run_dir)

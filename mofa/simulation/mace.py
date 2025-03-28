@@ -5,8 +5,7 @@ from pathlib import Path
 import os
 
 import ase
-from mace.calculators import MACECalculator
-from ase import units
+from mace.calculators import mace_mp
 from ase.filters import UnitCellFilter
 from ase.io import Trajectory
 from ase.optimize import LBFGS
@@ -19,6 +18,7 @@ _mace_options = {
         "model": "medium",  # Can be 'small', 'medium', or 'large'
         "device": "cpu",  # Can be 'cpu' or 'cuda'
         "default_dtype": "float32",
+        "dispersion": False,  # Whether to include dispersion corrections
     }
 }
 
@@ -117,7 +117,7 @@ class MACERunner:
 
         try:
             # Initialize MACE calculator
-            calc = MACECalculator(**options)
+            calc = mace_mp(**options)
             atoms = atoms.copy()
             atoms.calc = calc
 

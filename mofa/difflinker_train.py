@@ -7,21 +7,10 @@ from pytorch_lightning import Trainer, callbacks
 from pytorch_lightning.callbacks import TQDMProgressBar
 from pytorch_lightning.strategies import SingleDeviceStrategy
 
-try:
-    import intel_extension_for_pytorch as ipex  # noqa: F401
-    import oneccl_bindings_for_pytorch  # noqa: F401
-except ImportError:
-    pass
-
+from mofa.utils.lightning import XPUAccelerator
 from mofa.utils.src.const import NUMBER_OF_ATOM_TYPES, GEOM_NUMBER_OF_ATOM_TYPES
 from mofa.utils.src.lightning import DDPM
 from mofa.utils.src.utils import disable_rdkit_logging
-
-
-def _intel_on_train_start(trainer: Trainer):
-    """Hook for optimizing the model and optimizer before training"""
-    assert len(trainer.optimizers) == 1, 'We only support one optimizer for now'
-    trainer.model, trainer.optimizers[0] = ipex.optimize(trainer.model, optimizer=trainer.optimizers[0])
 
 
 def get_args(args: list[str]) -> argparse.Namespace:
@@ -153,9 +142,12 @@ def main(
                 context_node_nf += 1
 
             # Lock XPU to single device for now
-            strategy = 'ddp_spawn' if args.strategy is None else SingleDeviceStrategy(device='xpu')
+            strategy = 'ddp' if args.strategy is None else args.strategy
             if args.device == 'xpu':
+                accelerator = XPUAccelerator()
                 strategy = SingleDeviceStrategy(device='xpu')
+            else:
+                accelerator = args.device
 
             checkpoint_callback = [callbacks.ModelCheckpoint(
                 dirpath=checkpoints_dir,
@@ -168,15 +160,11 @@ def main(
                 default_root_dir=log_directory,
                 max_epochs=args.n_epochs,
                 callbacks=checkpoint_callback,
-                accelerator=args.device,
+                accelerator=accelerator,
                 num_sanity_val_steps=0,
                 enable_progress_bar=args.enable_progress_bar,
                 strategy=strategy
             )
-
-            # Add a callback for fit setup
-            if args.device == "xpu":
-                trainer.on_fit_start = _intel_on_train_start
 
             # Get the model
             if args.resume is None:
@@ -260,7 +248,8 @@ def main(
                     center_of_mass=args.center_of_mass,
                     inpainting=args.inpainting,
                     anchors_context=anchors_context,
-                    dataset_override=args.dataset_override)
+                    dataset_override=args.dataset_override
+                )
 
             # Force converting the dataset now before we start distributed training
             #  There might be issues in each training rank writing to disk at the same time

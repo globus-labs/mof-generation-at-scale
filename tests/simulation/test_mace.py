@@ -2,7 +2,6 @@ import os
 import shutil
 
 from pytest import mark
-
 from mofa.model import MOFRecord
 from mofa.simulation.mace import MACERunner
 from mofa.utils.conversions import write_to_string

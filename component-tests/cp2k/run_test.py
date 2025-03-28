@@ -66,30 +66,24 @@ if __name__ == "__main__":
     elif args.config == "polaris":
         cp2k_cmd = (f'mpiexec -n {args.num_nodes * args.ranks_per_node} --ppn {args.ranks_per_node}'
                     f' --cpu-bind depth --depth {32 // args.ranks_per_node} -env OMP_NUM_THREADS={32 // args.ranks_per_node} '
-                    '/lus/eagle/projects/ExaMol/cp2k-2024.1/set_affinity_gpu_polaris.sh '
-                    '/lus/eagle/projects/ExaMol/cp2k-2024.1/exe/local_cuda/cp2k_shell.psmp')
+                    '/lus/eagle/projects/MOFA/lward/cp2k-2025.1/set_affinity_gpu_polaris.sh '
+                    '/lus/eagle/projects/MOFA/lward/cp2k-2025.1/exe/local_cuda/cp2k_shell.psmp')
         config = Config(retries=1, executors=[
             HighThroughputExecutor(
                 max_workers_per_node=1,
                 provider=PBSProProvider(
                     launcher=SimpleLauncher(),
-                    account='ExaMol',
-                    queue='debug-scaling',
+                    account='MOFA',
+                    queue='debug',
                     select_options="ngpus=4",
                     scheduler_options="#PBS -l filesystems=home:eagle",
                     worker_init="""
-module reset
-module use /soft/modulefiles 
-module swap PrgEnv-nvhpc PrgEnv-gnu
-module load cray-fftw
-module load cudatoolkit-standalone/12.2
-module load cray-libsci
 module list
-source activate /lus/eagle/projects/ExaMol/mofa/mof-generation-at-scale/env-polaris
+source activate /lus/eagle/projects/MOFA/lward/mof-generation-at-scale/env
 
 # Launch MPS daemon
 NNODES=`wc -l < $PBS_NODEFILE`
-mpiexec -n ${NNODES} --ppn 1 /lus/eagle/projects/ExaMol/mofa/mof-generation-at-scale/bin/enable_mps_polaris.sh &
+#mpiexec -n ${NNODES} --ppn 1 /lus/eagle/projects/ExaMol/mofa/mof-generation-at-scale/bin/enable_mps_polaris.sh &
 
 cd $PBS_O_WORKDIR
 pwd
@@ -105,40 +99,34 @@ hostname
                 )
             )
         ])
-    elif args.config == "sunspot":
+    elif args.config == "aurora":
+        assert args.ranks_per_node == 12, 'We only support 1 rank per tile on Aurora'
         cp2k_cmd = (f'mpiexec -n {args.num_nodes * args.ranks_per_node} --ppn {args.ranks_per_node}'
-                    f' --cpu-bind depth --depth {104 // args.ranks_per_node} -env OMP_NUM_THREADS={104 // args.ranks_per_node} '
-                    '/lus/gila/projects/CSC249ADCD08_CNDA/cp2k/cp2k-2024.1/exe/local/cp2k_shell.psmp')
+                    f' --cpu-bind depth --depth={104 // args.ranks_per_node} -env OMP_NUM_THREADS={104 // args.ranks_per_node} '
+                    '--env OMP_PLACES=cores '
+                    '/lus/flare/projects/MOFA/lward/mof-generation-at-scale/bin/cp2k_shell')
         config = Config(
             retries=2,
             executors=[
                 HighThroughputExecutor(
                     label="sunspot_test",
                     prefetch_capacity=0,
-                    max_workers=1,
+                    max_workers_per_node=1,
                     provider=PBSProProvider(
-                        account="CSC249ADCD08_CNDA",
-                        queue="workq",
+                        account="MOFA",
+                        queue="debug",
                         worker_init="""
-source activate /lus/gila/projects/CSC249ADCD08_CNDA/mof-generation-at-scale/env
-module reset
-module use /soft/modulefiles/
-module use /home/ftartagl/graphics-compute-runtime/modulefiles
-module load oneapi/release/2023.12.15.001
-module load intel_compute_runtime/release/775.20
-module load mpich/gnu-all-debug-pmix-gpu/52.2
-module load gcc/12.2.0
-module load fftw
-module list
-
+module load frameworks
+source /lus/flare/projects/MOFA/lward/mof-generation-at-scale/venv/bin/activate
 cd $PBS_O_WORKDIR
+
 pwd
 which python
 hostname
                         """,
-                        walltime="1:10:00",
+                        walltime="1:00:00",
                         launcher=SimpleLauncher(),
-                        select_options="system=sunspot,place=scatter",
+                        scheduler_options="#PBS -l filesystems=home:flare",
                         nodes_per_block=1,
                         min_blocks=0,
                         max_blocks=1,  # Can increase more to have more parallel batch jobs
@@ -151,37 +139,37 @@ hostname
         raise ValueError(f'Configuration not defined: {args.config}')
 
     # Prepare parsl
-    parsl.load(config)
-    test_app = PythonApp(test_function)
+    with parsl.load(config):
+        test_app = PythonApp(test_function)
 
-    # Submit each MOF
-    futures = []
-    with open('../lammps-md/example-mofs.json') as fp:
-        for line, _ in zip(fp, range(args.num_to_run)):
-            mof = MOFRecord(**json.loads(line))
-            future = test_app(mof, cp2k_cmd, args.steps)
-            future.mof = mof
-            futures.append(future)
+        # Submit each MOF
+        futures = []
+        with open('../lammps-md/example-mofs.json') as fp:
+            for line, _ in zip(fp, range(args.num_to_run)):
+                mof = MOFRecord(**json.loads(line))
+                future = test_app(mof, cp2k_cmd, args.steps)
+                future.mof = mof
+                futures.append(future)
 
-    # Store results
-    for future in tqdm(as_completed(futures), total=len(futures)):
-        if future.exception() is not None:
-            print(f'{future.mof.name} failed: {future.exception()}')
-            continue
-        runtime, (atoms, run_path) = future.result()
+        # Store results
+        for future in tqdm(as_completed(futures), total=len(futures)):
+            if future.exception() is not None:
+                print(f'{future.mof.name} failed: {future.exception()}')
+                continue
+            runtime, (atoms, run_path) = future.result()
 
-        # Get the strain
-#        charges = compute_partial_charges(run_path).arrays['q']
-        # Store the result
-        with open('runtimes.json', 'a') as fp:
-            print(json.dumps({
-                'host': node(),
-                'nodes': args.num_nodes,
-                'ranks-per-node': args.ranks_per_node,
-                'cp2k_cmd': cp2k_cmd,
-                'steps': args.steps,
-                'mof': future.mof.name,
-                'runtime': runtime,
-#                'charges': charges.tolist(),
-                'strc': write_to_string(atoms, 'vasp')
-            }), file=fp)
+            # Get the strain
+    #        charges = compute_partial_charges(run_path).arrays['q']
+            # Store the result
+            with open('runtimes.json', 'a') as fp:
+                print(json.dumps({
+                    'host': node(),
+                    'nodes': args.num_nodes,
+                    'ranks-per-node': args.ranks_per_node,
+                    'cp2k_cmd': cp2k_cmd,
+                    'steps': args.steps,
+                    'mof': future.mof.name,
+                    'runtime': runtime,
+    #                'charges': charges.tolist(),
+                    'strc': write_to_string(atoms, 'vasp')
+                }), file=fp)

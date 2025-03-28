@@ -36,19 +36,19 @@ def test_polaris(tmpdir):
         assert len(config.cp2k_hosts) == 2
         assert len(config.lammps_hosts) == 1
 
-        assert config.num_workers == 4 + 8 + 1
+        assert config.num_workers == 4 + 16 + 1
         parsl_cfg = config.make_parsl_config(Path(tmpdir))
         assert str(tmpdir) in parsl_cfg.run_dir
 
         # Make sure nodes are allocated appropriately
         assert config.number_inf_workers == 4
-        assert config.num_lammps_workers == 8
+        assert config.num_lammps_workers == 16
         assert config.num_cp2k_workers == 1
 
         # Check the CPU affinity
         assert parsl_cfg.executors[0].cpu_affinity == 'list:24-31:16-23:8-15:0-7'
-        assert parsl_cfg.executors[2].cpu_affinity.startswith('list:28-30:24-26:20-22:16-18')
-        assert parsl_cfg.executors[-1].cpu_affinity == 'list:3:7:11:15:19:23:27:31'
+        assert parsl_cfg.executors[2].cpu_affinity.startswith('list:30-30:28-28')
+        assert parsl_cfg.executors[-1].cpu_affinity.startswith('list:1:3:5:')
 
         # Make the cp2k call
         cmd = config.cp2k_cmd

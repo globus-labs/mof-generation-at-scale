@@ -1,0 +1,26 @@
+name: mofa
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python==3.10.*
+  - openssl>3
+
+
+  # Services used by the workflow
+  - redis-server==7.*
+  - mongodb
+
+  # Tools to work with crystalline and molecular data
+  - conda-forge::chargemol
+  - conda-forge::raspa2
+  - openbabel
+
+  - pip
+  - pip:
+    - torch==2.1.0
+    - numpy<2  # torch 2.1 is built with numpy 1
+
+    # Other stuff
+    - tqdm
+    - -e ..[test]
