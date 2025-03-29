@@ -25,18 +25,16 @@ class LatticeParameterChange(Scorer):
 
     md_level: str = 'uff'
     """Level of accuracy used for the molecular dynamics simulation"""
-    md_length: int | str = 1000
-    """Length of the MD calculation"""
 
     def score_mof(self, record: MOFRecord) -> float:
         # Get the trajectory from the record
         if self.md_level not in record.md_trajectory:
             raise ValueError(f'No data available for MD simulations at level: "{self.md_level}"')
-        traj = record.md_trajectory[self.md_level][str(self.md_length)]
+        traj = record.md_trajectory[self.md_level]
 
         # Get the initial and final structures
-        init_strc = read_vasp(StringIO(traj[0]))
-        final_strc: ase.Atoms = read_vasp(StringIO(traj[-1]))
+        init_strc = read_vasp(StringIO(traj[0][1]))
+        final_strc: ase.Atoms = read_vasp(StringIO(traj[-1][1]))
 
         # Compute the maximum principal strain
         #  Following: https://www.cryst.ehu.es/cryst/strain.html
