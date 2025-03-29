@@ -109,6 +109,7 @@ hostname
             "-k on g 1 -sf kk"
         ).split()
         lammps_env = {}
+        device = 'xpu'
         config = Config(
             retries=2,
             executors=[
@@ -117,8 +118,7 @@ hostname
                     available_accelerators=12,  # Ensures one worker per accelerator
                     cpu_affinity="block",  # Assigns cpus in sequential order
                     prefetch_capacity=0,
-                    max_workers=12,
-                    cores_per_worker=16,
+                    max_workers_per_node=12,
                     provider=PBSProProvider(
                         account="MOFA",
                         queue="prod",
@@ -126,7 +126,7 @@ hostname
 # General environment variables
 module load frameworks
 source /lus/flare/projects/MOFA/lward/mof-generation-at-scale/venv/bin/activate
-export ZE_FLAT_DEVICE_HIERARCHY={'FLAT' if accel_count == 12 else 'COMPOSITE'}
+export ZE_FLAT_DEVICE_HIERARCHY=FLAT
 
 # Needed for LAMMPS
 FPATH=/opt/aurora/24.180.3/frameworks/aurora_nre_models_frameworks-2024.2.1_u1/lib/python3.10/site-packages
@@ -170,69 +170,72 @@ hostname
         raise ValueError(f'No such forcefield: {args.ff}')
 
     # Prepare parsl
-    parsl.load(config)
-    test_app = PythonApp(test_function)
+    with parsl.load(config):
+        test_app = PythonApp(test_function)
 
-    # Gather MOFs from an example set
-    example_set = pd.read_csv('raw-data/ZnNCO_hMOF_cat0_valid_ads_angle_clean.csv').sample(args.num_to_run, random_state=1)
-    example_set['name'] = example_set['cifname'].apply(lambda x: x[:-4])
-    with gzip.open('data/hmof.json.gz', 'rb') as fp:
-        structures = dict((x['name'], x) for x in map(json.loads, fp) if x['identifiers']['name'] in set(example_set['name'].tolist()))
-    print(f'Found {len(structures)} to evaluate')
+        # Gather MOFs from an example set
+        example_set = pd.read_csv('raw-data/ZnNCO_hMOF_cat0_valid_ads_angle_clean.csv').sample(args.num_to_run, random_state=1)
+        example_set['name'] = example_set['cifname'].apply(lambda x: x[:-4])
+        with gzip.open('data/hmof.json.gz', 'rb') as fp:
+            structures = dict((x['name'], x) for x in map(json.loads, fp) if x['identifiers']['name'] in set(example_set['name'].tolist()))
+        print(f'Found {len(structures)} to evaluate')
 
-    # Load previous results
-    out_strains = Path(f'{args.ff}-strains.jsonl')
-    if out_strains.is_file():
-        prev_runs = pd.read_json(out_strains, lines=True)[['mof', 'timesteps', 'structure']]
-        print(f'Found {len(prev_runs)} previous runs with forcfield {args.ff}')
+        # Load previous results
+        out_strains = Path(f'{args.ff}-strains.jsonl')
+        if out_strains.is_file():
+            prev_runs = pd.read_json(out_strains, lines=True)[['mof', 'timesteps', 'structure']]
+            print(f'Found {len(prev_runs)} previous runs with forcfield {args.ff}')
 
-        prev_runs.sort_values('timesteps', ascending=True).drop_duplicates('mof')
+            prev_runs.sort_values('timesteps', ascending=True).drop_duplicates('mof')
 
-        prev_runs = dict((n, (t, s)) for n, t, s in prev_runs.values)
-    else:
-        prev_runs = {}
+            prev_runs = dict((n, (t, s)) for n, t, s in prev_runs.values)
+        else:
+            prev_runs = {}
 
-    # Submit each MOF
-    futures = []
-    for name, info in structures.items():
-        mof = MOFRecord(**info)
-        # Add the latest timestep to the MOF record
-        if mof.name in prev_runs:
-            timesteps, strc = prev_runs[mof.name]
-            if timesteps >= args.timesteps:
-                continue  # We're done
+        # Submit each MOF
+        futures = []
+        for name, info in structures.items():
+            mof = MOFRecord(**info)
+            # Add the latest timestep to the MOF record
+            num_ran = args.timesteps
+            if mof.name in prev_runs:
+                timesteps, strc = prev_runs[mof.name]
+                if timesteps >= args.timesteps:
+                    continue  # We're done
 
-            if args.continue_runs:
-                mof.md_trajectory[runner.traj_name] = [(timesteps, strc)]
-        future = test_app(mof, args.timesteps, runner)
-        future.mof = mof
-        futures.append(future)
+                if args.continue_runs:
+                    mof.md_trajectory[runner.traj_name] = [(timesteps, strc)]
+                    num_ran -= timesteps
+            future = test_app(mof, args.timesteps, runner)
+            future.mof = mof
+            future.num_ran = num_ran
+            futures.append(future)
 
-    # Store results
-    scorer = LatticeParameterChange(md_level=runner.traj_name)
-    for future in tqdm(as_completed(futures), total=len(futures)):
-        if future.exception() is not None:
-            print(f'{future.mof.name} failed: {future.exception()}')
-            continue
-        runtime, traj = future.result()
+        # Store results
+        scorer = LatticeParameterChange(md_level=runner.traj_name)
+        for future in tqdm(as_completed(futures), total=len(futures)):
+            if future.exception() is not None:
+                print(f'{future.mof.name} failed: {future.exception()}')
+                continue
+            runtime, traj = future.result()
 
-        # Get the strain
-        # TODO (wardlt): Simplify how we compute strain
-        traj_vasp = [(s, write_to_string(t, 'vasp')) for (s, t) in traj]
-        mof = future.mof
-        mof.md_trajectory[runner.traj_name] = traj_vasp
-        strain = scorer.score_mof(mof)
+            # Get the strain
+            # TODO (wardlt): Simplify how we compute strain
+            traj_vasp = [(s, write_to_string(t, 'vasp')) for (s, t) in traj]
+            mof = future.mof
+            mof.md_trajectory[runner.traj_name] = traj_vasp
+            strain = scorer.score_mof(mof)
 
-        # Store the result
-        with open(out_strains, 'a') as fp:
-            print(json.dumps({
-                'host': node(),
-                'lammps_cmd': lammps_cmd,
-                'timesteps': args.timesteps,
-                'mof': mof.name,
-                'runtime': runtime,
-                'strain': strain,
-                'structure': traj_vasp[-1][-1]
-            }), file=fp)
+            # Store the result
+            with open(out_strains, 'a') as fp:
+                print(json.dumps({
+                    'host': node(),
+                    'lammps_cmd': lammps_cmd,
+                    'timesteps': args.timesteps,
+                    'mof': mof.name,
+                    'runtime': runtime,
+                    'steps_ran': future.num_ran,
+                    'strain': strain,
+                    'structure': traj_vasp[-1][-1]
+                }), file=fp)
 
-    parsl.dfk().cleanup()
