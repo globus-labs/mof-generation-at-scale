@@ -17,12 +17,6 @@ from ase.filters import UnitCellFilter
 from ase.io import Trajectory
 from ase.optimize import LBFGS
 
-try:
-    import intel_extension_for_pytorch as ipex  # noqa: F401
-    import oneccl_bindings_for_pytorch as torch_ccl  # noqa: F401
-except ImportError:
-    pass
-
 from mofa.model import MOFRecord
 from mofa.simulation.interfaces import MDInterface
 from mofa.utils.conversions import read_from_string
@@ -84,6 +78,12 @@ def load_model(device: str, level: str = 'default'):
         device: Which device on which to load MACE
         level: What level of MACE to use
     """
+    try:
+        import intel_extension_for_pytorch as ipex  # noqa: F401
+        import oneccl_bindings_for_pytorch as torch_ccl  # noqa: F401
+    except ImportError:
+        pass
+
     if level not in _mace_options:
         raise ValueError(f"No presets for {level}")
     options = _mace_options[level]
