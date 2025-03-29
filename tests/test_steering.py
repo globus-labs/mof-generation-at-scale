@@ -177,6 +177,7 @@ def make_lammps_output(task: Result, cache_dir: Path):
     if result_path.is_file():
         with gzip.open(result_path, 'rt') as fp:
             frames = aseio.read(fp, index=':', format='extxyz')
+        frames = [(length // 10 * i, frame) for i, frame in enumerate(frames)]
     else:
         lmp = LAMMPSRunner(
             lammps_command=["lmp_serial"],
@@ -186,7 +187,7 @@ def make_lammps_output(task: Result, cache_dir: Path):
         )
         frames = lmp.run_molecular_dynamics(mof=record, timesteps=length, report_frequency=length // 10)
         with gzip.open(result_path, 'wt') as fp:
-            aseio.write(fp, frames, format='extxyz')
+            aseio.write(fp, [f for _, f in frames], format='extxyz')
 
     # Make a message with the model
     done_res = task.model_copy(deep=True)
