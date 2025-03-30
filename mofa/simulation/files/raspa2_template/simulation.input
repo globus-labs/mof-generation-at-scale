@@ -14,7 +14,7 @@ ChargeMethod                  Ewald
 EwaldPrecision                1e-6
 
 Framework 0
-FrameworkName CIF
+FrameworkName CIFFILE
 UnitCells UC_X UC_Y UC_Z
 ExternalTemperature TEMPERATURE
 ExternalPressure PRESSURE

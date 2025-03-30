@@ -19,7 +19,9 @@ class RASPA2Runner:
     run_dir: Path = Path("raspa2-runs")
     """Path to store RASPA2 files"""
 
-    def _calculate_cell_size(self, atoms: ase.Atoms, cutoff: float = 12.8) -> list[int, int, int]:
+    def _calculate_cell_size(
+        self, atoms: ase.Atoms, cutoff: float = 12.8
+    ) -> list[int, int, int]:
         """Method to calculate Unitcells (for periodic boundary condition) for GCMC
 
         Args:
@@ -35,9 +37,18 @@ class RASPA2Runner:
         b = unit_cell[1]
         c = unit_cell[2]
         # minimum distances between unit cell faces
-        wa = np.divide(np.linalg.norm(np.dot(np.cross(b, c), a)), np.linalg.norm(np.cross(b, c)))
-        wb = np.divide(np.linalg.norm(np.dot(np.cross(c, a), b)), np.linalg.norm(np.cross(c, a)))
-        wc = np.divide(np.linalg.norm(np.dot(np.cross(a, b), c)), np.linalg.norm(np.cross(a, b)))
+        wa = np.divide(
+            np.linalg.norm(np.dot(np.cross(b, c), a)),
+            np.linalg.norm(np.cross(b, c)),
+        )
+        wb = np.divide(
+            np.linalg.norm(np.dot(np.cross(c, a), b)),
+            np.linalg.norm(np.cross(c, a)),
+        )
+        wc = np.divide(
+            np.linalg.norm(np.dot(np.cross(a, b), c)),
+            np.linalg.norm(np.cross(a, b)),
+        )
 
         uc_x = int(np.ceil(cutoff / (0.5 * wa)))
         uc_y = int(np.ceil(cutoff / (0.5 * wb)))
@@ -85,12 +96,16 @@ class RASPA2Runner:
 
             coords = atoms.get_scaled_positions().tolist()
             symbols = atoms.get_chemical_symbols()
-            occupancies = [1 for i in range(len(symbols))]  # No partial occupancy
+            occupancies = [
+                1 for i in range(len(symbols))
+            ]  # No partial occupancy
             charges = atoms.info["_atom_site_charge"]
 
             no = {}
 
-            for symbol, pos, occ, charge in zip(symbols, coords, occupancies, charges):
+            for symbol, pos, occ, charge in zip(
+                symbols, coords, occupancies, charges
+            ):
                 if symbol in no:
                     no[symbol] += 1
                 else:
@@ -101,7 +116,9 @@ class RASPA2Runner:
                 )
 
     def _get_cif_from_chargemol(
-        self, cp2k_path: str, chargemol_fname: str = "DDEC6_even_tempered_net_atomic_charges.xyz"
+        self,
+        cp2k_path: str,
+        chargemol_fname: str = "DDEC6_even_tempered_net_atomic_charges.xyz",
     ) -> ase.Atoms:
         """Return an ASE atom object from a Chargemol output file.
 
@@ -145,7 +162,9 @@ class RASPA2Runner:
                     charges.append(float(data[4]))
                     positions.append([x, y, z])
         cell = [[a1, a2, a3], [b1, b2, b3], [c1, c2, c3]]
-        atoms = ase.Atoms(symbols=symbols, positions=positions, cell=cell, pbc=True)
+        atoms = ase.Atoms(
+            symbols=symbols, positions=positions, cell=cell, pbc=True
+        )
         atoms.info["_atom_site_charge"] = charges
 
         return atoms
@@ -181,10 +200,14 @@ class RASPA2Runner:
                 - E (g/L)
         """
 
-        out_dir = self.run_dir / f"{name}_{adsorbate}_{temperature}_{pressure:0e}"
+        out_dir = (
+            self.run_dir / f"{name}_{adsorbate}_{temperature}_{pressure:0e}"
+        )
         out_dir.mkdir(parents=True, exist_ok=True)
 
-        atoms = self._get_cif_from_chargemol(cp2k_path, chargemol_fname=chargemol_fname)
+        atoms = self._get_cif_from_chargemol(
+            cp2k_path, chargemol_fname=chargemol_fname
+        )
         # Write CIF file with charges
         self._write_cif(atoms, out_dir=out_dir, name=name + ".cif")
 
@@ -208,30 +231,46 @@ class RASPA2Runner:
                 if "PRESSURE" in line:
                     line = line.replace("PRESSURE", str(pressure))
                 if "UC_X UC_Y UC_Z" in line:
-                    line = line.replace("UC_X UC_Y UC_Z", f"{uc_x} {uc_y} {uc_z}")
+                    line = line.replace(
+                        "UC_X UC_Y UC_Z", f"{uc_x} {uc_y} {uc_z}"
+                    )
                 if "CUTOFF" in line:
                     line = line.replace("CUTOFF", str(cutoff))
-                if "CIF" in line:
-                    line = line.replace("CIF", name)
+                if "CIFFILE" in line:
+                    line = line.replace("CIFFILE", name)
                 f_out.write(line)
 
-        shutil.move(f"{out_dir}/simulation.input.tmp", f"{out_dir}/simulation.input")
+        shutil.move(
+            f"{out_dir}/simulation.input.tmp", f"{out_dir}/simulation.input"
+        )
 
         # Run RASPA2
         subprocess.run(self.raspa2_command, shell=True, cwd=out_dir)
 
         # Get output from Output/ folder
         system_dir = os.path.join(out_dir, "Output", "System_0")
-        output_file = next((f for f in os.listdir(system_dir) if f.startswith("output_") and f.endswith(".data")), None)
+        output_file = next(
+            (
+                f
+                for f in os.listdir(system_dir)
+                if f.startswith("output_") and f.endswith(".data")
+            ),
+            None,
+        )
         if not output_file:
-            raise FileNotFoundError("No output_*.data file found in Output/System_0")
+            raise FileNotFoundError(
+                "No output_*.data file found in Output/System_0"
+            )
         output_path = os.path.join(system_dir, output_file)
         mol_kg_line = mg_g_line = density_line = None
         with open(output_path, "r") as file:
             for line in file:
                 if "Average loading absolute [mol/kg framework]" in line:
                     mol_kg_line = line.strip()
-                elif "Average loading absolute [milligram/gram framework]" in line:
+                elif (
+                    "Average loading absolute [milligram/gram framework]"
+                    in line
+                ):
                     mg_g_line = line.strip()
                 elif "Framework Density" in line:
                     density_line = line.strip()
