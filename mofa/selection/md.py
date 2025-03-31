@@ -37,7 +37,7 @@ class MDSelector:
             return new_mofs.pop()
 
         # Find a MOF which is still below the target level
-        stages = [{'$match': {'in_progress': {'$nin': 'stability'}}}]
+        stages = [{'$match': {'in_progress': {'$nin': ['stability']}}}]
         if self.maximum_steps is not None:
             stages.append({'$match': {
                 f'md_trajectory.{self.md_level}': {
