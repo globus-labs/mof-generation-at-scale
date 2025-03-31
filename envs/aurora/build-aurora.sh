@@ -6,4 +6,6 @@ python3 -m venv ./venv --system-site-packages
 source ./venv/bin/activate
 
 # Install the MOFA stuff
+export PACKAGE_NAME=python
+pip install git+https://github.com/azton/lightning.git
 pip install -e .
