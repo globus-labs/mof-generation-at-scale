@@ -68,7 +68,7 @@ def train_generator(
     run_directory.mkdir(exist_ok=True)
     chkpt_dir = run_directory / 'chkpt'
     if starting_model is not None:
-        chkpt_dir.mkdir()
+        chkpt_dir.mkdir(exist_ok=True)
         shutil.copyfile(starting_model, chkpt_dir / 'difflinker_epoch=00.ckpt')
         args.resume = 'yes'
 
