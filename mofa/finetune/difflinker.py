@@ -19,6 +19,8 @@ class DiffLinkerCurriculum:
     strain_method: str = 'mace'
     """Which method to use for evaluating strain"""
 
+    min_strain_counts: int = 64
+    """How many strains to accumulate before we retrain"""
     max_strain: float = 0.25
     """Maximum allowed strain for a MOF"""
     gas_capacity_field: str = 'gas_storage.CO2'

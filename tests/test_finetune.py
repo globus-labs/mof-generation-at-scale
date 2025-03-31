@@ -1,17 +1,8 @@
 """Test methods for getting finetuning sets"""
 import numpy as np
-from pytest import fixture
-from mongomock import MongoClient
 
-from mofa.db import create_records, initialize_database
+from mofa.db import create_records
 from mofa.finetune.difflinker import DiffLinkerCurriculum
-
-
-@fixture()
-def coll():
-    # Make the database
-    client = MongoClient()
-    return initialize_database(client)
 
 
 def test_difflinker(coll, example_record):

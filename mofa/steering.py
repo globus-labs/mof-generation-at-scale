@@ -11,14 +11,13 @@ from pathlib import Path
 from queue import Queue, Empty
 from random import shuffle
 from threading import Event, Lock
-from typing import TextIO, Sequence
+from typing import TextIO
 
 import pymongo
 from colmena.models import Result
 from colmena.queue import ColmenaQueues
 from colmena.exceptions import TimeoutException
 from colmena.thinker import BaseThinker, ResourceCounter, task_submitter, result_processor, agent, event_responder
-from pymongo import MongoClient
 from pymongo.collection import Collection
 
 from mofa import db as mofadb
@@ -27,6 +26,7 @@ from mofa.hpc.config import HPCConfig
 
 from mofa.model import LigandTemplate, MOFRecord, LigandDescription, NodeDescription
 from mofa.scoring.geometry import LatticeParameterChange
+from mofa.selection.md import MDSelector
 from mofa.utils.conversions import write_to_string
 
 
@@ -62,18 +62,18 @@ class TrainingConfig:
 class SimulationConfig:
     """Configuration for the simulation inputs"""
 
-    md_level: str = 'uff'
+    md_level: str = 'mace'
     """Name of the accuracy level at which to run MD"""
-    md_length: Sequence[int] = (1000,)
+    md_length: int = 3000
     """Number of timesteps to perform with MD at different levels"""
-    md_report: int = 10
-    """Number of frames to report per MD interval"""
+    md_report: int = 1000
+    """How frequently to report MD frames"""
 
 
 class MOFAThinker(BaseThinker, AbstractContextManager):
     """Thinker which schedules MOF generation and testing"""
 
-    stability_queue: deque[tuple[MOFRecord, int]]
+    stability_queue: deque[MOFRecord]
     """Priority queue of MOFs to be evaluated for stability"""
     ligand_assembly_queue: dict[str, deque[LigandDescription]]
     """Queue of the latest ligands to be generated for each type"""
@@ -82,14 +82,27 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
 
     def __init__(self,
                  queues: ColmenaQueues,
-                 mongo_client: MongoClient,
+                 collection: Collection,
                  out_dir: Path,
                  hpc_config: HPCConfig,
                  simulation_budget: int,
                  generator_config: GeneratorConfig,
                  trainer_config: TrainingConfig,
                  simulation_config: SimulationConfig,
+                 md_selector: MDSelector,
                  node_template: NodeDescription):
+        """
+        Args:
+            queues: Queues used to communicate with task server
+            collection: MongoDB collection used for storing run results
+            hpc_config: Configuration for the HPC tasks
+            simulation_budget: Number of LAMMPS simulations to run
+            generator_config: Configuration for the ligand generator
+            trainer_config: Configuration for training DiffLinker
+            simulation_config: Configuration for the simulation tasks
+            md_selector: Method used to select which LAMMPS simulations to perform
+            node_template: Template used for MOF assembly
+        """
         if hpc_config.num_workers < 2:
             raise ValueError(f'There must be at least two workers. Supplied: {hpc_config}')
         self.assemble_workers = max(1, hpc_config.num_lammps_workers // 256)  # Ensure we keep a steady stream of MOFs
@@ -101,6 +114,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         self.simulations_left = simulation_budget
         self.hpc_config = hpc_config
         self.sim_config = simulation_config
+        self.md_selector = md_selector
 
         # Set up the queues
         self.stability_queue = deque(maxlen=8 * self.hpc_config.num_lammps_workers)  # Starts empty
@@ -116,7 +130,6 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         self.post_md_queue: Queue[Result] = Queue()  # Holds MD results ready to be stored
 
         # Lists used to avoid duplicates
-        self.in_progress: dict[str, MOFRecord] = {}
         self.seen: set[str] = set()
 
         # Set aside one GPU for generation
@@ -142,8 +155,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         self.cp2k_ran = set()
 
         # Connect to MongoDB
-        self.mongo_client = mongo_client
-        self.collection: Collection = mofadb.initialize_database(self.mongo_client)
+        self.collection = collection
 
         # Output files
         self._output_files: dict[str, Path | TextIO] = {}
@@ -306,7 +318,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             # Add it to the database and work queue
             num_added += 1
             self.seen.add(new_mof.name)
-            self.stability_queue.append((new_mof, self.sim_config.md_length[0]))
+            self.stability_queue.append(new_mof)
             self.mofs_available.set()
 
         self.logger.info(f'Created {num_added} new MOFs. Current queue depth: {len(self.stability_queue)}')
@@ -331,16 +343,20 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
                 if self.done.is_set():
                     return
 
-        to_run, steps = self.stability_queue.pop()
+        # Determine which to run next and submit it
+        to_run = self.md_selector.select_next(self.stability_queue)
         self.queues.send_inputs(
-            to_run, steps,
+            to_run, self.sim_config.md_length,
             method='run_molecular_dynamics',
             topic='lammps',
             task_info={'name': to_run.name,
-                       'length': steps,
+                       'length': self.sim_config.md_length,
                        'level': self.sim_config.md_level}
         )
-        self.in_progress[to_run.name] = to_run  # Store the MOF record for later use
+
+        # Mark that it's in progress
+        to_run.in_progress.append('stability')
+        mofadb.update_records(self.collection, [to_run])
         self.logger.info(f'Started MD simulation for mof={to_run.name}. '
                          f'Simulation queue depth: {len(self.stability_queue)}.')
 
@@ -354,11 +370,8 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         # Retrieve the results
         if not result.success:
             self.logger.warning(f'MD task failed: {result.failure_info.exception}\nStack: {result.failure_info.traceback}')
-            name = result.task_info['name']
-            self.in_progress.pop(name)
         else:
             self.post_md_queue.put(result)
-
             self.simulations_left -= 1
             self.logger.info(f'Successful computation. Budget remaining: {self.simulations_left}')
         print(result.json(exclude={'inputs', 'value'}), file=self._output_files['simulation-results'], flush=True)
@@ -378,12 +391,12 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             traj = result.value
             name = result.task_info['name']
             level = result.task_info['level']
-            record = self.in_progress.pop(name)
+            record = mofadb.get_records(self.collection, [name])[0]
             self.logger.info(f'Received a trajectory of {len(traj)} frames for mof={name} at level={level}.'
                              f' Backlog: {self.post_md_queue.qsize()}')
 
             # Compute the lattice strain
-            scorer = LatticeParameterChange()
+            scorer = LatticeParameterChange(md_level=level)
             traj = [(i, write_to_string(t, 'vasp')) for i, t in traj]
             if level not in record.md_trajectory:
                 record.md_trajectory[level] = []
@@ -397,13 +410,14 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             self.logger.info(f'Lattice change after {latest_length} timesteps of MD for mof={name} level={level}: {strain * 100:.1f}%')
 
             # Store the result in MongoDB
-            mofadb.create_records(self.collection, [record])
+            mofadb.mark_completed(self.collection, record, 'stability')
+            mofadb.update_records(self.collection, [record])
             self.cp2k_ready.set()
 
             # Determine if we should retrain
             self.num_lammps_completed += 1
-            if self.num_lammps_completed >= self.trainer_config.minimum_train_size \
-                    and self.num_raspa_completed < self.trainer_config.minimum_train_size:
+            if self.num_lammps_completed >= self.trainer_config.curriculum.min_strain_counts \
+                    and self.num_raspa_completed < self.trainer_config.curriculum.min_gas_counts:
                 self.start_train.set()  # Either starts or indicates that we have new data
 
     @event_responder(event_name='start_train')
@@ -476,7 +490,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
 
         # Query the database to find the best MOF we have not run CP2K on yet
         while True:  # Runs until something gets submitted
-            sort_field = 'structure_stability.uff'
+            sort_field = f'structure_stability.{self.sim_config.md_level}'
             self.collection.create_index(sort_field)
             cursor = (
                 self.collection.find(
