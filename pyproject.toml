@@ -34,6 +34,7 @@ dependencies = [
     # Chemistry related stuff
     "ase>3.22",
     "rdkit>2024",
+    "openbabel-wheel",
     "pymatgen",
 
     # ML-related dependencies
@@ -41,6 +42,8 @@ dependencies = [
     "wandb",
     "imageio",
     "scikit-learn",
+    "mace-torch",
+    "torch-dftd",
 
     # Performance tracking
     "gpustat",

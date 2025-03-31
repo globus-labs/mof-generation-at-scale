@@ -404,11 +404,12 @@ class MOFRecord:
     """A representative 3D structure of the MOF in POSCAR format"""
 
     # Detailed outputs from simulations
-    md_trajectory: dict[str, dict[str, list[str]]] = field(default_factory=dict, repr=False)
+    md_trajectory: dict[str, list[tuple[int, str]]] = field(default_factory=dict, repr=False)
     """Structures of the molecule produced during molecular dynamics simulations.
 
-    The dictionary has two keys: the level of accuracy, then the number of timesteps in the trajectory.
-    The values are the structures at each timestep in POSCAR format"""
+    The key of the dictionary is the name of the method (e.g., forcefield) used
+    for the molecular dynamics.
+    The values are a list of pairs of the MD timestep and the structure at that timestep"""
 
     # Properties
     gas_storage: dict[str, float | tuple[float, float]] = field(default_factory=dict, repr=False)  # TODO (wardlt): Allow only one type of value

@@ -93,10 +93,9 @@ hostname
                 )
             )
         ])
-    elif args.config == "sunspot":
-        lammps_cmd = ('/home/knight/lammps-git/src/lmp_aurora_gpu-lward '
-                      '-pk gpu 1 -sf gpu').split()
-        lammps_env = {'OMP_NUM_THREADS': '1'}
+    elif args.config == "aurora":
+        lammps_cmd = ('/home/lward/MOFA/lward/lammps/lammps-4Feb2025/build-nompi-cpu/lmp',)
+        lammps_env = {}
         accel_ids = [
             f"{gid}.{tid}"
             for gid in range(6)
@@ -110,33 +109,25 @@ hostname
                     available_accelerators=accel_ids,  # Ensures one worker per accelerator
                     cpu_affinity="block",  # Assigns cpus in sequential order
                     prefetch_capacity=0,
-                    max_workers=12,
+                    max_workers_per_node=12,
                     cores_per_worker=16,
                     provider=PBSProProvider(
-                        account="CSC249ADCD08_CNDA",
-                        queue="workq",
+                        account="MOFA",
+                        queue="debug",
                         worker_init="""
-source activate /lus/gila/projects/CSC249ADCD08_CNDA/mof-generation-at-scale/env
-module reset
-module use /soft/modulefiles/
-module use /home/ftartagl/graphics-compute-runtime/modulefiles
-module load oneapi/release/2023.12.15.001
-module load intel_compute_runtime/release/775.20
-module load gcc/12.2.0
-module list
-
-source activate /lus/gila/projects/CSC249ADCD08_CNDA/mof-generation-at-scale/env
+module load frameworks
+source /lus/flare/projects/MOFA/lward/mof-generation-at-scale/venv/bin/activate
 
 cd $PBS_O_WORKDIR
 pwd
 which python
 hostname
                         """,
-                        walltime="1:10:00",
+                        walltime="1:00:00",
                         launcher=MpiExecLauncher(
                             bind_cmd="--cpu-bind", overrides="--depth=208 --ppn 1"
-                        ),  # Ensures 1 manger per node and allows it to divide work among all 208 threads
-                        select_options="system=sunspot,place=scatter",
+                        ),  # EnsureDs 1 manger per node and allows it to divide work among all 208 threads
+                        scheduler_options="#PBS -l filesystems=home:flare",
                         nodes_per_block=1,
                         min_blocks=0,
                         max_blocks=1,  # Can increase more to have more parallel batch jobs
