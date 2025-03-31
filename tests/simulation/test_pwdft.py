@@ -2,12 +2,13 @@ import os
 import shutil
 import subprocess
 
-from pytest import mark, skip
+from pytest import mark
 from mofa.model import MOFRecord
 from mofa.simulation.pwdft import PWDFTRunner
 from mofa.utils.conversions import write_to_string
 
 IN_GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
+
 
 def has_pwdft():
     """Check if pwdft binary is available in PATH"""
@@ -16,6 +17,7 @@ def has_pwdft():
         return True
     except (subprocess.SubprocessError, FileNotFoundError):
         return False
+
 
 @mark.skipif(not has_pwdft(), reason="PWDFT binary not found in PATH")
 @mark.parametrize("cif_name", ["hMOF-0"])
