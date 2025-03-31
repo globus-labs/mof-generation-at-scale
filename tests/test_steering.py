@@ -15,6 +15,8 @@ from mongomock import MongoClient
 from ase import io as aseio
 
 from mofa.finetune.difflinker import DiffLinkerCurriculum
+from mofa.selection.dft import DFTSelector
+from mofa.selection.md import MDSelector
 from mofa.simulation.lammps import LAMMPSRunner
 from mofa.assembly.validate import process_ligands
 from mofa.generator import run_generator
@@ -80,15 +82,14 @@ def gen_config(file_path, ligand_templates):
 
 
 @fixture()
-def trn_config(client_collection):
-    _, collection = client_collection
+def trn_config(coll):
     return TrainingConfig(
         num_epochs=1,
         curriculum=DiffLinkerCurriculum(
             max_size=4,
             max_strain=0.5,
             strain_method='uff',
-            collection=collection
+            collection=coll
         )
     )
 
@@ -105,25 +106,43 @@ def node_template(file_path):
 @fixture()
 def sim_config():
     return SimulationConfig(
-        md_length=(10000,)
+        md_level='uff',
+        md_length=10000
     )
 
 
 @fixture()
-def thinker(queues, client_collection, hpc_config, gen_config, trn_config, sim_config, node_template, tmpdir):
-    client, _ = client_collection
+def md_selector(coll):
+    return MDSelector(
+        md_level='uff',
+        collection=coll
+    )
+
+
+@fixture()
+def dft_selector(coll):
+    return DFTSelector(
+        md_level='uff',
+        collection=coll
+    )
+
+
+@fixture()
+def thinker(queues, coll, md_selector, dft_selector, hpc_config, gen_config, trn_config, sim_config, node_template, tmpdir):
     run_dir = Path(tmpdir) / 'run'
     run_dir.mkdir()
     thinker = MOFAThinker(
         queues=queues,
-        mongo_client=client,
+        collection=coll,
         out_dir=run_dir,
         hpc_config=hpc_config,
         simulation_budget=8,
         generator_config=gen_config,
         trainer_config=trn_config,
         simulation_config=sim_config,
-        node_template=node_template,
+        md_selector=md_selector,
+        dft_selector=dft_selector,
+        node_template=node_template
     )
 
     # Route logs to disk
@@ -239,11 +258,12 @@ def test_stability(thinker, queues, cache_dir, example_record):
     assert len(tasks) == 1
 
     # Insert a MOF record into queue
-    thinker.stability_queue.append((example_record, thinker.sim_config.md_length[0]))
+    thinker.stability_queue.append(example_record)
     thinker.mofs_available.set()
+    sleep(0.5)
     tasks = _pull_tasks(queues)
     assert len(tasks) == 1
-    assert len(thinker.in_progress) == 1
+    assert thinker.collection.count_documents({'in_progress': 'stability'}) == 1
 
     # Run LAMMPS
     _, task = tasks[0]
@@ -251,12 +271,12 @@ def test_stability(thinker, queues, cache_dir, example_record):
     assert done_result.complete
     queues.send_result(done_result)
 
-    sleep(2.)
+    sleep(1.)
 
     # Check that the database has the content
-    assert len(thinker.in_progress) == 0
-    assert thinker.cp2k_ready.is_set()
+    assert thinker.collection.count_documents({'in_progress': 'stability'}) == 0
     assert thinker.collection.count_documents({}) == 1
+    assert thinker.cp2k_ready.is_set()
 
     # Check that the CP2K is getting started
     tasks = _pull_tasks(queues)
@@ -265,10 +285,8 @@ def test_stability(thinker, queues, cache_dir, example_record):
     assert task.method == 'run_optimization'
 
 
-def test_retrain(thinker, queues, client_collection, example_record):
+def test_retrain(thinker, queues, coll, example_record):
     """Make sure retraining can be triggered properly"""
-    _, coll = client_collection
-
     # Pull the generate task out of the queues (it is there on startup and irrelevant here)
     tasks = _pull_tasks(queues)
     assert len(tasks) == 1

@@ -9,7 +9,7 @@ from pymongo.collection import Collection
 from mofa.model import MOFRecord
 
 
-def _row_to_record(row: dict) -> MOFRecord:
+def row_to_record(row: dict) -> MOFRecord:
     """Convert a Mongo document to a Sequence data record"""
     row.pop("_id")
     return MOFRecord(**row)
@@ -47,7 +47,7 @@ def get_records(coll: Collection, name: list[str]) -> list[MOFRecord]:
 
     output = []
     for record in coll.find({'name': {'$in': name}}):
-        output.append(_row_to_record(record))
+        output.append(row_to_record(record))
     return output
 
 
@@ -58,7 +58,7 @@ def get_all_records(coll: Collection) -> Iterator[MOFRecord]:
         coll: Collection holding our MOF data
     """
     for record in coll.find({}):
-        yield _row_to_record(record)
+        yield row_to_record(record)
 
 
 def create_records(coll: Collection, records: list[MOFRecord]):
@@ -81,7 +81,7 @@ def update_records(coll: Collection, records: list[MOFRecord]):
     """
 
     for record in records:
-        coll.update_one({'name': record.name}, {'$set': asdict(record)})
+        coll.update_one({'name': record.name}, {'$set': asdict(record)}, upsert=True)
 
 
 def count_records(coll: Collection) -> int:
@@ -93,3 +93,28 @@ def count_records(coll: Collection) -> int:
         Number of records
     """
     return coll.estimated_document_count()
+
+
+def mark_in_progress(coll: Collection, record: MOFRecord, task: str):
+    """Mark that a task has been started
+
+    Args:
+        coll: Collection holding the MOF data
+        record: Record to be edited
+        task: Name of the task that has completed
+    """
+    coll.update_one({'name': record.name}, {'$addToSet': {'in_progress': task}})
+    if task not in record.in_progress:
+        record.in_progress.append(task)
+
+
+def mark_completed(coll: Collection, record: MOFRecord, task: str):
+    """Mark that a task has been completed
+
+    Args:
+        coll: Collection holding the MOF data
+        record: Record to be edited
+        task: Name of the task that has completed
+    """
+    coll.update_one({'name': record.name}, {'$pullAll': {'in_progress': task}})
+    record.in_progress.remove(task)

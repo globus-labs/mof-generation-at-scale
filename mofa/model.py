@@ -425,6 +425,8 @@ class MOFRecord:
     # Tracking provenance of structure
     times: dict[str, datetime] = field(default_factory=lambda: {'created': datetime.now()})
     """Listing times at which key events occurred"""
+    in_progress: list[str] = field(default_factory=list)
+    """Whether any assays are in progress"""
 
     def __post_init__(self):
         if self.name is None:
