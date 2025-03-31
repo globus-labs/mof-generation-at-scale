@@ -38,7 +38,7 @@ dependencies = [
     "pymatgen",
 
     # ML-related dependencies
-    "pytorch-lightning @ git+https://github.com/argonne-lcf/lightning.git@main",
+    "pytorch-lightning @ git+https://github.com/azton/lightning.git@master",
     "wandb",
     "imageio",
     "scikit-learn",
