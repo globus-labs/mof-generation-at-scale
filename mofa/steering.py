@@ -16,11 +16,13 @@ from typing import TextIO, Sequence
 import pymongo
 from colmena.models import Result
 from colmena.queue import ColmenaQueues
+from colmena.exceptions import TimeoutException
 from colmena.thinker import BaseThinker, ResourceCounter, task_submitter, result_processor, agent, event_responder
 from pymongo import MongoClient
 from pymongo.collection import Collection
 
 from mofa import db as mofadb
+from mofa.finetune.difflinker import DiffLinkerCurriculum
 from mofa.hpc.config import HPCConfig
 
 from mofa.model import LigandTemplate, MOFRecord, LigandDescription, NodeDescription
@@ -52,14 +54,8 @@ class TrainingConfig:
 
     num_epochs: int
     """Number of epochs to use for training"""
-    minimum_train_size: int
-    """Trigger retraining after these many computations have completed successfully"""
-    maximum_train_size: int
-    """How many of the top MOFs to train on"""
-    best_fraction: float
-    """Percentile of top MOFs to include in training set"""
-    maximum_strain: float
-    """Only use MOFs with strains below this value in training set"""
+    curriculum: DiffLinkerCurriculum
+    """Method used to create the dataset"""
 
 
 @dataclass
@@ -391,13 +387,12 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             traj = [(i, write_to_string(t, 'vasp')) for i, t in traj]
             if level not in record.md_trajectory:
                 record.md_trajectory[level] = []
-            record.md_trajectory[level] = traj
+            record.md_trajectory[level].extend(traj)
+            record.md_trajectory[level].sort()
 
-            if level not in record.structure_stability:
-                record.structure_stability[level] = {}
             latest_length, _ = record.md_trajectory[level][-1]
             strain = scorer.score_mof(record)
-            record.structure_stability[level][str(latest_length)] = strain
+            record.structure_stability[level] = strain
             record.times['md-done'] = datetime.now()
             self.logger.info(f'Lattice change after {latest_length} timesteps of MD for mof={name} level={level}: {strain * 100:.1f}%')
 
@@ -419,42 +414,16 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         last_train_size = 0
         while not self.done.is_set():
             # Determine how to select the best MOFs
-            md_length = self.sim_config.md_length[-1]  # Use the maximum MD length
-            if self.num_raspa_completed < self.trainer_config.minimum_train_size:
-                sort_field = f'structure_stability.uff.{md_length}'
-                to_include = min(int(self.num_lammps_completed * self.trainer_config.best_fraction), self.trainer_config.maximum_train_size)
-                sort_order = pymongo.ASCENDING
-            else:
-                sort_field = 'gas_storage.CO2'
-                to_include = min(int(self.num_raspa_completed * self.trainer_config.best_fraction), self.trainer_config.maximum_train_size)
-                sort_order = pymongo.DESCENDING
-
-            # Build the query
-            query = defaultdict(dict)
-            query[sort_field] = {'$exists': True}
-            query[f'structure_stability.uff.{md_length}'] = {'$lt': self.trainer_config.maximum_strain}
-
-            cursor = (
-                self.collection.find(
-                    filter=query,
-                    projection={'md_trajectory': 0},  # Filter out the trajectory to save I/O
-                )
-                .sort(sort_field, sort_order)
-                .limit(to_include)
-            )
-            examples = []
-            for record in cursor:
-                record.pop("_id")
-                record['times'] = {}
-                record['md_trajectory'] = {}
-                examples.append(MOFRecord(**record))
-            if (len(examples) == 0 or len(examples) == last_train_size) and len(examples) < self.trainer_config.maximum_train_size:
-                self.logger.info(f'The number of training examples for {sort_field} with strain below {self.trainer_config.maximum_strain:.2f}'
+            examples = self.trainer_config.curriculum.get_training_set()
+            if (len(examples) == 0 or len(examples) == last_train_size) and len(examples) < self.trainer_config.curriculum.max_size:
+                self.logger.info(f'The number of training examples for with strain below {self.trainer_config.curriculum.max_strain:.2f}'
                                  f' ({len(examples)}) is the same as the last time we trained DiffLinker ({last_train_size}). Waiting for more data')
                 self.start_train.clear()
-                self.start_train.wait()
+                while not self.start_train.wait(timeout=1.):
+                    if self.done.is_set():
+                        break
                 continue
-            self.logger.info(f'Gathered the top {len(examples)} with strain below {self.trainer_config.maximum_strain:.2f} records based on {sort_field}')
+            self.logger.info(f'Gathered a training set of {len(examples)} examples.')
             last_train_size = len(examples)  # So we know what the training set size was for the next iteration
 
             # Determine the run directory
@@ -469,15 +438,25 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
                 input_kwargs={'examples': examples, 'run_directory': train_dir},
                 method='train_generator',
                 topic='training',
-                task_info={'train_size': len(examples), 'sort_field': sort_field}
+                task_info={'train_size': len(examples)}
             )
             self.logger.info('Submitted training. Waiting until complete')
 
-            # Update the model
-            result = self.queues.get_result(topic='training')
+            # Wait until the model finishes training
+            while True:
+                try:
+                    result = self.queues.get_result(topic='training', timeout=1)
+                except TimeoutException:
+                    if self.done.is_set():
+                        return
+                    else:
+                        continue
+                break
             result.task_info['train_size'] = len(examples)
             model_dir = Path(self.out_dir / 'models')
             model_dir.mkdir(exist_ok=True)
+
+            # Update the model if successful
             if result.success:
                 self.model_iteration = attempt_id
                 new_model_path = model_dir / f'model-v{self.model_iteration}.ckpt'
