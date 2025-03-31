@@ -13,7 +13,6 @@ from random import shuffle
 from threading import Event, Lock
 from typing import TextIO
 
-import pymongo
 from colmena.models import Result
 from colmena.queue import ColmenaQueues
 from colmena.exceptions import TimeoutException
@@ -26,6 +25,7 @@ from mofa.hpc.config import HPCConfig
 
 from mofa.model import LigandTemplate, MOFRecord, LigandDescription, NodeDescription
 from mofa.scoring.geometry import LatticeParameterChange
+from mofa.selection.dft import DFTSelector
 from mofa.selection.md import MDSelector
 from mofa.utils.conversions import write_to_string
 
@@ -90,6 +90,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
                  trainer_config: TrainingConfig,
                  simulation_config: SimulationConfig,
                  md_selector: MDSelector,
+                 dft_selector: DFTSelector,
                  node_template: NodeDescription):
         """
         Args:
@@ -101,6 +102,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             trainer_config: Configuration for training DiffLinker
             simulation_config: Configuration for the simulation tasks
             md_selector: Method used to select which LAMMPS simulations to perform
+            dft_selector: Method used to select which DFT simulations to perform
             node_template: Template used for MOF assembly
         """
         if hpc_config.num_workers < 2:
@@ -115,6 +117,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         self.hpc_config = hpc_config
         self.sim_config = simulation_config
         self.md_selector = md_selector
+        self.dft_selector = dft_selector
 
         # Set up the queues
         self.stability_queue = deque(maxlen=8 * self.hpc_config.num_lammps_workers)  # Starts empty
@@ -152,7 +155,6 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
 
         # Settings related to scheduling CP2K
         self.cp2k_ready = Event()
-        self.cp2k_ran = set()
 
         # Connect to MongoDB
         self.collection = collection
@@ -490,24 +492,18 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
 
         # Query the database to find the best MOF we have not run CP2K on yet
         while True:  # Runs until something gets submitted
-            sort_field = f'structure_stability.{self.sim_config.md_level}'
-            self.collection.create_index(sort_field)
-            cursor = (
-                self.collection.find(
-                    {sort_field: {'$exists': True}},
-                )
-                .sort(sort_field, pymongo.ASCENDING)
-            )
-            for record in cursor:
-                # If has been run, skip
-                if record['name'] in self.cp2k_ran:
-                    continue
+            try:
+                record = self.dft_selector.select_next()
+            except ValueError:
+                self.logger.info('No MOFs ready for CP2K. Waiting for MD to finish')
+                self.cp2k_ready.clear()
 
+                while not self.cp2k_ready.wait(timeout=1.):
+                    if self.done.is_set():
+                        return
+            else:
                 # Add this to the list of things which have been run
-                self.logger.info('Found a record')
-                self.cp2k_ran.add(record['name'])
-                record.pop("_id")
-                record = MOFRecord(**record)
+                mofadb.mark_in_progress(self.collection, record, 'dft')
                 self.queues.send_inputs(
                     record,
                     method='run_optimization',
@@ -516,13 +512,6 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
                 )
                 self.logger.info(f'Submitted {record.name} to run with CP2K')
                 return
-
-            self.logger.info('No MOFs ready for CP2K. Waiting for MD to finish')
-            self.cp2k_ready.clear()
-
-            while not self.cp2k_ready.wait(timeout=1.):
-                if self.done.is_set():
-                    return
 
     @result_processor(topic='cp2k')
     def store_cp2k(self, result: Result):

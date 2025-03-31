@@ -15,6 +15,7 @@ from mongomock import MongoClient
 from ase import io as aseio
 
 from mofa.finetune.difflinker import DiffLinkerCurriculum
+from mofa.selection.dft import DFTSelector
 from mofa.selection.md import MDSelector
 from mofa.simulation.lammps import LAMMPSRunner
 from mofa.assembly.validate import process_ligands
@@ -119,7 +120,15 @@ def md_selector(coll):
 
 
 @fixture()
-def thinker(queues, coll, md_selector, hpc_config, gen_config, trn_config, sim_config, node_template, tmpdir):
+def dft_selector(coll):
+    return DFTSelector(
+        md_level='uff',
+        collection=coll
+    )
+
+
+@fixture()
+def thinker(queues, coll, md_selector, dft_selector, hpc_config, gen_config, trn_config, sim_config, node_template, tmpdir):
     run_dir = Path(tmpdir) / 'run'
     run_dir.mkdir()
     thinker = MOFAThinker(
@@ -132,7 +141,8 @@ def thinker(queues, coll, md_selector, hpc_config, gen_config, trn_config, sim_c
         trainer_config=trn_config,
         simulation_config=sim_config,
         md_selector=md_selector,
-        node_template=node_template,
+        dft_selector=dft_selector,
+        node_template=node_template
     )
 
     # Route logs to disk

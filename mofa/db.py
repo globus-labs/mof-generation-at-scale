@@ -95,6 +95,19 @@ def count_records(coll: Collection) -> int:
     return coll.estimated_document_count()
 
 
+def mark_in_progress(coll: Collection, record: MOFRecord, task: str):
+    """Mark that a task has been started
+
+    Args:
+        coll: Collection holding the MOF data
+        record: Record to be edited
+        task: Name of the task that has completed
+    """
+    coll.update_one({'name': record.name}, {'$addToSet': {'in_progress': task}})
+    if task not in record.in_progress:
+        record.in_progress.append(task)
+
+
 def mark_completed(coll: Collection, record: MOFRecord, task: str):
     """Mark that a task has been completed
 
@@ -102,8 +115,6 @@ def mark_completed(coll: Collection, record: MOFRecord, task: str):
         coll: Collection holding the MOF data
         record: Record to be edited
         task: Name of the task that has completed
-    Returns:
-
     """
     coll.update_one({'name': record.name}, {'$pullAll': {'in_progress': task}})
     record.in_progress.remove(task)
