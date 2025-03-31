@@ -6,6 +6,7 @@ import warnings
 import logging
 import gzip
 
+import numpy as np
 from colmena.queue import PipeQueues, ColmenaQueues
 from colmena.exceptions import TimeoutException
 from colmena.models import Result
@@ -13,12 +14,14 @@ from pytest import fixture
 from mongomock import MongoClient
 from ase import io as aseio
 
+from mofa.finetune.difflinker import DiffLinkerCurriculum
 from mofa.simulation.lammps import LAMMPSRunner
 from mofa.assembly.validate import process_ligands
 from mofa.generator import run_generator
 from mofa.model import LigandTemplate, NodeDescription, MOFRecord
 from mofa.steering import MOFAThinker, GeneratorConfig, TrainingConfig, SimulationConfig
 from mofa.hpc.config import LocalConfig
+from mofa.db import initialize_database, create_records
 
 
 def _pull_tasks(queues: ColmenaQueues) -> list[tuple[str, Result]]:
@@ -31,6 +34,13 @@ def _pull_tasks(queues: ColmenaQueues) -> list[tuple[str, Result]]:
             break
         tasks.append(task)
     return tasks
+
+
+@fixture()
+def client_collection():
+    client = MongoClient()
+    coll = initialize_database(client)
+    return client, coll
 
 
 @fixture()
@@ -70,13 +80,16 @@ def gen_config(file_path, ligand_templates):
 
 
 @fixture()
-def trn_config():
+def trn_config(client_collection):
+    _, collection = client_collection
     return TrainingConfig(
         num_epochs=1,
-        minimum_train_size=4,
-        maximum_train_size=10,
-        best_fraction=0.5,
-        maximum_strain=0.5
+        curriculum=DiffLinkerCurriculum(
+            max_size=4,
+            max_strain=0.5,
+            strain_method='uff',
+            collection=collection
+        )
     )
 
 
@@ -97,12 +110,13 @@ def sim_config():
 
 
 @fixture()
-def thinker(queues, hpc_config, gen_config, trn_config, sim_config, node_template, tmpdir):
+def thinker(queues, client_collection, hpc_config, gen_config, trn_config, sim_config, node_template, tmpdir):
+    client, _ = client_collection
     run_dir = Path(tmpdir) / 'run'
     run_dir.mkdir()
     thinker = MOFAThinker(
         queues=queues,
-        mongo_client=MongoClient(),
+        mongo_client=client,
         out_dir=run_dir,
         hpc_config=hpc_config,
         simulation_budget=8,
@@ -249,3 +263,26 @@ def test_stability(thinker, queues, cache_dir, example_record):
     assert len(tasks) == 1
     _, task = tasks[0]
     assert task.method == 'run_optimization'
+
+
+def test_retrain(thinker, queues, client_collection, example_record):
+    """Make sure retraining can be triggered properly"""
+    _, coll = client_collection
+
+    # Pull the generate task out of the queues (it is there on startup and irrelevant here)
+    tasks = _pull_tasks(queues)
+    assert len(tasks) == 1
+
+    # Make a series of records with increasingly-larger strains
+    for strain in np.random.uniform(0., 0.2, 32):
+        example_record.structure_stability['uff'] = strain
+        create_records(coll, [example_record])
+    assert len(thinker.trainer_config.curriculum.get_training_set()) > 0
+
+    # Call retraining
+    thinker.start_train.set()
+    sleep(0.5)
+    tasks = _pull_tasks(queues)
+    assert len(tasks) == 1
+    _, task = tasks[0]
+    assert task.method == 'train_generator'
