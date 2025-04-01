@@ -12,9 +12,9 @@ python run_parallel_workflow.py \
       --gen-batch-size 64 \
       --simulation-budget 8 \
       --redis-host 127.0.0.1 \
-      --compute-config local \
+      --compute-config "local" \
       --mace-model-path ./input-files/mace/mace-mp0_medium-lammps.pt \
-      --md-tqqimesteps 1000 \
+      --md-timesteps 1000 \
       --dft-opt-steps 2
 
 

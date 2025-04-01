@@ -103,7 +103,7 @@ def mark_in_progress(coll: Collection, record: MOFRecord, task: str):
         record: Record to be edited
         task: Name of the task that has completed
     """
-    coll.update_one({'name': record.name}, {'$addToSet': {'in_progress': task}})
+    coll.update_one({'name': record.name}, {'$addToSet': {'in_progress': [task]}})
     if task not in record.in_progress:
         record.in_progress.append(task)
 
@@ -116,5 +116,5 @@ def mark_completed(coll: Collection, record: MOFRecord, task: str):
         record: Record to be edited
         task: Name of the task that has completed
     """
-    coll.update_one({'name': record.name}, {'$pullAll': {'in_progress': task}})
+    coll.update_one({'name': record.name}, {'$pullAll': {'in_progress': [task]}})
     record.in_progress.remove(task)
