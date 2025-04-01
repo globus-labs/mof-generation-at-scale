@@ -433,9 +433,9 @@ hostname""".strip()
         ai_nodefile = run_dir / 'ai.hosts'
         ai_nodefile.write_text('\n'.join(self.ai_hosts[1:]))  # First is used for training
         lammps_nodefile = run_dir / 'lammps.hosts'
-        lammps_nodefile.write_text('\n'.join(self.lammps_hosts))
+        lammps_nodefile.write_text('\n'.join(self.lammps_hosts) + '\n')
         cp2k_nodefile = run_dir / 'cp2k.hosts'
-        cp2k_nodefile.write_text('\n'.join(self.cp2k_hosts))
+        cp2k_nodefile.write_text('\n'.join(self.cp2k_hosts) + '\n')
 
         # Make the nodefiles for the CP2K workers
         nodefile_path = run_dir / 'cp2k-hostfiles'
@@ -509,12 +509,12 @@ hostname"""
             executors=[
                 HighThroughputExecutor(
                     label='inf',
-                    max_workers_per_node=4,
+                    max_workers_per_node=12,
                     cpu_affinity="block",
-                    available_accelerators=4,
+                    available_accelerators=12,
                     provider=LocalProvider(
                         launcher=WrappedLauncher(
-                            f"mpiexec -n {len(self.ai_hosts) - 1} --ppn 1 --hostfile {ai_nodefile} --depth=64 --cpu-bind depth"
+                            f"mpiexec -n {len(self.ai_hosts) - 1} --ppn 1 --hostfile {ai_nodefile} --depth=104 --cpu-bind depth"
                         ),
                         worker_init=worker_init,
                         min_blocks=1,
@@ -526,7 +526,7 @@ hostname"""
                     max_workers_per_node=1,
                     provider=LocalProvider(
                         launcher=WrappedLauncher(
-                            f"mpiexec -n 1 --ppn 1 --host {self.ai_hosts[0]} --depth=64 --cpu-bind depth"
+                            f"mpiexec -n 1 --ppn 1 --host {self.ai_hosts[0]} --depth=104 --cpu-bind depth"
                         ),
                         worker_init=worker_init,
                         min_blocks=1,
@@ -542,7 +542,7 @@ hostname"""
                     provider=LocalProvider(
                         worker_init=worker_init,
                         launcher=WrappedLauncher(
-                            f"mpiexec -n {len(self.lammps_hosts)} --ppn 1 --hostfile {lammps_nodefile} --depth=208 --cpu-bind depth"
+                            f"mpiexec -n {len(self.lammps_hosts)} --ppn 1 --hostfile {lammps_nodefile} --depth=104 --cpu-bind depth"
                         ),
                         min_blocks=1,
                         max_blocks=1,
@@ -564,7 +564,7 @@ hostname"""
                     cpu_affinity='list:' + ":".join(helper_cores),
                     provider=LocalProvider(
                         launcher=WrappedLauncher(
-                            f"mpiexec -n {len(self.lammps_hosts)} --ppn 1 --hostfile {lammps_nodefile} --depth=208 --cpu-bind depth"
+                            f"mpiexec -n {len(self.lammps_hosts)} --ppn 1 --hostfile {lammps_nodefile} --depth=104 --cpu-bind depth"
                         ),
                         worker_init=worker_init,
                         min_blocks=1,
