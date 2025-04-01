@@ -132,6 +132,51 @@ class LocalConfig(HPCConfig):
             run_dir=str(run_dir / 'runinfo')
         )
 
+@dataclass(kw_only=True)
+class LiftConfig(HPCConfig): #For use with lift machines
+    """Configuration used for UChicago lift machines.
+
+    Uses a different worker for AI and simulation tasks.
+    """
+
+    torch_device = 'cuda'
+    lammps_env = {}
+
+    lammps_executors = ['sim']
+    inference_executors = ['ai']
+    train_executors = ['ai']
+    helper_executors = ['helper']
+
+    @property
+    def num_workers(self):
+        return self.num_lammps_workers + self.num_cp2k_workers + self.number_inf_workers
+
+    @property
+    def number_inf_workers(self) -> int:
+        return 8
+
+    @property
+    def num_lammps_workers(self) -> int:
+        return 48
+
+    @property
+    def num_cp2k_workers(self) -> int:
+        return 1
+
+    def launch_monitor_process(self, log_dir: Path, freq: int = 20) -> Popen:
+        return Popen(
+            args=f"monitor_utilization --frequency {freq} {log_dir}".split()
+        )
+
+    def make_parsl_config(self, run_dir: Path) -> Config:
+        return Config(
+            executors=[
+                HighThroughputExecutor(label='sim', max_workers=self.num_lammps_workers),
+                HighThroughputExecutor(label='helper', max_workers=1),
+                HighThroughputExecutor(label='ai', max_workers=self.number_inf_workers, available_accelerators=1)
+            ],
+            run_dir=str(run_dir / 'runinfo')
+        )
 
 @dataclass(kw_only=True)
 class LocalXYConfig(HPCConfig):
@@ -478,6 +523,7 @@ hostname""",
 
 configs: dict[str, type[HPCConfig]] = {
     'local': LocalConfig,
+    'locallift': LiftConfig,
     'localXY': LocalXYConfig,
     'UICXY': UICXYConfig,
     'polaris': PolarisConfig,

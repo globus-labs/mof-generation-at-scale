@@ -12,6 +12,8 @@ from queue import Queue, Empty
 from random import shuffle
 from threading import Event, Lock
 from typing import TextIO, Sequence
+import numpy as np
+from xgboost import XGBRegressor
 
 import pymongo
 from colmena.models import Result
@@ -26,7 +28,7 @@ from mofa.hpc.config import HPCConfig
 from mofa.model import LigandTemplate, MOFRecord, LigandDescription, NodeDescription
 from mofa.scoring.geometry import LatticeParameterChange
 from mofa.utils.conversions import write_to_string
-
+from mofa.scoring.acquisition import acquisition_reorder
 
 @dataclass
 class GeneratorConfig:
@@ -68,6 +70,18 @@ class SimulationConfig:
 
     md_length: Sequence[int] = (1000,)
     """Number of timesteps to perform with MD at different levels"""
+    no_cp2k: bool = False
+    """Turn off CP2K and RASPA optimization and gas capacity calculations"""
+
+@dataclass
+class ActiveLearningConfig:
+    """Configuration for the active learning inputs"""
+    retrain_frequency: int = 1
+    """How often the XGBoost model should be retrained when new data is acquired"""
+    use_al: bool = False
+    """Whether or not active learning should be invoked with model retraining and reordering"""
+    al_acquisition: str = 'ucb_lambda01' #ASK LOGAN: should this be more configurable? Use coeffs instead?
+    """Acquisition function to use for queue reordering"""
 
 
 class MOFAThinker(BaseThinker, AbstractContextManager):
@@ -89,6 +103,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
                  generator_config: GeneratorConfig,
                  trainer_config: TrainingConfig,
                  simulation_config: SimulationConfig,
+                 active_learning_config: ActiveLearningConfig,
                  node_template: NodeDescription):
         if hpc_config.num_workers < 2:
             raise ValueError(f'There must be at least two workers. Supplied: {hpc_config}')
@@ -101,6 +116,8 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         self.simulations_left = simulation_budget
         self.hpc_config = hpc_config
         self.sim_config = simulation_config
+        self.active_learning_config = active_learning_config
+        self.al_retrain_counter = 0
 
         # Set up the queues
         self.stability_queue = deque(maxlen=8 * self.hpc_config.num_lammps_workers)  # Starts empty
@@ -159,6 +176,47 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
     def __exit__(self, exc_type, exc_val, exc_tb):
         for obj in self._output_files.values():
             obj.close()
+
+    def _active_learning_reorder(self, valid_ligands, anchor_type):
+        db_len = self.collection.count_documents(filter={})
+        if self.active_learning_config.use_al:
+            if db_len>self.mofa_db_length:
+                self.mofa_db_length = db_len
+                if db_len // self.active_learning_config.retrain_frequency > self.al_retrain_counter: #Trigger retrain
+                    self.al_retrain_counter = db_len // self.active_learning_config.retrain_frequency
+                    #Use the document length to check if retraining is needed
+                    cursor = (self.collection.find({}))
+                    new_X = []
+                    new_y = []
+                    for record in cursor:
+                        #Skipping first ligand (duplicate)
+                        new_X+=[i['rd_embed'] for i in record['ligands'][1:]]
+                        new_y+=[record['structure_stability']['uff'],record['structure_stability']['uff']]
+                    X = np.concatenate([self.X_init,np.array(new_X)])
+                    y = np.concatenate([self.y_init,np.array(new_y)])
+                    new_xgbr = XGBRegressor()
+                    new_xgbr.fit(X,y)
+                    new_model_file = self.out_dir / f'xgbr_al_params_{str(self.al_retrain_counter).zfill(5)}.json'
+                    new_xgbr.save_model(new_model_file)
+                    self.xgbr = new_xgbr
+        
+            if len(valid_ligands) == 0:
+                new_stability_predictions = []
+            else:
+                embeddings = np.array([lig.rd_embed for lig in valid_ligands])
+                new_stability_predictions = self.xgbr.predict(embeddings)
+            
+            for lig_ind in range(len(valid_ligands)):
+                valid_ligands[lig_ind].metadata['pred_stability'] = float(new_stability_predictions[lig_ind])
+        
+            all_lig_list = list(self.ligand_assembly_queue[anchor_type]) + valid_ligands
+            #Reorder according to acquisition function
+            ordered_inds = acquisition_reorder(all_lig_list,self.active_learning_config.al_acquisition)
+            reordered_ligands_list = [all_lig_list[lig_ind] for lig_ind in ordered_inds]
+        else:
+            reordered_ligands_list = list(self.ligand_assembly_queue[anchor_type]) + valid_ligands
+
+        self.ligand_assembly_queue[anchor_type].extend(reordered_ligands_list)  # Shoves old ligands out of the deque
 
     @task_submitter(task_type='generation')
     def submit_generation(self):
@@ -232,8 +290,11 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
                 for ligand in valid_ligands:
                     ligand.metadata['model_version'] = model_version
 
+                #MARCUS ADD AL CODE HERE, AS A SEPARATE FUNCTION
+
                 # Append the ligands to the task queue
-                self.ligand_assembly_queue[anchor_type].extend(valid_ligands)  # Shoves old ligands out of the deque
+                #self.ligand_assembly_queue[anchor_type].extend(valid_ligands)  # Shoves old ligands out of the deque
+                self._active_learning_reorder(valid_ligands, anchor_type)
                 self.logger.info(f'Current length of {anchor_type} queue: {len(self.ligand_assembly_queue[anchor_type])}')
 
                 # Signal that we're ready for more MOFs

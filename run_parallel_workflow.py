@@ -27,7 +27,7 @@ from mofa.model import NodeDescription, LigandTemplate
 from mofa.simulation.cp2k import CP2KRunner, compute_partial_charges
 from mofa.simulation.lammps import LAMMPSRunner
 from mofa.simulation.raspa import RASPARunner
-from mofa.steering import GeneratorConfig, TrainingConfig, MOFAThinker, SimulationConfig
+from mofa.steering import GeneratorConfig, TrainingConfig, MOFAThinker, SimulationConfig, ActiveLearningConfig
 from mofa.hpc.colmena import DiffLinkerInference
 from mofa.hpc.config import configs as hpc_configs
 
@@ -65,12 +65,13 @@ if __name__ == "__main__":
                        help='Maximum number of attempts to create a MOF')
     group.add_argument('--minimum-ligand-pool', type=int, default=4, help='Minimum number of ligands before MOF assembly')
 
-    group = parser.add_argument_group(title='Simulation Settings Settings', description='Options related to property calculations')
+    group = parser.add_argument_group(title='Simulation Settings', description='Options related to property calculations')
     group.add_argument('--md-timesteps', default=100000, help='Number of timesteps for the UFF MD simulation', type=int)
     group.add_argument('--md-snapshots', default=100, help='Maximum number of snapshots during MD simulation', type=int)
     group.add_argument('--retain-lammps', action='store_true', help='Keep LAMMPS output files after it finishes')
     group.add_argument('--dft-opt-steps', default=8, help='Maximum number of DFT optimization steps', type=int)
     group.add_argument('--raspa-timesteps', default=100000, help='Number of timesteps for GCMC computation', type=int)
+    group.add_argument('--no-cp2k',default=True,type=bool,help='Turn off CP2K and RASPA optimization and gas capacity calculations')
 
     group = parser.add_argument_group(title='Compute Settings', description='Compute environment configuration')
     group.add_argument('--lammps-on-ramdisk', action='store_true', help='Write LAMMPS outputs to a RAM Disk')
@@ -79,6 +80,12 @@ if __name__ == "__main__":
     group.add_argument('--dft-fraction', default=0.1, type=float, help='Fraction of workers devoted to DFT tasks')
     group.add_argument('--redis-host', default=node(), help='Host for the Redis server')
     group.add_argument('--proxy-threshold', default=10000, type=int, help='Size threshold to use proxystore for data (bytes)')
+
+    group = parser.add_argument_group(title='AL Model Settings', description='Options related to running active learning calculations')
+    group.add_argument('--use-al',default=False,type=bool,help='Whether to use active learning to reorder stability queue')
+    group.add_argument('--al-retrain-interval',default=1,type=int,help='How often to retrain and replace new AL model')
+    group.add_argument('--al-acquisition',default='ucb_lambda01',type=str,help='Acquisition function to use for queue reordering')
+
 
     args = parser.parse_args()
 
@@ -160,6 +167,9 @@ if __name__ == "__main__":
     update_wrapper(md_fun, lmp_runner.run_molecular_dynamics)
     sim_config = SimulationConfig(md_length=(args.md_timesteps,))
 
+    active_learning_config = ActiveLearningConfig(retrain_frequency=args.al_retrain_interval,
+                                                  use_al=args.use_al,
+                                                  al_acquisition=args.al_acquisition)
     # Make the CP2K function
     cp2k_runner = CP2KRunner(
         cp2k_invocation=hpc_config.cp2k_cmd,
@@ -192,6 +202,7 @@ if __name__ == "__main__":
                           simulation_config=sim_config,
                           simulation_budget=args.simulation_budget,
                           node_template=node_template,
+                          active_learning_config = active_learning_config,
                           out_dir=run_dir)
 
     # Turn on logging
