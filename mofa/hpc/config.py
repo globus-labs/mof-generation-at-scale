@@ -245,9 +245,9 @@ class PolarisConfig(HPCConfig):
     cp2k_hosts: list[str] = field(default_factory=list)
     """Hosts which will run CP2K tasks"""
 
-    cpus_per_node: int = 32  # We choose 32 cores to only use one thread per core
+    cpus_per_node: int = field(default=32, init=False)
     """Number of CPUs to use per node"""
-    gpus_per_node: int = 4
+    gpus_per_node: int = field(default=4, init=False)
     """Number of GPUs per compute node"""
 
     lammps_executors = ['lammps']
@@ -443,6 +443,7 @@ hostname""".strip()
         for i, nodes in enumerate(batched(self.cp2k_hosts, self.nodes_per_cp2k)):
             (nodefile_path / f'local_hostfile.{i:03d}').write_text("\n".join(nodes))
         return ai_nodefile, lammps_nodefile
+
 
 @dataclass(kw_only=True)
 class AuroraConfig(PolarisConfig):
