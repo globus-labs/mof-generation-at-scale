@@ -4,7 +4,7 @@ from pathlib import Path
 
 from pytest import mark
 
-from mofa.hpc.config import configs, PolarisConfig
+from mofa.hpc.config import configs, PolarisConfig, AuroraConfig
 
 
 @mark.parametrize('name', ['local', 'localXY'])
@@ -54,5 +54,28 @@ def test_polaris(tmpdir):
         cmd = config.cp2k_cmd
         assert str(config.run_dir) in cmd
 
+    finally:
+        del os.environ['PBS_NODEFILE']
+
+
+def test_aurora(tmpdir):
+    hostfile_path = tmpdir / 'HOSTFILE'
+    with open(hostfile_path, 'w') as fp:
+        for i in range(20):
+            print(f'host-{i}', file=fp)
+    os.environ['PBS_NODEFILE'] = str(hostfile_path)
+
+    try:
+        config = AuroraConfig()
+        config.ai_fraction = 0.1
+        config.dft_fraction = 0.25
+        config.make_parsl_config(Path(tmpdir))
+
+        # Check that it has the correct GPU settings
+        assert config.gpus_per_node == 12
+        assert config.torch_device == 'xpu'
+
+        assert len(config.hosts) == 20
+        assert len(config.ai_hosts) == 2
     finally:
         del os.environ['PBS_NODEFILE']
