@@ -103,7 +103,9 @@ def mark_in_progress(coll: Collection, record: MOFRecord, task: str):
         record: Record to be edited
         task: Name of the task that has completed
     """
-    coll.update_one({'name': record.name}, {'$addToSet': {'in_progress': [task]}})
+    res = coll.update_one({'name': record.name}, {'$addToSet': {'in_progress': task}})
+    if res.modified_count != 1:
+        raise ValueError(f'No match for MOF: {record.name}')
     if task not in record.in_progress:
         record.in_progress.append(task)
 

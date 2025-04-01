@@ -10,7 +10,7 @@ import numpy as np
 from colmena.queue import PipeQueues, ColmenaQueues
 from colmena.exceptions import TimeoutException
 from colmena.models import Result
-from pytest import fixture
+from pytest import fixture, raises
 from mongomock import MongoClient
 from ase import io as aseio
 
@@ -305,6 +305,12 @@ def test_simulation_pipeline(thinker, queues, cache_dir, example_record):
     assert len(tasks) == 1
     _, task = tasks[0]
     assert task.method == 'run_optimization'
+
+    # Check that no other compounds are eligible
+    assert thinker.collection.count_documents({'in_progress': 'dft'}) == 1, \
+        thinker.collection.find_one({})
+    with raises(ValueError, match='criteria'):
+        thinker.dft_selector.select_next()
 
     # "Run" the optimization
     result = make_cp2k_outputs(task)
