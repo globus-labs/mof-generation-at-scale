@@ -88,17 +88,16 @@ class HPCConfig:
 
 @dataclass(kw_only=True)
 class LocalConfig(HPCConfig):
-    """Configuration used for testing purposes
-
-    Uses a different worker for AI and simulation tasks.
+    """Configuration used for testing purposes. Runs all non-helper tasks on a single worker
     """
 
     torch_device = 'cuda'
     lammps_env = {}
+    lammps_cmd = ('/home/lward/Software/lammps-mace/build-mace/lmp',)
 
-    lammps_executors = ['sim']
-    inference_executors = ['ai']
-    train_executors = ['ai']
+    lammps_executors = ['gpu']
+    inference_executors = ['gpu']
+    train_executors = ['gpu']
     helper_executors = ['helper']
 
     @property
@@ -125,9 +124,8 @@ class LocalConfig(HPCConfig):
     def make_parsl_config(self, run_dir: Path) -> Config:
         return Config(
             executors=[
-                HighThroughputExecutor(label='sim', max_workers_per_node=1),
                 HighThroughputExecutor(label='helper', max_workers_per_node=1),
-                HighThroughputExecutor(label='ai', max_workers_per_node=1, available_accelerators=1)
+                HighThroughputExecutor(label='gpu', max_workers_per_node=1, available_accelerators=1)
             ],
             run_dir=str(run_dir / 'runinfo')
         )

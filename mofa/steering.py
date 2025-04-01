@@ -270,7 +270,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             with self.generate_write_lock:
                 print(result.json(exclude={'inputs', 'value'}), file=self._output_files['generation-results'], flush=True)
 
-    @task_submitter(task_type='assembly')
+    @event_responder(event_name='make_mofs')
     def submit_assembly(self):
         """Pull from the list of ligands and create MOFs"""
 
@@ -287,16 +287,18 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             else:
                 break
 
-        # Submit the assembly task
-        self.queues.send_inputs(
-            dict((k, list(v)) for k, v in self.ligand_assembly_queue.items()),
-            [self.node_template],
-            self.mofs_per_call,
-            4,
-            method='assemble_many',
-            topic='assembly',
-            task_info={'to_make': self.mofs_per_call}
-        )
+        # Submit a batch of assembly tasks
+        for i in range(self.assemble_workers):
+            self.rec.acquire('assembly', 1)
+            self.queues.send_inputs(
+                dict((k, list(v)) for k, v in self.ligand_assembly_queue.items()),
+                [self.node_template],
+                self.mofs_per_call,
+                4,
+                method='assemble_many',
+                topic='assembly',
+                task_info={'to_make': self.mofs_per_call, 'worker': i}
+            )
 
     @result_processor(topic='assembly')
     def store_assembly(self, result: Result):
@@ -376,7 +378,13 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             self.post_md_queue.put(result)
             self.simulations_left -= 1
             self.logger.info(f'Successful computation. Budget remaining: {self.simulations_left}')
+
         print(result.json(exclude={'inputs', 'value'}), file=self._output_files['simulation-results'], flush=True)
+
+        # Check if termination conditions are met
+        if self.simulations_left == 0:
+            self.done.set()
+            self.logger.info('Finished running LAMMPS simulations. Will start inishing all remaining work')
 
     @agent()
     def process_md_results(self):
