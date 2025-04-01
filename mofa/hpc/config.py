@@ -444,7 +444,7 @@ hostname""".strip()
             (nodefile_path / f'local_hostfile.{i:03d}').write_text("\n".join(nodes))
         return ai_nodefile, lammps_nodefile
 
-
+@dataclass(kw_only=True)
 class AuroraConfig(PolarisConfig):
     """Configuration for running on Sunspot
 
@@ -483,8 +483,8 @@ export LD_LIBRARY_PATH=$FPATH/intel_extension_for_pytorch/lib:$LD_LIBRARY_PATH
 
     def make_parsl_config(self, run_dir: Path) -> Config:
         # Set the run dir and write nodefiles to it
-        self.run_dir = run_dir
-        ai_nodefile, lammps_nodefile = self._make_nodefiles()
+        self.run_dir = str(run_dir)
+        ai_nodefile, lammps_nodefile = self._make_nodefiles(run_dir)
 
         # Determine which cores to use for AI tasks
         sim_cores, helper_cores = self._assign_cores()
