@@ -426,6 +426,7 @@ hostname""".strip()
             - Path to the AI nodefile
             - Path to the LAMMPS nodefile
         """
+        assert len(self.hosts) > 0, 'No hosts detected'  # TODO (wardlt): Also builds the hosts list, make that clearer/auto
 
         ai_nodefile = self.run_dir / 'ai.hosts'
         ai_nodefile.write_text('\n'.join(self.ai_hosts[1:]))  # First is used for training
