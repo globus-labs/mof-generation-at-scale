@@ -231,7 +231,7 @@ class PolarisConfig(HPCConfig):
     lammps_cmd = ('/lus/eagle/projects/MOFA/lward/lammps-29Aug2024/build-gpu-nompi-mixed/lmp '
                   '-sf gpu -pk gpu 1').split()
     lammps_env = {}
-    run_dir: Path | None = None  # Set when building the configuration
+    run_dir: str | None = None  # Set when building the configuration
 
     nodes_per_cp2k: int = 2
     """Number of nodes per CP2K task"""
@@ -307,11 +307,11 @@ class PolarisConfig(HPCConfig):
         )
 
     def make_parsl_config(self, run_dir: Path) -> Config:
-        self.run_dir = run_dir.absolute()  # Used for CP2K config
+        self.run_dir = str(run_dir.absolute())  # Used for CP2K config
         assert len(self.hosts) > 0, 'No hosts detected'
 
         # Write the nodefiles
-        ai_nodefile, lammps_nodefile = self._make_nodefiles()
+        ai_nodefile, lammps_nodefile = self._make_nodefiles(run_dir)
 
         # Use the same worker_init for most workers
         worker_init = """
@@ -414,7 +414,7 @@ hostname""".strip()
         helper_cores = [str(i) for w in range(lammps_per_node) for i in range((w + 1) * cpus_per_worker - helpers_per_worker, (w + 1) * cpus_per_worker)]
         return sim_cores, helper_cores
 
-    def _make_nodefiles(self):
+    def _make_nodefiles(self, run_dir: Path):
         """Write the nodefiles for each type of workers to disk
 
         Run after setting the run directory
@@ -422,21 +422,23 @@ hostname""".strip()
         Writes nodefiles for the AI and LAMMPS tasks,
         and a directory of nodefiles to be used for each CP2K instance
 
+        Args:
+            run_dir: Run directory for the computation
         Returns:
             - Path to the AI nodefile
             - Path to the LAMMPS nodefile
         """
         assert len(self.hosts) > 0, 'No hosts detected'  # TODO (wardlt): Also builds the hosts list, make that clearer/auto
 
-        ai_nodefile = self.run_dir / 'ai.hosts'
+        ai_nodefile = run_dir / 'ai.hosts'
         ai_nodefile.write_text('\n'.join(self.ai_hosts[1:]))  # First is used for training
-        lammps_nodefile = self.run_dir / 'lammps.hosts'
+        lammps_nodefile = run_dir / 'lammps.hosts'
         lammps_nodefile.write_text('\n'.join(self.lammps_hosts))
-        cp2k_nodefile = self.run_dir / 'cp2k.hosts'
+        cp2k_nodefile = run_dir / 'cp2k.hosts'
         cp2k_nodefile.write_text('\n'.join(self.cp2k_hosts))
 
         # Make the nodefiles for the CP2K workers
-        nodefile_path = self.run_dir / 'cp2k-hostfiles'
+        nodefile_path = run_dir / 'cp2k-hostfiles'
         nodefile_path.mkdir(parents=True)
         for i, nodes in enumerate(batched(self.cp2k_hosts, self.nodes_per_cp2k)):
             (nodefile_path / f'local_hostfile.{i:03d}').write_text("\n".join(nodes))
