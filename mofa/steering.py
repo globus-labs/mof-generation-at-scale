@@ -535,7 +535,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         elif result.method == 'run_optimization':
             # Submit post-processing to happen
             _, cp2k_path = result.value  # Not doing anything with the Atoms yet
-            result.task_info['cp2k_path'] = cp2k_path
+            result.task_info['cp2k_path'] = str(cp2k_path)
             self.queues.send_inputs(cp2k_path,
                                     method='compute_partial_charges',
                                     task_info=result.task_info,
