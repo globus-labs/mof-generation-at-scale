@@ -19,8 +19,14 @@ FPATH=/opt/aurora/24.180.3/frameworks/aurora_nre_models_frameworks-2024.2.1_u1/l
 export LD_LIBRARY_PATH=$FPATH/torch/lib:$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=$FPATH/intel_extension_for_pytorch/lib:$LD_LIBRARY_PATH
 
+# Put RASPA2 on the path
+export PATH=$PATH:`realpath conda-env/bin/`
+
 $exe $args
 END
 )
 
-parallel --env _ --nonall --sshloginfile $sshfile "$command"
+# Execute with GNU parallel
+#  TODO (wardlt): Consider using nohup to allow the SSH to hangup after launching
+nnodes=`wc -l $sshfile`
+parallel -j $nnodes --env _ --nonall --sshloginfile $sshfile "$command"
