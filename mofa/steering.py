@@ -552,7 +552,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             self.logger.info(f'Partial charges are complete for {mof_name}. Submitted RASPA')
         elif result.method == 'run_gcmc':
             # Store result
-            uptake_mean, _, uptake_std, _ = result.value
+            _, _, uptake_mean, uptake_std = result.value
             record = mofadb.get_records(self.collection, [mof_name])[0]
             record.gas_storage['CO2'] = uptake_mean
             record.times['raspa-done'] = datetime.now()
@@ -562,7 +562,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             self.num_raspa_completed += 1
             if self.num_raspa_completed > self.trainer_config.curriculum.min_gas_counts:
                 self.start_train.set()
-            self.logger.info(f'Stored gas storage capacity for {mof_name}: {uptake_mean:.3e} +/- {uptake_std:.3e}. Completed {self.num_raspa_completed}')
+            self.logger.info(f'Stored gas storage capacity for {mof_name}: {uptake_mean:.3e} +/- {uptake_std:.3e} g/L. Completed {self.num_raspa_completed}')
         else:
             raise ValueError(f'Method not supported: {result.method}')
         print(result.json(exclude={'inputs', 'value'}), file=self._output_files['simulation-results'], flush=True)
