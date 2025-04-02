@@ -3,8 +3,8 @@ from contextlib import redirect_stdout, redirect_stderr
 from dataclasses import dataclass
 from subprocess import run
 from pathlib import Path
+from shutil import which
 import time
-import sys
 import os
 
 import ase
