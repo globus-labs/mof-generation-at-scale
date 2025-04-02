@@ -21,6 +21,15 @@ source ./venv/bin/activate
 pip install -e .
 ```
 
+## Launchers
+
+`mpiexec` on Aurora needs to be handled with care. 
+We have a few alternatives to using it for our launching needs:
+
+1. `envs/aurora/parallel.sh` for deploying LAMMPS and helper tasks on 
+   to the same node. You otherwise run into problems with ["AC limits"](ihttps://github.com/argonne-lcf/AuroraBugTracking/issues/12).
+   Edit the path to the Python environment inside this file before launching
+
 ## Databases
 
 Install Redis and MongoDB with Anaconda.

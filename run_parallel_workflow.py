@@ -20,13 +20,17 @@ from more_itertools import batched, make_decorator
 from colmena.task_server.parsl import ParslTaskServer
 from colmena.queue.redis import RedisQueues
 
+from mofa.db import initialize_database
 from mofa.assembly.assemble import assemble_many
 from mofa.assembly.validate import process_ligands
+from mofa.finetune.difflinker import DiffLinkerCurriculum
 from mofa.generator import run_generator, train_generator
 from mofa.model import NodeDescription, LigandTemplate
+from mofa.selection.dft import DFTSelector
+from mofa.selection.md import MDSelector
 from mofa.simulation.cp2k import CP2KRunner, compute_partial_charges
-from mofa.simulation.lammps import LAMMPSRunner
-from mofa.simulation.raspa import RASPARunner
+from mofa.simulation.mace import MACERunner
+from mofa.simulation.raspa2 import RASPA2Runner
 from mofa.steering import GeneratorConfig, TrainingConfig, MOFAThinker, SimulationConfig
 from mofa.hpc.colmena import DiffLinkerInference
 from mofa.hpc.config import configs as hpc_configs
@@ -66,8 +70,10 @@ if __name__ == "__main__":
     group.add_argument('--minimum-ligand-pool', type=int, default=4, help='Minimum number of ligands before MOF assembly')
 
     group = parser.add_argument_group(title='Simulation Settings Settings', description='Options related to property calculations')
-    group.add_argument('--md-timesteps', default=100000, help='Number of timesteps for the UFF MD simulation', type=int)
-    group.add_argument('--md-snapshots', default=100, help='Maximum number of snapshots during MD simulation', type=int)
+    group.add_argument('--mace-model-path', required=True, help='Path to the MACE model, compiled for LAMPS')
+    group.add_argument('--md-timesteps', default=3000, help='Number of timesteps per run of the MACE MD simulation', type=int)
+    group.add_argument('--md-timesteps-max', default=20000, help='Maximum number of timesteps to run for any MD simulation', type=int)
+    group.add_argument('--md-snapshots-freq', default=1000, help='How frequently to write timesteps', type=int)
     group.add_argument('--retain-lammps', action='store_true', help='Keep LAMMPS output files after it finishes')
     group.add_argument('--dft-opt-steps', default=8, help='Maximum number of DFT optimization steps', type=int)
     group.add_argument('--raspa-timesteps', default=100000, help='Number of timesteps for GCMC computation', type=int)
@@ -80,6 +86,9 @@ if __name__ == "__main__":
     group.add_argument('--redis-host', default=node(), help='Host for the Redis server')
     group.add_argument('--proxy-threshold', default=10000, type=int, help='Size threshold to use proxystore for data (bytes)')
 
+    group = parser.add_argument_group(title='Selector Settings', description='Control how simulation tasks are selected')
+    group.add_argument('--md-new-fraction', default=0.8, help='How frequently to start MD on a new MOF')
+
     args = parser.parse_args()
 
     # Load the example MOF
@@ -88,7 +97,7 @@ if __name__ == "__main__":
 
     # Make the run directory
     run_params = args.__dict__.copy()
-    start_time = datetime.utcnow()
+    start_time = datetime.now()
     params_hash = hashlib.sha256(json.dumps(run_params).encode()).hexdigest()[:6]
     run_dir = Path('run') / f'parallel-{args.compute_config}-{start_time.strftime("%d%b%y%H%M%S")}-{params_hash}'
     run_dir.mkdir(parents=True)
@@ -121,6 +130,16 @@ if __name__ == "__main__":
     with (run_dir / 'compute-config.json').open('w') as fp:
         json.dump(asdict(hpc_config), fp)
 
+    # Launch MongoDB as a subprocess
+    mongo_dir = run_dir / 'db'
+    mongo_dir.mkdir(parents=True)
+    mongo_proc = Popen(
+        f'mongod --wiredTigerCacheSizeGB 4 --dbpath {mongo_dir.absolute()} --logpath {(run_dir / "mongo.log").absolute()}'.split(),
+        stderr=(run_dir / 'mongo.err').open('w')
+    )
+    mongo_client = MongoClient()
+    mongo_coll = initialize_database(mongo_client)
+
     # Make the generator settings and the function
     generator = GeneratorConfig(
         generator_path=args.generator_path,
@@ -141,24 +160,35 @@ if __name__ == "__main__":
 
     # Make the training function
     trainer = TrainingConfig(
-        maximum_train_size=min(args.maximum_train_size, 2048),
         num_epochs=args.num_epochs,
-        minimum_train_size=args.retrain_freq,
-        best_fraction=args.best_fraction,
-        maximum_strain=args.maximum_strain
+        curriculum=DiffLinkerCurriculum(
+            max_size=args.maximum_train_size,
+            collection=mongo_coll,
+            min_strain_counts=args.retrain_freq,
+            max_strain=args.maximum_strain,
+            min_gas_counts=args.retrain_freq,
+        )
     )
-    train_func = partial(train_generator, config_path=args.generator_config_path,
-                         num_epochs=trainer.num_epochs, device=hpc_config.torch_device)
+    train_func = partial(train_generator,
+                         config_path=args.generator_config_path,
+                         num_epochs=trainer.num_epochs,
+                         device=hpc_config.torch_device)
     update_wrapper(train_func, train_generator)
 
     # Make the LAMMPS function
-    lmp_runner = LAMMPSRunner(hpc_config.lammps_cmd,
-                              lmp_sims_root_path='/dev/shm/lmp_run' if args.lammps_on_ramdisk else str(run_dir / 'lmp_run'),
-                              lammps_environ=hpc_config.lammps_env,
-                              delete_finished=not args.retain_lammps)
-    md_fun = partial(lmp_runner.run_molecular_dynamics, report_frequency=max(1, args.md_timesteps / args.md_snapshots))
+    lmp_runner = MACERunner(lammps_cmd=hpc_config.lammps_cmd,
+                            model_path=Path(args.mace_model_path).absolute(),
+                            run_dir=Path('/dev/shm/lmp_run' if args.lammps_on_ramdisk else run_dir / 'lmp_run'))
+    md_fun = partial(lmp_runner.run_molecular_dynamics, report_frequency=args.md_snapshots_freq)
     update_wrapper(md_fun, lmp_runner.run_molecular_dynamics)
-    sim_config = SimulationConfig(md_length=(args.md_timesteps,))
+    sim_config = SimulationConfig(md_length=args.md_timesteps, md_report=args.md_snapshots_freq)
+
+    md_selector = MDSelector(
+        collection=mongo_coll,
+        new_fraction=args.md_new_fraction,
+        max_strain=args.maximum_strain,
+        maximum_steps=args.md_timesteps_max
+    )
 
     # Make the CP2K function
     cp2k_runner = CP2KRunner(
@@ -168,29 +198,33 @@ if __name__ == "__main__":
     cp2k_fun = partial(cp2k_runner.run_optimization, steps=args.dft_opt_steps)  # Optimizes starting from assembled structure
     update_wrapper(cp2k_fun, cp2k_runner.run_optimization)
 
-    # Make the RASPA function
-    raspa_runner = RASPARunner(
-        raspa_sims_root_path=run_dir / 'raspa-runs'
+    dft_selector = DFTSelector(
+        collection=mongo_coll,
+        max_strain=args.maximum_strain
     )
-    raspa_fun = partial(raspa_runner.run_GCMC_single, timesteps=args.raspa_timesteps)
-    update_wrapper(raspa_fun, raspa_runner.run_GCMC_single)
 
-    # Launch MongoDB as a subprocess
-    mongo_dir = run_dir / 'db'
-    mongo_dir.mkdir(parents=True)
-    mongo_proc = Popen(
-        f'mongod --wiredTigerCacheSizeGB 4 --dbpath {mongo_dir.absolute()} --logpath {(run_dir / "mongo.log").absolute()}'.split(),
-        stderr=(run_dir / 'mongo.err').open('w')
+    # Make the RASPA function
+    raspa_runner = RASPA2Runner(
+        raspa2_command='simulate',
+        run_dir=run_dir / 'raspa_run'
     )
+    raspa_fun = partial(raspa_runner.run_gcmc,
+                        adsorbate='CO2',
+                        temperature=298,
+                        pressure=1e4,
+                        n_cycle=args.raspa_timesteps)
+    update_wrapper(raspa_fun, raspa_runner.run_gcmc)
 
     # Make the thinker
     thinker = MOFAThinker(queues,
-                          mongo_client=MongoClient(),  # Connect to a local service
+                          collection=mongo_coll,  # Connect to a local service
                           hpc_config=hpc_config,
                           generator_config=generator,
                           trainer_config=trainer,
                           simulation_config=sim_config,
                           simulation_budget=args.simulation_budget,
+                          dft_selector=dft_selector,
+                          md_selector=md_selector,
                           node_template=node_template,
                           out_dir=run_dir)
 

@@ -23,12 +23,13 @@ conda install -n base conda-libmamba-solver
 conda config --set solver libmamba
 conda env create --file envs/environment-cpu.yml
 ```
-
 ## Running MOFA
+
 
 The `run_parallel_workflow.py` script defines an HPC workflow using MOFA. 
 
-First, Set up the required input files by running `0_assemble-inputs.ipynb` in `input_files/zn-paddle-pillar`.
+First set up the required input files by running `assemble-inputs.ipynb` in `input_files/zn-paddle-pillar`.
+and `get-macemp-0a.sh` in `inputs-files/mace`.
 
 The run scripts available in the root directory include input argument configurations appropriate for different systems
 at different scales.

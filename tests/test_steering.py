@@ -10,7 +10,7 @@ import numpy as np
 from colmena.queue import PipeQueues, ColmenaQueues
 from colmena.exceptions import TimeoutException
 from colmena.models import Result
-from pytest import fixture
+from pytest import fixture, raises
 from mongomock import MongoClient
 from ase import io as aseio
 
@@ -230,6 +230,27 @@ def make_lammps_output(task: Result, cache_dir: Path):
     return done_res
 
 
+def make_cp2k_outputs(task: Result):
+    task.deserialize()
+
+    # Get the results
+    if task.method == 'run_optimization':
+        result = ('a', '/here/')
+    elif task.method == 'compute_partial_charges':
+        result = ('a',)
+    elif task.method == 'run_gcmc':
+        result = (1, 2, 0.1, 0.2)
+    else:
+        raise ValueError()
+
+    # Make a message with the output
+    done_res = task.model_copy(deep=True)
+    done_res.set_result(result)
+    done_res.serialize()
+
+    return done_res
+
+
 def test_generator(thinker, queues, cache_dir):
     """Ensure generator tasks are properly circulated"""
     assert (thinker.out_dir / 'simulation-results.json').exists()  # Created on startup
@@ -252,7 +273,8 @@ def test_generator(thinker, queues, cache_dir):
     assert len(tasks) == 1  # Sending a completed task will trigger new updates
 
 
-def test_stability(thinker, queues, cache_dir, example_record):
+def test_simulation_pipeline(thinker, queues, cache_dir, example_record):
+    """Step through the entire simulation pipeline"""
     # Pull the generate task out of the queues (it is there on startup and irrelevant here)
     tasks = _pull_tasks(queues)
     assert len(tasks) == 1
@@ -283,6 +305,39 @@ def test_stability(thinker, queues, cache_dir, example_record):
     assert len(tasks) == 1
     _, task = tasks[0]
     assert task.method == 'run_optimization'
+
+    # Check that no other compounds are eligible
+    assert thinker.collection.count_documents({'in_progress': 'dft'}) == 1, \
+        thinker.collection.find_one({})
+    with raises(ValueError, match='criteria'):
+        thinker.dft_selector.select_next()
+
+    # "Run" the optimization
+    result = make_cp2k_outputs(task)
+    queues.send_result(result)
+
+    tasks = _pull_tasks(queues)
+    assert len(tasks) == 1
+    _, task = tasks[0]
+    assert task.method == 'compute_partial_charges'
+
+    # "Run" the partial charges
+    result = make_cp2k_outputs(task)
+    queues.send_result(result)
+
+    tasks = _pull_tasks(queues)
+    assert len(tasks) == 1
+    _, task = tasks[0]
+    assert task.method == 'run_gcmc'
+
+    # "Run" the GCMC
+    result = make_cp2k_outputs(task)
+    queues.send_result(result)
+
+    tasks = _pull_tasks(queues)
+    assert len(tasks) == 0
+
+    assert thinker.collection.count_documents({'gas_storage.CO2': {'$exists': True}}) == 1
 
 
 def test_retrain(thinker, queues, coll, example_record):

@@ -270,7 +270,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             with self.generate_write_lock:
                 print(result.json(exclude={'inputs', 'value'}), file=self._output_files['generation-results'], flush=True)
 
-    @task_submitter(task_type='assembly')
+    @event_responder(event_name='make_mofs')
     def submit_assembly(self):
         """Pull from the list of ligands and create MOFs"""
 
@@ -287,16 +287,18 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             else:
                 break
 
-        # Submit the assembly task
-        self.queues.send_inputs(
-            dict((k, list(v)) for k, v in self.ligand_assembly_queue.items()),
-            [self.node_template],
-            self.mofs_per_call,
-            4,
-            method='assemble_many',
-            topic='assembly',
-            task_info={'to_make': self.mofs_per_call}
-        )
+        # Submit a batch of assembly tasks
+        for i in range(self.assemble_workers):
+            self.rec.acquire('assembly', 1)
+            self.queues.send_inputs(
+                dict((k, list(v)) for k, v in self.ligand_assembly_queue.items()),
+                [self.node_template],
+                self.mofs_per_call,
+                4,
+                method='assemble_many',
+                topic='assembly',
+                task_info={'to_make': self.mofs_per_call, 'worker': i}
+            )
 
     @result_processor(topic='assembly')
     def store_assembly(self, result: Result):
@@ -376,7 +378,13 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             self.post_md_queue.put(result)
             self.simulations_left -= 1
             self.logger.info(f'Successful computation. Budget remaining: {self.simulations_left}')
+
         print(result.json(exclude={'inputs', 'value'}), file=self._output_files['simulation-results'], flush=True)
+
+        # Check if termination conditions are met
+        if self.simulations_left == 0:
+            self.done.set()
+            self.logger.info('Finished running LAMMPS simulations. Will start inishing all remaining work')
 
     @agent()
     def process_md_results(self):
@@ -403,7 +411,6 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             if level not in record.md_trajectory:
                 record.md_trajectory[level] = []
             record.md_trajectory[level].extend(traj)
-            record.md_trajectory[level].sort()
 
             latest_length, _ = record.md_trajectory[level][-1]
             strain = scorer.score_mof(record)
@@ -528,30 +535,34 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         elif result.method == 'run_optimization':
             # Submit post-processing to happen
             _, cp2k_path = result.value  # Not doing anything with the Atoms yet
-            self.queues.send_inputs(cp2k_path, method='compute_partial_charges', task_info=result.task_info, topic='cp2k')
+            result.task_info['cp2k_path'] = cp2k_path
+            self.queues.send_inputs(cp2k_path,
+                                    method='compute_partial_charges',
+                                    task_info=result.task_info,
+                                    topic='cp2k')
             self.logger.info(f'Completed CP2K computation for {mof_name}. Runtime: {result.time.running:.2f} s. Started partial charge computation')
         elif result.method == 'compute_partial_charges':
-            atoms_with_charge = result.value
+            cp2k_path = result.task_info['cp2k_path']
             self.queues.send_inputs(
-                atoms_with_charge, mof_name,
-                method='run_GCMC_single',
+                mof_name, cp2k_path,
+                method='run_gcmc',
                 topic='cp2k',
                 task_info=result.task_info
             )
             self.logger.info(f'Partial charges are complete for {mof_name}. Submitted RASPA')
-        elif result.method == 'run_GCMC_single':
+        elif result.method == 'run_gcmc':
             # Store result
-            storage_mean, storage_std = result.value
+            uptake_mean, _, uptake_std, _ = result.value
             record = mofadb.get_records(self.collection, [mof_name])[0]
-            record.gas_storage['CO2'] = storage_mean
+            record.gas_storage['CO2'] = uptake_mean
             record.times['raspa-done'] = datetime.now()
             mofadb.update_records(self.collection, [record])
 
             # Update and trigger training, in case it's blocked
             self.num_raspa_completed += 1
-            if self.num_raspa_completed > self.trainer_config.minimum_train_size:
+            if self.num_raspa_completed > self.trainer_config.curriculum.min_gas_counts:
                 self.start_train.set()
-            self.logger.info(f'Stored gas storage capacity for {mof_name}: {storage_mean:.3e} +/- {storage_std:.3e}. Completed {self.num_raspa_completed}')
+            self.logger.info(f'Stored gas storage capacity for {mof_name}: {uptake_mean:.3e} +/- {uptake_std:.3e}. Completed {self.num_raspa_completed}')
         else:
             raise ValueError(f'Method not supported: {result.method}')
         print(result.json(exclude={'inputs', 'value'}), file=self._output_files['simulation-results'], flush=True)
