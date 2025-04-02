@@ -485,7 +485,7 @@ export LD_LIBRARY_PATH=$FPATH/intel_extension_for_pytorch/lib:$LD_LIBRARY_PATH
 
     def make_parsl_config(self, run_dir: Path) -> Config:
         # Set the run dir and write nodefiles to it
-        self.run_dir = str(run_dir)
+        self.run_dir = str(run_dir.absolute())
         ai_nodefile, lammps_nodefile = self._make_nodefiles(run_dir)
 
         # Determine which cores to use for AI tasks

@@ -411,7 +411,6 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             if level not in record.md_trajectory:
                 record.md_trajectory[level] = []
             record.md_trajectory[level].extend(traj)
-            record.md_trajectory[level].sort()
 
             latest_length, _ = record.md_trajectory[level][-1]
             strain = scorer.score_mof(record)
