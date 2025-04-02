@@ -6,6 +6,7 @@
 #PBS -N mofa-prod
 #PBS -A MOFA
 
+hostname
 # Change to working directory
 cd ${PBS_O_WORKDIR}
 
@@ -32,14 +33,15 @@ python run_parallel_workflow.py \
       --ligand-templates input-files/zn-paddle-pillar/template_*_prompt.yml \
       --retrain-freq 64 \
       --num-epochs 8 \
-      --num-samples 1024 \
-      --gen-batch-size 64 \
+      --num-samples 8096 \
+      --gen-batch-size 512 \
+      --ai-fraction 0.05 \
       --simulation-budget -1 \
       --compute-config aurora \
       --mace-model-path ./input-files/mace/mace-mp0_medium-lammps.pt \
       --md-timesteps 3000 \
       --proxy-threshold 10000000000 \
-      --dft-opt-steps 8
+      --dft-opt-steps 2
 
 echo Python done
 
