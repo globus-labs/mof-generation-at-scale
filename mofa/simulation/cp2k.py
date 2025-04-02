@@ -32,10 +32,12 @@ _cp2k_options = {
 
 # Get the path to the CP2K atomic density guesses
 _chargemol_path = which('chargemol')
-if _chargemol_path is None:
+if _chargemol_path is not None:
     _atomic_density_folder_path = str(Path(_chargemol_path).parent / ".." / "share" / "chargemol" / "atomic_densities")
     if not _atomic_density_folder_path.endswith("/"):
         _atomic_density_folder_path = _atomic_density_folder_path + "/"
+else:
+    _atomic_density_folder_path = None
 
 
 # Utility functions
