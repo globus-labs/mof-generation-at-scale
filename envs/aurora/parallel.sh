@@ -19,8 +19,12 @@ FPATH=/opt/aurora/24.180.3/frameworks/aurora_nre_models_frameworks-2024.2.1_u1/l
 export LD_LIBRARY_PATH=$FPATH/torch/lib:$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=$FPATH/intel_extension_for_pytorch/lib:$LD_LIBRARY_PATH
 
-$exe $args
+# Put RASPA2 on the path
+export PATH=$PATH:`realpath conda-env/bin/`
+
+nohup $exe $args &
 END
 )
 
+# Execute with GNU parallel
 parallel --env _ --nonall --sshloginfile $sshfile "$command"

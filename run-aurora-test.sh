@@ -6,6 +6,8 @@
 #PBS -N mofa-test
 #PBS -A MOFA
 
+
+hostname
 # Change to working directory
 cd ${PBS_O_WORKDIR}
 
@@ -40,7 +42,7 @@ python run_parallel_workflow.py \
       --mace-model-path ./input-files/mace/mace-mp0_medium-lammps.pt \
       --md-timesteps 1000 \
       --proxy-threshold 10000000 \
-      --dft-opt-steps 2
+      --dft-opt-steps 1
 
 echo Python done
 

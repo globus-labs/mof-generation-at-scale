@@ -7,3 +7,7 @@ dependencies:
   - redis==5.*
   - mongodb
   - parallel  # Used as a launcher
+
+  # Science apps from Conda-Forge
+  - chargemol
+  - raspa2

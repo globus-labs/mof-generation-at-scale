@@ -76,7 +76,7 @@ if __name__ == "__main__":
     group.add_argument('--md-snapshots-freq', default=1000, help='How frequently to write timesteps', type=int)
     group.add_argument('--retain-lammps', action='store_true', help='Keep LAMMPS output files after it finishes')
     group.add_argument('--dft-opt-steps', default=8, help='Maximum number of DFT optimization steps', type=int)
-    group.add_argument('--raspa-timesteps', default=100000, help='Number of timesteps for GCMC computation', type=int)
+    group.add_argument('--raspa-timesteps', default=5000, help='Number of timesteps for GCMC computation', type=int)
 
     group = parser.add_argument_group(title='Compute Settings', description='Compute environment configuration')
     group.add_argument('--lammps-on-ramdisk', action='store_true', help='Write LAMMPS outputs to a RAM Disk')
