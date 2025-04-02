@@ -36,10 +36,10 @@ python run_parallel_workflow.py \
       --num-samples 128 \
       --gen-batch-size 64 \
       --simulation-budget 8 \
-      --redis-host 127.0.0.1 \
       --compute-config aurora \
       --mace-model-path ./input-files/mace/mace-mp0_medium-lammps.pt \
       --md-timesteps 1000 \
+      --proxy-threshold 10000000 \
       --dft-opt-steps 2
 
 echo Python done

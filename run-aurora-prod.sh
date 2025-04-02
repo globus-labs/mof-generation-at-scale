@@ -1,5 +1,5 @@
 #!/bin/bash -le
-#PBS -l select=32
+#PBS -l select=128
 #PBS -l walltime=03:00:00
 #PBS -l filesystems=home:flare
 #PBS -q prod
@@ -35,10 +35,10 @@ python run_parallel_workflow.py \
       --num-samples 1024 \
       --gen-batch-size 64 \
       --simulation-budget -1 \
-      --redis-host 127.0.0.1 \
       --compute-config aurora \
       --mace-model-path ./input-files/mace/mace-mp0_medium-lammps.pt \
       --md-timesteps 3000 \
+      --proxy-threshold 10000000000 \
       --dft-opt-steps 8
 
 echo Python done

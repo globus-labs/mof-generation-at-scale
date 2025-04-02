@@ -235,7 +235,7 @@ class PolarisConfig(HPCConfig):
 
     nodes_per_cp2k: int = 2
     """Number of nodes per CP2K task"""
-    lammps_per_gpu: int = 4
+    lammps_per_gpu: int = field(default=4, init=False)
     """Number of LAMMPS to run per GPU"""
 
     ai_hosts: list[str] = field(default_factory=list)
@@ -457,8 +457,9 @@ class AuroraConfig(PolarisConfig):
         "-k on g 1 -sf kk"
     ).split()
     lammps_env = {'OMP_NUM_THREADS': '1'}
-    cpus_per_node = 208
+    cpus_per_node = 96
     gpus_per_node = 12
+    lammps_per_gpu = 1
 
     worker_init = """
 # General environment variables
@@ -501,6 +502,9 @@ FPATH=/opt/aurora/24.180.3/frameworks/aurora_nre_models_frameworks-2024.2.1_u1/l
 export LD_LIBRARY_PATH=$FPATH/torch/lib:$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=$FPATH/intel_extension_for_pytorch/lib:$LD_LIBRARY_PATH
 
+# Put RASPA2 on the path
+export PATH=$PATH:`realpath conda-env/bin/`
+
 cd $PBS_O_WORKDIR
 pwd
 which python
@@ -515,7 +519,7 @@ hostname"""
                     available_accelerators=12,
                     provider=LocalProvider(
                         launcher=WrappedLauncher(
-                            f"mpiexec -n {len(self.ai_hosts) - 1} --ppn 1 --hostfile {ai_nodefile} --depth=104 --cpu-bind depth"
+                            f"mpiexec -n {len(self.ai_hosts) - 1} --ppn 1 --hostfile {ai_nodefile} --depth=96 --cpu-bind depth"
                         ),
                         worker_init=worker_init,
                         min_blocks=1,
@@ -543,7 +547,7 @@ hostname"""
                     provider=LocalProvider(
                         worker_init=worker_init,
                         launcher=WrappedLauncher(
-                            f"mpiexec -n {len(self.lammps_hosts)} --ppn 1 --hostfile {lammps_nodefile} --depth=104 --cpu-bind depth"
+                            f"./envs/aurora/parallel.sh {lammps_nodefile}"
                         ),
                         min_blocks=1,
                         max_blocks=1,
@@ -565,7 +569,7 @@ hostname"""
                     cpu_affinity='list:' + ":".join(helper_cores),
                     provider=LocalProvider(
                         launcher=WrappedLauncher(
-                            f"mpiexec -n {len(self.lammps_hosts)} --ppn 1 --hostfile {lammps_nodefile} --depth=104 --cpu-bind depth"
+                            f"./envs/aurora/parallel.sh {lammps_nodefile}"
                         ),
                         worker_init=worker_init,
                         min_blocks=1,
