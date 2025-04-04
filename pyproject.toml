@@ -38,6 +38,7 @@ dependencies = [
     "pymatgen",
 
     # ML-related dependencies
+    "pytorch-lightning",
     "wandb",
     "imageio",
     "scikit-learn",
