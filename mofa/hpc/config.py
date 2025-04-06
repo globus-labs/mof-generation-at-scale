@@ -514,16 +514,17 @@ hostname"""
         # Make the executors for helper and LAMMPS, which will be launched together
         lammps_launch_path = run_dir / 'launch-lammps.sh'
         lammps_execs = []
-        with lammps_launch_path.open() as fp:
+        with lammps_launch_path.open('w') as fp:
             print("#! /bin/bash", file=fp)
-            for label, accel, cores in [
-                ('helper', None, helper_cores),
-                ('lammps', 12, sim_cores),
+            for label, accel, cores, ports in [
+                ('helper', None, helper_cores, (51135, 51136)),
+                ('lammps', 12, sim_cores, (51137, 51138)),
             ]:
                 ex = HighThroughputExecutor(
-                    label='helper',
-                    max_workers_per_node=len(helper_cores),
-                    cpu_affinity='list:' + ":".join(helper_cores),
+                    label=label,
+                    available_accelerators=accel,
+                    cpu_affinity='list:' + ":".join(cores),
+                    worker_ports=ports,
                     provider=LocalProvider(
                         launcher=SimpleLauncher(),
                         worker_init=worker_init,
@@ -532,6 +533,7 @@ hostname"""
                         init_blocks=0
                     )
                 )
+                ex.worker_task_port, ex.worker_result_port = ports
                 ex.initialize_scaling()
                 print(f'{ex.launch_cmd} &', file=fp)
                 lammps_execs.append(ex)
