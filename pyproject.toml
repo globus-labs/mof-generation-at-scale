@@ -66,6 +66,7 @@ test = [
     'pytest-skip-slow',
     'pytest-timeout',
     'pytest-cov',
+    'pytest-mock',
     'mongomock'
 ]
 
