@@ -5,6 +5,7 @@ from subprocess import Popen
 from typing import Literal
 from pathlib import Path
 from math import ceil
+import stat
 import os
 
 from more_itertools import batched
@@ -510,6 +511,42 @@ pwd
 which python
 hostname"""
 
+        # Make the executors for helper and LAMMPS, which will be launched together
+        lammps_launch_path = run_dir / 'launch-lammps.sh'
+        lammps_execs = []
+        with lammps_launch_path.open() as fp:
+            print("#! /bin/bash", file=fp)
+            for label, accel, cores in [
+                ('helper', None, helper_cores),
+                ('lammps', 12, sim_cores),
+            ]:
+                ex = HighThroughputExecutor(
+                    label='helper',
+                    max_workers_per_node=len(helper_cores),
+                    cpu_affinity='list:' + ":".join(helper_cores),
+                    provider=LocalProvider(
+                        launcher=SimpleLauncher(),
+                        worker_init=worker_init,
+                        min_blocks=0,
+                        max_blocks=0,
+                        init_blocks=0
+                    )
+                )
+                ex.initialize_scaling()
+                print(f'{ex.launch_cmd} &', file=fp)
+                lammps_execs.append(ex)
+            print("wait", file=fp)
+
+        # Launch them using mpiexec
+        cur_st = lammps_launch_path.stat().st_mode
+        lammps_launch_path.chmod(cur_st | stat.ST_MODE)
+        Popen(
+            f"mpiexec -n {self.lammps_hosts} --ppn 1 --hostfile {lammps_nodefile} --depth=104 --cpu-bind depth {lammps_launch_path.absolute()}",
+            stdout=lammps_launch_path.with_suffix('stdout').open('w'),
+            stderr=lammps_launch_path.with_suffix('stderr').open('w'),
+            shell=False,
+        )
+
         return Config(
             executors=[
                 HighThroughputExecutor(
@@ -539,21 +576,6 @@ hostname"""
                     )
                 ),
                 HighThroughputExecutor(
-                    label="lammps",
-                    available_accelerators=12,
-                    cpu_affinity='list:' + ":".join(sim_cores),
-                    prefetch_capacity=0,
-                    max_workers_per_node=12,
-                    provider=LocalProvider(
-                        worker_init=worker_init,
-                        launcher=WrappedLauncher(
-                            f"./envs/aurora/parallel.sh {lammps_nodefile}"
-                        ),
-                        min_blocks=1,
-                        max_blocks=1,
-                    ),
-                ),
-                HighThroughputExecutor(
                     label='cp2k',
                     max_workers_per_node=self.num_cp2k_workers,
                     cores_per_worker=1e-6,
@@ -563,21 +585,9 @@ hostname"""
                         max_blocks=1
                     )
                 ),
-                HighThroughputExecutor(
-                    label='helper',
-                    max_workers_per_node=len(helper_cores),
-                    cpu_affinity='list:' + ":".join(helper_cores),
-                    provider=LocalProvider(
-                        launcher=WrappedLauncher(
-                            f"./envs/aurora/parallel.sh {lammps_nodefile}"
-                        ),
-                        worker_init=worker_init,
-                        min_blocks=1,
-                        max_blocks=1
-                    )
-                ),
+                *lammps_execs
             ],
-            run_dir=str(run_dir)
+            run_dir=str(run_dir / 'runinfo')
         )
 
 
