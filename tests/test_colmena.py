@@ -1,5 +1,10 @@
 """Test utilities related to Colmena"""
+import pickle as pkl
+
 from colmena.queue import ColmenaQueues, PipeQueues
+from proxystore.connectors.file import FileConnector
+from proxystore.proxy import Proxy
+from proxystore.store import Store, register_store
 from pytest import fixture
 from colmena.models import Result
 
@@ -12,16 +17,24 @@ def data_func(size: int) -> bytes:
 
 
 @fixture()
-def queues() -> ColmenaQueues:
-    return PipeQueues()
+def queues(store) -> ColmenaQueues:
+    return PipeQueues(proxystore_name=store.name, proxystore_threshold=100)
 
 
-def test_message_relay(queues):
+@fixture()
+def store(tmpdir) -> Store:
+    store = Store(name='file', connector=FileConnector(store_dir=tmpdir))
+    register_store(store)
+    return store
+
+
+def test_message_relay(queues, store):
     # Create the function and inputs
     func = DiffLinkerInference(
-        function=data_func, streaming_queue=queues, store_return_value=True
+        function=data_func, streaming_queue=queues, store_return_value=True, store=store
     )
-    task = Result(inputs=((8,), {}), serialization_method='pickle')
+    func = pkl.loads(pkl.dumps(func))
+    task = Result(inputs=((256,), {}), serialization_method='pickle')
     task.topic = 'default'
     task.serialize()
 
@@ -33,5 +46,8 @@ def test_message_relay(queues):
 
     # And 8 new tasks being placed into the queue
     topic, task_stream = queues.get_task(timeout=1)
+    task_stream.deserialize()
+    assert isinstance(task_stream.args[0], Proxy)
     assert task_stream.method == 'process_ligands'
     assert topic == 'default'
+    assert task_stream.proxystore_name == 'file'
