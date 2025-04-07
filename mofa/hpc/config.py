@@ -534,7 +534,7 @@ hostname"""
                     )
                 )
                 ex.worker_task_port, ex.worker_result_port = ports
-                ex.worker_logdir = run_dir / 'runinfo' / f'{label}-workers'
+                ex.worker_logdir_root = run_dir / 'runinfo' / f'{label}-workers'
 
                 # Abuse Parsl's initialize_scaling to get the launch_cmd
                 #  TODO (wardlt): Make a formal route to making the launch_cmd in Parsl
