@@ -25,6 +25,8 @@ class HPCConfig:
     """Command used to launch a non-MPI LAMMPS task"""
     cp2k_cmd: str = 'cp2k_shell.psmp'
     """Command used to launch the CP2K shell"""
+    graspa_cmd: tuple[str] = ('/home/lward/Software/gRASPA/graspa-sycl/bin/sycl.out',)
+    """Command used to launch gRASPA-sycl"""
     lammps_env: dict[str, str] = field(default_factory=dict)
     """Extra environment variables to include when running LAMMPS"""
 
@@ -37,6 +39,8 @@ class HPCConfig:
     """Which executors are available for simulation tasks"""
     cp2k_executors: Literal['all'] | list[str] = 'all'
     """Which executors to use for CP2K tasks"""
+    raspa_executors: Literal['all'] | list[str] = 'all'
+    """Which executors to use for RASPA tasks"""
     inference_executors: Literal['all'] | list[str] = 'all'
     """Which executors are available for AI tasks"""
     train_executors: Literal['all'] | list[str] = 'all'
@@ -94,11 +98,14 @@ class LocalConfig(HPCConfig):
     torch_device = 'cuda'
     lammps_env = {}
     lammps_cmd = ('/home/lward/Software/lammps-mace/build-mace/lmp',)
+    cp2k_cmd = ('/home/lward/Software/cp2k-2024.2/exe/local_cuda/cp2k_shell.ssmp',)
+    graspa_cmd = ('/home/lward/Software/gRASPA/graspa-sycl/bin/sycl.out,')
 
     lammps_executors = ['gpu']
     inference_executors = ['gpu']
     train_executors = ['gpu']
     helper_executors = ['helper']
+    raspa_executors = ['gpu']
 
     @property
     def num_workers(self):
@@ -255,6 +262,7 @@ class PolarisConfig(HPCConfig):
     train_executors = ['train']
     cp2k_executors = ['cp2k']
     helper_executors = ['helper']
+    raspa_executors = ['lammps']
 
     @property
     def cp2k_cmd(self):
@@ -457,6 +465,9 @@ class AuroraConfig(PolarisConfig):
         "-k on g 1 -sf kk"
     ).split()
     lammps_env = {'OMP_NUM_THREADS': '1'}
+    raspa_cmd = (
+        '/lus/flare/projects/MOFA/lward/gRASPA/graspa-sycl/bin/sycl.out'
+    ).split()
     cpus_per_node = 96
     gpus_per_node = 12
     lammps_per_gpu = 1
