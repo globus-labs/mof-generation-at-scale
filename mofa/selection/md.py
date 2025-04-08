@@ -23,6 +23,27 @@ class MDSelector:
     collection: Collection
     """Collection of MOF records from previous calculations"""
 
+    @property
+    def match_stages(self) -> list[dict]:
+        """Stages used to match applicable MOFs"""
+        stages = [{'$match': {'in_progress': {'$nin': ['stability']}}}]
+        if self.maximum_steps is not None:
+            stages.append({'$match': {
+                f'md_trajectory.{self.md_level}': {
+                    '$not': {'$elemMatch': {'$gte': self.maximum_steps}}
+                }}})
+        stages.append({'$match': {
+            f'structure_stability.{self.md_level}': {'$not': {'$gt': self.max_strain}}}
+        })
+        return stages
+
+    def count_available(self) -> int:
+        """Count the number of MOFs available for MD within the database"""
+        stages = self.match_stages
+        stages.append({'$count': 'available'})
+        for result in self.collection.aggregate(stages):
+            return result['available']
+
     def select_next(self, new_mofs: list[MOFRecord]) -> MOFRecord:
         """Select which MOF to run next
 
@@ -33,19 +54,11 @@ class MDSelector:
             The selected MOF record
         """
 
-        if np.random.random() < self.new_fraction:
+        if np.random.random() < self.new_fraction and len(new_mofs) > 0:
             return new_mofs.pop()
 
         # Find a MOF which is still below the target level
-        stages = [{'$match': {'in_progress': {'$nin': ['stability']}}}]
-        if self.maximum_steps is not None:
-            stages.append({'$match': {
-                f'md_trajectory.{self.md_level}': {
-                    '$not': {'$elemMatch': {'$gte': self.maximum_steps}}
-                }}})
-        stages.append({
-            '$match': {f'structure_stability.{self.md_level}': {'$lt': self.max_strain}}
-        })
+        stages = self.match_stages
         stages.append({'$sample': {'size': 1}})
 
         for record in self.collection.aggregate(stages):

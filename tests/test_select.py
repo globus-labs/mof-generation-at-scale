@@ -9,9 +9,14 @@ from mofa.selection.md import MDSelector
 
 @fixture()
 def example_coll(coll, example_record):
-    # Insert a MOF which has run for too long,
+    # Insert a MOF which
+    #  has not run at all
+    #  has run for too long,
     #  one that's too unstable, and
     #  one that's neither
+    example_record.name = '0'
+    create_records(coll, [example_record])
+
     example_record.md_trajectory['uff'] = [(10000000, 'a')]
     example_record.structure_stability['uff'] = 0.1
     example_record.name = 'a'
@@ -28,7 +33,7 @@ def example_coll(coll, example_record):
     return coll
 
 
-def test_select(example_coll, example_record):
+def test_md_select(example_coll, example_record):
     # Make the selector
     selector = MDSelector(
         collection=example_coll,
@@ -37,8 +42,17 @@ def test_select(example_coll, example_record):
         md_level='uff',
         new_fraction=-1,
     )
+    # Ensure that it counts both the "unran" and low strain not finished
+    assert selector.count_available() == 2, [x['name'] for x in example_coll.aggregate(selector.match_stages)]
+
+    # Remove the unran object
+    result = example_coll.delete_one({'structure_stability.uff': {'$exists': False}})
+    assert result.deleted_count == 1
+
+    # Make sure it pulls an available structure
     record = selector.select_next([])
     assert record.structure_stability['uff'] == 0.01
+    assert record.name == 'c'
 
     # Ensure it throws an error
     with raises(ValueError, match='criteria'):
@@ -58,6 +72,18 @@ def test_dft_selector(example_coll):
         md_level='uff',
         max_strain=0.05
     )
+    # None available at first
+    assert selector.count_available() == 0
+
+    # Mark all as relaxed
+    example_coll.update_many({}, {'$set': {'times.relaxed': 0.}})
+    assert selector.count_available() == 2
+
+    # Drop the unran one
+    example_coll.delete_one({'structure_stability.uff': {'$exists': False}})
+    assert selector.count_available() == 1
+
+    # Mark all as relaxed
     next_rec = selector.select_next()
     assert next_rec.structure_stability['uff'] == 0.01
 
