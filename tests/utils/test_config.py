@@ -58,12 +58,13 @@ def test_polaris(tmpdir):
         del os.environ['PBS_NODEFILE']
 
 
-def test_aurora(tmpdir):
+def test_aurora(tmpdir, mocker):
     hostfile_path = tmpdir / 'HOSTFILE'
     with open(hostfile_path, 'w') as fp:
         for i in range(20):
             print(f'host-{i}', file=fp)
     os.environ['PBS_NODEFILE'] = str(hostfile_path)
+    mocker.mock('subprocess.POpen')
 
     try:
         config = AuroraConfig()

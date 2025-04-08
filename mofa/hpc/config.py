@@ -5,6 +5,7 @@ from subprocess import Popen
 from typing import Literal
 from pathlib import Path
 from math import ceil
+import stat
 import os
 
 from more_itertools import batched
@@ -510,6 +511,50 @@ pwd
 which python
 hostname"""
 
+        # Make the executors for helper and LAMMPS, which will be launched together
+        lammps_launch_path = run_dir / 'launch-lammps.sh'
+        lammps_execs = []
+        with lammps_launch_path.open('w') as fp:
+            print("#! /bin/bash\nsleep 120", file=fp)  # Sleep to ensure the interchange starts first
+            for label, accel, cores, ports in [
+                ('helper', (), helper_cores, (51135, 51136)),
+                ('lammps', 12, sim_cores, (51137, 51138)),
+            ]:
+                ex = HighThroughputExecutor(
+                    label=label,
+                    available_accelerators=accel,
+                    cpu_affinity='list:' + ":".join(cores),
+                    max_workers_per_node=len(cores),
+                    worker_ports=ports,
+                    provider=LocalProvider(
+                        launcher=WrappedLauncher("echo"),
+                        worker_init=worker_init,
+                        min_blocks=1,
+                        max_blocks=1,
+                    )
+                )
+                ex.worker_task_port, ex.worker_result_port = ports
+                ex.worker_logdir_root = run_dir / 'runinfo' / f'{label}-workers'
+
+                # Abuse Parsl's initialize_scaling to get the launch_cmd
+                #  TODO (wardlt): Make a formal route to making the launch_cmd in Parsl
+                temp = ex.launch_cmd
+                ex.initialize_scaling()
+                print(f'{ex.launch_cmd.format(block_id=0)} &', file=fp)
+                ex.launch_cmd = temp
+                lammps_execs.append(ex)
+            print("wait", file=fp)
+
+        # Launch them using mpiexec
+        cur_st = lammps_launch_path.stat().st_mode
+        lammps_launch_path.chmod(cur_st | stat.S_IXUSR)
+        Popen(
+            f"mpiexec -n {len(self.lammps_hosts)} --ppn 1 --hostfile {lammps_nodefile} --depth=104 --cpu-bind depth {lammps_launch_path.absolute()}".split(),
+            stdout=lammps_launch_path.with_suffix('.stdout').open('w'),
+            stderr=lammps_launch_path.with_suffix('.stderr').open('w'),
+            shell=False,
+        )
+
         return Config(
             executors=[
                 HighThroughputExecutor(
@@ -539,21 +584,6 @@ hostname"""
                     )
                 ),
                 HighThroughputExecutor(
-                    label="lammps",
-                    available_accelerators=12,
-                    cpu_affinity='list:' + ":".join(sim_cores),
-                    prefetch_capacity=0,
-                    max_workers_per_node=12,
-                    provider=LocalProvider(
-                        worker_init=worker_init,
-                        launcher=WrappedLauncher(
-                            f"./envs/aurora/parallel.sh {lammps_nodefile}"
-                        ),
-                        min_blocks=1,
-                        max_blocks=1,
-                    ),
-                ),
-                HighThroughputExecutor(
                     label='cp2k',
                     max_workers_per_node=self.num_cp2k_workers,
                     cores_per_worker=1e-6,
@@ -563,21 +593,9 @@ hostname"""
                         max_blocks=1
                     )
                 ),
-                HighThroughputExecutor(
-                    label='helper',
-                    max_workers_per_node=len(helper_cores),
-                    cpu_affinity='list:' + ":".join(helper_cores),
-                    provider=LocalProvider(
-                        launcher=WrappedLauncher(
-                            f"./envs/aurora/parallel.sh {lammps_nodefile}"
-                        ),
-                        worker_init=worker_init,
-                        min_blocks=1,
-                        max_blocks=1
-                    )
-                ),
+                *lammps_execs
             ],
-            run_dir=str(run_dir)
+            run_dir=str(run_dir / 'runinfo')
         )
 
 
