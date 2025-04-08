@@ -30,7 +30,7 @@ from mofa.selection.dft import DFTSelector
 from mofa.selection.md import MDSelector
 from mofa.simulation.cp2k import CP2KRunner, compute_partial_charges
 from mofa.simulation.mace import MACERunner
-from mofa.simulation.raspa2 import RASPA2Runner
+from mofa.simulation.graspa_sycl import GRASPASyclRunner
 from mofa.steering import GeneratorConfig, TrainingConfig, MOFAThinker, SimulationConfig
 from mofa.hpc.colmena import DiffLinkerInference
 from mofa.hpc.config import configs as hpc_configs
@@ -207,8 +207,8 @@ if __name__ == "__main__":
     )
 
     # Make the RASPA function
-    raspa_runner = RASPA2Runner(
-        raspa2_command='simulate',
+    raspa_runner = GRASPASyclRunner(
+        graspa_sycl_command=hpc_config.graspa_cmd,
         run_dir=run_dir / 'raspa_run'
     )
     raspa_fun = partial(raspa_runner.run_gcmc,
@@ -254,7 +254,7 @@ if __name__ == "__main__":
             (cp2k_fun, {'executors': hpc_config.cp2k_executors}),
             (compute_partial_charges, {'executors': hpc_config.helper_executors}),
             (process_ligands, {'executors': hpc_config.helper_executors}),
-            (raspa_fun, {'executors': hpc_config.helper_executors}),
+            (raspa_fun, {'executors': hpc_config.raspa_executors}),
             (assemble_many, {'executors': hpc_config.helper_executors})
         ],
         queues=queues,
