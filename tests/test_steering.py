@@ -115,7 +115,8 @@ def sim_config():
 def md_selector(coll):
     return MDSelector(
         md_level='uff',
-        collection=coll
+        collection=coll,
+        maximum_steps=5000
     )
 
 
@@ -279,6 +280,9 @@ def test_simulation_pipeline(thinker, queues, cache_dir, example_record):
     tasks = _pull_tasks(queues)
     assert len(tasks) == 1
 
+    # Ensure there are no MOFs ready for running
+    assert thinker.md_selector.count_available() == 0
+
     # Insert a MOF record into queue
     thinker.stability_queue.append(example_record)
     thinker.mofs_available.set()
@@ -287,13 +291,33 @@ def test_simulation_pipeline(thinker, queues, cache_dir, example_record):
     assert len(tasks) == 1
     assert thinker.collection.count_documents({'in_progress': 'stability'}) == 1
 
-    # Run LAMMPS
+    # Run initial relaxation
     _, task = tasks[0]
-    done_result = make_lammps_output(task, cache_dir / 'lammps')
+    assert task.method == 'run_optimization_ff'
+    task.deserialize()
+    task.set_result((task.args[0].atoms, None))
+    task.serialize()
+    queues.send_result(task)
+
+    # Check that it has updated
+    sleep(1.5)
+    assert thinker.collection.count_documents({'times.relaxed': {'$exists': True}}) == 1
+    assert thinker.collection.count_documents({'in_progress': 'stability'}) == 0
+
+    # We should have two tasks now: one CP2K and another LAMMPS
+    tasks = _pull_tasks(queues)
+    assert len(tasks) == 2
+
+    tasks_by_method = dict(
+        (task.method, task) for _, task in tasks
+    )
+    assert 'run_molecular_dynamics' in tasks_by_method
+
+    # Do the MD steps
+    done_result = make_lammps_output(tasks_by_method['run_molecular_dynamics'], cache_dir / 'lammps')
     assert done_result.complete
     queues.send_result(done_result)
-
-    sleep(1.)
+    sleep(0.5)
 
     # Check that the database has the content
     assert thinker.collection.count_documents({'in_progress': 'stability'}) == 0
@@ -301,10 +325,7 @@ def test_simulation_pipeline(thinker, queues, cache_dir, example_record):
     assert thinker.cp2k_ready.is_set()
 
     # Check that the CP2K is getting started
-    tasks = _pull_tasks(queues)
-    assert len(tasks) == 1
-    _, task = tasks[0]
-    assert task.method == 'run_optimization'
+    assert 'run_optimization' in tasks_by_method
 
     # Check that no other compounds are eligible
     assert thinker.collection.count_documents({'in_progress': 'dft'}) == 1, \
@@ -313,6 +334,7 @@ def test_simulation_pipeline(thinker, queues, cache_dir, example_record):
         thinker.dft_selector.select_next()
 
     # "Run" the optimization
+    task = tasks_by_method['run_optimization']
     result = make_cp2k_outputs(task)
     queues.send_result(result)
 

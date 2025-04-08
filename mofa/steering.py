@@ -338,7 +338,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         if len(self.stability_queue) <= self.rec.allocated_slots('lammps'):
             self.logger.info('MOF queue is low. Triggering more to be made.')
             self.make_mofs.set()
-        if len(self.stability_queue) == 0:
+        if len(self.stability_queue) == 0 and self.md_selector.count_available() == 0:
             self.mofs_available.clear()
             self.make_mofs.set()
             self.logger.info('No MOFs are available for simulation. Waiting')
@@ -348,21 +348,37 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
                     return
 
         # Determine which to run next and submit it
-        to_run = self.md_selector.select_next(self.stability_queue)
-        self.queues.send_inputs(
-            to_run, self.sim_config.md_length,
-            method='run_molecular_dynamics',
-            topic='lammps',
-            task_info={'name': to_run.name,
-                       'length': self.sim_config.md_length,
-                       'level': self.sim_config.md_level}
-        )
+        try:
+            to_run = self.md_selector.select_next(self.stability_queue)
+        except ValueError:
+            self.logger.warning(f'Tried to select when none available. {self.collection.estimated_document_count()} docs')
+            self.logger.warning(f'{self.md_selector.count_available()} are available for MD')
+            raise
+
+        if 'relaxed' not in to_run.times:
+            self.queues.send_inputs(
+                to_run,
+                method='run_optimization_ff',
+                topic='lammps',
+                task_info={'name': to_run.name,
+                           'level': self.sim_config.md_level}
+            )
+            mofadb.create_records(self.collection, [to_run])
+            self.logger.info(f'Started initial relaxation for mof={to_run.name}')
+        else:
+            self.queues.send_inputs(
+                to_run, self.sim_config.md_length,
+                method='run_molecular_dynamics',
+                topic='lammps',
+                task_info={'name': to_run.name,
+                           'length': self.sim_config.md_length,
+                           'level': self.sim_config.md_level}
+            )
+            self.logger.info(f'Started MD simulation for mof={to_run.name}. '
+                             f'Simulation queue depth: {len(self.stability_queue)}.')
 
         # Mark that it's in progress
-        to_run.in_progress.append('stability')
-        mofadb.update_records(self.collection, [to_run])
-        self.logger.info(f'Started MD simulation for mof={to_run.name}. '
-                         f'Simulation queue depth: {len(self.stability_queue)}.')
+        mofadb.mark_in_progress(self.collection, to_run, 'stability')
 
     @result_processor(topic='lammps')
     def store_lammps(self, result: Result):
@@ -397,37 +413,58 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             except Empty:
                 continue
 
-            # Store the trajectory
-            traj = result.value
+            # Pull the record
             name = result.task_info['name']
             level = result.task_info['level']
             record = mofadb.get_records(self.collection, [name])[0]
-            self.logger.info(f'Received a trajectory of {len(traj)} frames for mof={name} at level={level}.'
-                             f' Backlog: {self.post_md_queue.qsize()}')
 
-            # Compute the lattice strain
-            scorer = LatticeParameterChange(md_level=level)
-            traj = [(i, write_to_string(t, 'vasp')) for i, t in traj]
-            if level not in record.md_trajectory:
-                record.md_trajectory[level] = []
-            record.md_trajectory[level].extend(traj)
+            # Route based on whether it was relaxation or MD
+            if result.method == 'run_molecular_dynamics':
+                traj = result.value
+                self.logger.info(f'Received a trajectory of {len(traj)} frames for mof={name} at level={level}.'
+                                 f' Backlog: {self.post_md_queue.qsize()}')
 
-            latest_length, _ = record.md_trajectory[level][-1]
-            strain = scorer.score_mof(record)
-            record.structure_stability[level] = strain
-            record.times['md-done'] = datetime.now()
-            self.logger.info(f'Lattice change after {latest_length} timesteps of MD for mof={name} level={level}: {strain * 100:.1f}%')
+                # Compute the lattice strain
+                scorer = LatticeParameterChange(md_level=level)
+                traj = [(i, write_to_string(t, 'vasp')) for i, t in traj]
+                if level not in record.md_trajectory:
+                    record.md_trajectory[level] = []
+                record.md_trajectory[level].extend(traj)
 
-            # Store the result in MongoDB
+                latest_length, _ = record.md_trajectory[level][-1]
+                strain = scorer.score_mof(record)
+                record.structure_stability[level] = strain
+                record.times['md-done'] = datetime.now()
+                self.logger.info(f'Lattice change after {latest_length} timesteps of MD for mof={name} level={level}: {strain * 100:.1f}%')
+
+                # Upload the strain result to the DB
+                mofadb.update_records(self.collection, [record])
+
+                # Determine if we should retrain
+                self.num_lammps_completed += 1
+                if self.num_lammps_completed >= self.trainer_config.curriculum.min_strain_counts \
+                        and self.num_raspa_completed < self.trainer_config.curriculum.min_gas_counts:
+                    self.start_train.set()  # Either starts or indicates that we have new data
+
+            elif result.method == 'run_optimization_ff':
+                self.logger.info(f'Completed a relaxation for for mof={name} level={level}')
+                relaxed, _ = result.value
+
+                # Update the structure in the database and mark as relaxed
+                relaxed_vasp = write_to_string(relaxed, 'vasp')
+                self.collection.update_one({'name': name}, {
+                    '$set': {
+                        'structure': relaxed_vasp,
+                        'times.relaxed': datetime.now()
+                    }
+                })
+            else:
+                raise ValueError(f'Unrecognized method: {result.method}')
+
+            # Make record available for next steps
             mofadb.mark_completed(self.collection, record, 'stability')
-            mofadb.update_records(self.collection, [record])
             self.cp2k_ready.set()
-
-            # Determine if we should retrain
-            self.num_lammps_completed += 1
-            if self.num_lammps_completed >= self.trainer_config.curriculum.min_strain_counts \
-                    and self.num_raspa_completed < self.trainer_config.curriculum.min_gas_counts:
-                self.start_train.set()  # Either starts or indicates that we have new data
+            self.mofs_available.set()
 
     @event_responder(event_name='start_train')
     def retrain(self):

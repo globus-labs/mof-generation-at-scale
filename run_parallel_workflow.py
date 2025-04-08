@@ -183,6 +183,9 @@ if __name__ == "__main__":
     update_wrapper(md_fun, lmp_runner.run_molecular_dynamics)
     sim_config = SimulationConfig(md_length=args.md_timesteps, md_report=args.md_snapshots_freq)
 
+    md_opt_fun = partial(lmp_runner.run_optimization, steps=1024, fmax=0.5)
+    md_opt_fun.__name__ = 'run_optimization_ff'
+
     md_selector = MDSelector(
         collection=mongo_coll,
         new_fraction=args.md_new_fraction,
@@ -247,6 +250,7 @@ if __name__ == "__main__":
             (gen_method, {'executors': hpc_config.inference_executors}),
             (train_func, {'executors': hpc_config.train_executors}),
             (md_fun, {'executors': hpc_config.lammps_executors}),
+            (md_opt_fun, {'executors': hpc_config.lammps_executors}),
             (cp2k_fun, {'executors': hpc_config.cp2k_executors}),
             (compute_partial_charges, {'executors': hpc_config.helper_executors}),
             (process_ligands, {'executors': hpc_config.helper_executors}),
