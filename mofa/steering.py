@@ -357,7 +357,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
 
         if 'relaxed' not in to_run.times:
             self.queues.send_inputs(
-                to_run, self.sim_config.md_length,
+                to_run,
                 method='run_optimization_ff',
                 topic='lammps',
                 task_info={'name': to_run.name,
