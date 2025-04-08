@@ -280,6 +280,9 @@ def test_simulation_pipeline(thinker, queues, cache_dir, example_record):
     tasks = _pull_tasks(queues)
     assert len(tasks) == 1
 
+    # Ensure there are no MOFs ready for running
+    assert thinker.md_selector.count_available() == 0
+
     # Insert a MOF record into queue
     thinker.stability_queue.append(example_record)
     thinker.mofs_available.set()

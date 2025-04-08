@@ -348,7 +348,12 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
                     return
 
         # Determine which to run next and submit it
-        to_run = self.md_selector.select_next(self.stability_queue)
+        try:
+            to_run = self.md_selector.select_next(self.stability_queue)
+        except ValueError:
+            self.logger.warning(f'Tried to select when none available. {self.collection.estimated_document_count()} docs')
+            self.logger.warning(f'{self.md_selector.count_available()} are available for MD')
+            raise
 
         if 'relaxed' not in to_run.times:
             self.queues.send_inputs(

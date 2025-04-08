@@ -43,6 +43,7 @@ class MDSelector:
         stages.append({'$count': 'available'})
         for result in self.collection.aggregate(stages):
             return result['available']
+        return 0
 
     def select_next(self, new_mofs: list[MOFRecord]) -> MOFRecord:
         """Select which MOF to run next

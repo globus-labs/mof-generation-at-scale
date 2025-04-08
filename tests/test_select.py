@@ -33,6 +33,11 @@ def example_coll(coll, example_record):
     return coll
 
 
+def test_empty_db(coll):
+    selector = MDSelector(collection=coll)
+    assert selector.count_available() == 0
+
+
 def test_md_select(example_coll, example_record):
     # Make the selector
     selector = MDSelector(
