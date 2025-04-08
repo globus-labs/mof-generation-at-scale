@@ -460,6 +460,7 @@ class AuroraConfig(PolarisConfig):
     cpus_per_node = 96
     gpus_per_node = 12
     lammps_per_gpu = 1
+    max_helper_nodes = 256
 
     worker_init = """
 # General environment variables
@@ -487,6 +488,10 @@ export LD_LIBRARY_PATH=$FPATH/intel_extension_for_pytorch/lib:$LD_LIBRARY_PATH
         # Set the run dir and write nodefiles to it
         self.run_dir = str(run_dir.absolute())
         ai_nodefile, lammps_nodefile = self._make_nodefiles(run_dir)
+
+        # Make a helper node file from a subset of lammps nodes
+        helper_nodefile = run_dir / 'helper.nodes'
+        helper_nodefile.write_text("\n".join(self.lammps_hosts[:self.max_helper_nodes]) + "\n")
 
         # Determine which cores to use for AI tasks
         sim_cores, helper_cores = self._assign_cores()
@@ -519,7 +524,7 @@ hostname"""
                     available_accelerators=12,
                     provider=LocalProvider(
                         launcher=WrappedLauncher(
-                            f"mpiexec -n {len(self.ai_hosts) - 1} --ppn 1 --hostfile {ai_nodefile} --depth=96 --cpu-bind depth"
+                            f"mpiexec -n {len(self.ai_hosts) - 1} --ppn 1 --hostfile {ai_nodefile} --depth=104 --cpu-bind depth"
                         ),
                         worker_init=worker_init,
                         min_blocks=1,
@@ -547,7 +552,7 @@ hostname"""
                     provider=LocalProvider(
                         worker_init=worker_init,
                         launcher=WrappedLauncher(
-                            f"./envs/aurora/parallel.sh {lammps_nodefile}"
+                            f"mpiexec -n {len(self.lammps_hosts)} --ppn 1 --hostfile {lammps_nodefile} --depth=104 --cpu-bind depth"
                         ),
                         min_blocks=1,
                         max_blocks=1,
@@ -569,7 +574,7 @@ hostname"""
                     cpu_affinity='list:' + ":".join(helper_cores),
                     provider=LocalProvider(
                         launcher=WrappedLauncher(
-                            f"./envs/aurora/parallel.sh {lammps_nodefile}"
+                            f"./envs/aurora/parallel.sh {helper_nodefile}"
                         ),
                         worker_init=worker_init,
                         min_blocks=1,

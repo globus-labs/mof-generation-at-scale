@@ -1,6 +1,6 @@
 #!/bin/bash -le
-#PBS -l select=128
-#PBS -l walltime=03:00:00
+#PBS -l select=1024
+#PBS -l walltime=0:15:00
 #PBS -l filesystems=home:flare
 #PBS -q prod
 #PBS -N mofa-prod
