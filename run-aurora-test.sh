@@ -41,7 +41,7 @@ python run_parallel_workflow.py \
       --compute-config aurora \
       --mace-model-path ./input-files/mace/mace-mp0_medium-lammps.pt \
       --md-timesteps 1000 \
-      --proxy-threshold 10000000 \
+      --proxy-threshold 1000 \
       --dft-opt-steps 1
 
 echo Python done
