@@ -208,7 +208,7 @@ if __name__ == "__main__":
 
     # Make the RASPA function
     raspa_runner = GRASPASyclRunner(
-        graspa_sycl_command=hpc_config.graspa_cmd,
+        graspa_command=hpc_config.graspa_cmd,
         run_dir=run_dir / 'raspa_run'
     )
     raspa_fun = partial(raspa_runner.run_gcmc,
