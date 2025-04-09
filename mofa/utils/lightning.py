@@ -1,43 +1,5 @@
-from typing import Any
-from pytorch_lightning.accelerators import Accelerator
 from pytorch_lightning.plugins.environments import ClusterEnvironment
 import os
-import torch
-
-from mpi4py import MPI
-comm = MPI.COMM_WORLD
-rank = comm.Get_rank()
-size = comm.Get_size()
-
-
-class XPUAccelerator(Accelerator):
-    """Support for a hypothetical XPU, optimized for large-scale machine learning."""
-
-    def setup_device(self, device: torch.device) -> None:
-        return
-
-    def teardown(self) -> None:
-        return
-
-    @staticmethod
-    def parse_devices(devices: Any) -> Any:
-        # Put parsing logic here how devices can be passed into the Trainer
-        # via the `devices` argument
-        return list(range(int(devices)))
-
-    @staticmethod
-    def get_parallel_devices(devices: Any) -> Any:
-        # Here, convert the device indices to actual device objects
-        return [torch.device("xpu", idx) for idx in devices]
-
-    @staticmethod
-    def auto_device_count() -> int:
-        # Return a value for auto-device selection when `Trainer(devices="auto")`
-        return torch.xpu.device_count()
-
-    @staticmethod
-    def is_available() -> bool:
-        return torch.xpu.is_available()
 
 
 class PBSClusterEnvironment(ClusterEnvironment):
@@ -63,7 +25,7 @@ class PBSClusterEnvironment(ClusterEnvironment):
         """An open and configured port in the main node through which all processes communicate."""
         main_port = os.environ.get("MASTER_PORT", None)
         assert main_port is not None, "MASTER_PORT environment variable must be set"
-        return main_port
+        return int(main_port)
 
     @staticmethod
     def detect() -> bool:
@@ -72,7 +34,7 @@ class PBSClusterEnvironment(ClusterEnvironment):
 
     def world_size(self) -> int:
         """The number of processes across all devices and nodes."""
-        return size
+        return 12
 
     def set_world_size(self, size: int) -> None:
         # ???
@@ -80,18 +42,18 @@ class PBSClusterEnvironment(ClusterEnvironment):
 
     def global_rank(self) -> int:
         """The rank (index) of the currently running process across all nodes and devices."""
-        return rank
+        return 0
 
     def set_global_rank(self, rank: int) -> None:
         pass
 
     def local_rank(self) -> int:
         """The rank (index) of the currently running process inside of the current node."""
-        return rank % 12  # might be different for non-Aurora systems
+        return 0 % 12  # might be different for non-Aurora systems
 
     def node_rank(self) -> int:
         """The rank (index) of the node on which the current process runs."""
-        return rank // 12
+        return 0 // 12
 
     def validate_settings(self, num_devices: int, num_nodes: int) -> None:
         """Validates settings configured in the script against the environment, and raises an exception if there is an

@@ -1,3 +1,4 @@
+"""Utility functions for training DiffLinker on new data"""
 import argparse
 import os
 from contextlib import redirect_stderr, redirect_stdout
@@ -7,8 +8,6 @@ from pytorch_lightning import Trainer, callbacks
 from pytorch_lightning.callbacks import TQDMProgressBar
 from pytorch_lightning.strategies import SingleDeviceStrategy
 from pytorch_lightning.strategies import DDPStrategy
-# from lightning.pytorch.accelerators.xpu import XPUAccelerator
-# from mofa.utils.lightning import XPUAccelerator
 
 from mofa.utils.src.const import NUMBER_OF_ATOM_TYPES, GEOM_NUMBER_OF_ATOM_TYPES
 from mofa.utils.src.lightning import DDPM
@@ -144,16 +143,14 @@ def main(
                 context_node_nf += 1
 
             # Lock XPU to single device for now
-            strategy = 'ddp' if args.strategy is None else args.strategy
-            accelerator = args.device  # 'xpu' #XPUAccelerator()
+            accelerator = args.device
             # We need some way to identify ranks/size, etc.
             # Not sure if parsl exposes some of this, but the
             # PBSClusterEnvironment is a good example of how to do this
             # using the mpi4py variables
-            if args.strategy == 'ddp':
+            if args.strategy == 'ddp' and accelerator == 'xpu':
                 strategy = DDPStrategy(cluster_environment=PBSClusterEnvironment(),
-                                       process_group_backend='ccl',
-                                       )
+                                       process_group_backend='ccl')
             else:
                 strategy = SingleDeviceStrategy(device=args.device)
 
