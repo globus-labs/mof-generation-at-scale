@@ -11,7 +11,7 @@ from parsl.config import Config
 from parsl.app.python import PythonApp
 from parsl.executors import HighThroughputExecutor
 from parsl.providers import PBSProProvider
-from parsl.launchers import SimpleLauncher
+from parsl.launchers import SimpleLauncher, MpiExecLauncher
 
 from mofa.model import MOFRecord
 
@@ -22,7 +22,7 @@ _config_path = "../../models/geom-300k/config-tf32-a100.yaml"
 _training_set = Path("mofs.json.gz")
 
 
-def test_function(model_path: Path, config_path: Path, training_set: list, num_epochs: int, device: str) -> float:
+def test_function(model_path: Path, config_path: Path, training_set: list, num_epochs: int, device: str, parallel: bool) -> float:
     """Run a LAMMPS simulation, report runtime and resultant traj
 
     Args:
@@ -38,6 +38,13 @@ def test_function(model_path: Path, config_path: Path, training_set: list, num_e
     from mofa.generator import train_generator
     from pathlib import Path
     from time import perf_counter
+    import os
+
+    # Determine the nodelist, if running in parallel
+    if parallel:
+        node_list = Path(os.environ['PBS_NODEFILE']).read_text().split("\n")
+    else:
+        node_list = ()
 
     # Run
     with TemporaryDirectory() as tmp:
@@ -49,6 +56,7 @@ def test_function(model_path: Path, config_path: Path, training_set: list, num_e
             examples=training_set,
             num_epochs=num_epochs,
             device=device,
+            node_list=node_list
         )
         run_time = perf_counter() - start_time
 
@@ -78,7 +86,10 @@ if __name__ == "__main__":
     # Select the correct configuraion
     if args.config == "local":
         config = Config(executors=[HighThroughputExecutor(max_workers_per_node=1, cpu_affinity='block')])
+        parallel = False
+        ranks_per_node = 1
     elif args.config == "polaris":
+        ranks_per_node = 4
         config = Config(retries=1, executors=[
             HighThroughputExecutor(
                 max_workers_per_node=1,
@@ -109,31 +120,37 @@ hostname
             )
         ])
     elif args.config.startswith("aurora"):
+        ranks_per_node = 12
         config = Config(
             retries=2,
             executors=[
                 HighThroughputExecutor(
                     label="aurora_test",
                     prefetch_capacity=0,
-                    max_workers_per_node=1,
+                    max_workers_per_node=12,
+                    available_accelerators=12,
+                    cpu_affinity='block',
                     provider=PBSProProvider(
                         account="MOFA",
                         queue="debug",
                         worker_init=f"""
 module load frameworks
 source /lus/flare/projects/MOFA/lward/mof-generation-at-scale/venv/bin/activate
+export ZE_FLAT_DEVICE_HIERARCHY=FLAT
 cd $PBS_O_WORKDIR
 pwd
 which python
 hostname
                         """,
                         walltime="1:00:00",
-                        launcher=SimpleLauncher(),
+                        launcher=MpiExecLauncher(
+                            bind_cmd="--cpu-bind", overrides="--depth=104 --ppn 1"
+                        ),
                         scheduler_options="#PBS -l filesystems=home:flare",
                         nodes_per_block=1,
                         min_blocks=0,
                         max_blocks=1,
-                        cpus_per_node=208,
+                        cpus_per_node=104,
                     ),
                 ),
             ]
@@ -146,7 +163,13 @@ hostname
         test_app = PythonApp(test_function)
 
         # Call the training function
-        runtime = test_app(_model_path, _config_path, training_set, num_epochs=args.num_epochs, device=args.device).result()
+        futures = []
+        for rank in range(ranks_per_node):
+            futures.append(test_app(_model_path, _config_path, training_set, num_epochs=args.num_epochs, device=args.device))
+
+        # Collect
+        for future in futures:
+            result = future.result()
 
         # Save the result
         with open('runtimes.json', 'a') as fp:
