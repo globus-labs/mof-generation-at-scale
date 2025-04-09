@@ -22,7 +22,7 @@ def test_graspa_sycl_runner(adsorbate, temperature, pressure):
         "pressure": pressure,
         "n_cycle": 100,
     }
-    graspa_sycl_command = "sycl.out >> raspa.log"
+    graspa_sycl_command = "sycl.out"
     gr = GRASPASyclRunner()
     gr.graspa_sycl_command = graspa_sycl_command
 

@@ -71,6 +71,8 @@ def test_aurora(tmpdir):
         config.dft_fraction = 0.25
         config.make_parsl_config(Path(tmpdir))
 
+        assert 'flare' in config.graspa_cmd[0]
+
         # Check that it has the correct GPU settings
         assert config.gpus_per_node == 12
         assert config.torch_device == 'xpu'

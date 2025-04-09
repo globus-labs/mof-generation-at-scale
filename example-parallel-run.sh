@@ -9,7 +9,7 @@ python run_parallel_workflow.py \
       --retrain-freq 2 \
       --num-epochs 4 \
       --num-samples 128 \
-      --gen-batch-size 64 \
+      --gen-batch-size 128 \
       --simulation-budget 8 \
       --redis-host 127.0.0.1 \
       --compute-config "local" \

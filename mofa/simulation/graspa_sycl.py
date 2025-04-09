@@ -13,7 +13,7 @@ _file_dir = Path(__file__).parent / "files" / "graspa_sycl_template"
 class GRASPASyclRunner:
     """Interface for running pre-defined gRASPA-sycl workflows."""
 
-    graspa_sycl_command: str = ""
+    graspa_command: list[str] = ()
     """Invocation used to run gRASPA-sycl on this system"""
 
     run_dir: Path = Path("gRASPA-sycl-runs")
@@ -245,7 +245,8 @@ class GRASPASyclRunner:
         )
 
         # Run gRASPA-sycl
-        subprocess.run(self.graspa_sycl_command, shell=True, cwd=out_dir)
+        with open(out_dir / 'raspa.log', 'w') as fp, open(out_dir / 'raspa.err', 'w') as fe:
+            subprocess.run(self.graspa_command, cwd=out_dir, stdout=fp, stderr=fe)
 
         # Get output from Output/ folder
         with open(f"{out_dir}/raspa.log", "r") as rf:

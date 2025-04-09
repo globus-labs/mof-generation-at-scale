@@ -230,6 +230,8 @@ class MACERunner(MDInterface):
             for model in calc.models:
                 model.to('cpu')
 
+        # Remove the calculator from the atoms
+        atoms.calc = None
         return atoms, out_dir.absolute()
 
     def run_md_with_lammps(
