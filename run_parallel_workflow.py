@@ -59,7 +59,7 @@ if __name__ == "__main__":
     group = parser.add_argument_group('Retraining Settings', description='How often to retain, what to train on, etc')
     group.add_argument('--generator-config-path', required=True, help='Path to the generator training configuration')
     group.add_argument('--retrain-freq', type=int, default=8, help='Trigger retraining after these many successful computations')
-    group.add_argument('--maximum-train-size', type=int, default=256, help='Maximum number of MOFs to use for retraining')
+    group.add_argument('--maximum-train-size', type=int, default=4096, help='Maximum number of MOFs to use for retraining')
     group.add_argument('--num-epochs', type=int, default=128, help='Number of training epochs')
     group.add_argument('--best-fraction', type=float, default=0.5, help='What percentile of MOFs to include in training')
     group.add_argument('--maximum-strain', type=float, default=0.5, help='Maximum strain allowed MOF used in training set')
@@ -76,7 +76,7 @@ if __name__ == "__main__":
     group.add_argument('--md-snapshots-freq', default=1000, help='How frequently to write timesteps', type=int)
     group.add_argument('--retain-lammps', action='store_true', help='Keep LAMMPS output files after it finishes')
     group.add_argument('--dft-opt-steps', default=8, help='Maximum number of DFT optimization steps', type=int)
-    group.add_argument('--raspa-timesteps', default=5000, help='Number of timesteps for GCMC computation', type=int)
+    group.add_argument('--raspa-timesteps', default=100000, help='Number of timesteps for GCMC computation', type=int)
 
     group = parser.add_argument_group(title='Compute Settings', description='Compute environment configuration')
     group.add_argument('--lammps-on-ramdisk', action='store_true', help='Write LAMMPS outputs to a RAM Disk')
@@ -87,7 +87,7 @@ if __name__ == "__main__":
     group.add_argument('--proxy-threshold', default=10000, type=int, help='Size threshold to use proxystore for data (bytes)')
 
     group = parser.add_argument_group(title='Selector Settings', description='Control how simulation tasks are selected')
-    group.add_argument('--md-new-fraction', default=0.8, help='How frequently to start MD on a new MOF')
+    group.add_argument('--md-new-fraction', default=0.5, help='How frequently to start MD on a new MOF')
 
     args = parser.parse_args()
 
