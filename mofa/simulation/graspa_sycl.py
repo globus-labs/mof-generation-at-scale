@@ -13,7 +13,7 @@ _file_dir = Path(__file__).parent / "files" / "graspa_sycl_template"
 class GRASPASyclRunner:
     """Interface for running pre-defined gRASPA-sycl workflows."""
 
-    graspa_sycl_command: list[str] = ()
+    graspa_command: list[str] = ()
     """Invocation used to run gRASPA-sycl on this system"""
 
     run_dir: Path = Path("gRASPA-sycl-runs")
