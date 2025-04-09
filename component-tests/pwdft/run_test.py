@@ -34,8 +34,10 @@ def test_function(strc: MOFRecord, invocation: str, steps: int) -> tuple[float, 
     from mofa.simulation.pwdft import PWDFTRunner
     from time import perf_counter
     from pathlib import Path
+    import shutil
 
     run_dir = Path(f'run-{steps}')
+    shutil.rmtree(run_dir, ignore_errors=True)
     run_dir.mkdir(exist_ok=True, parents=True)
 
     # Run
@@ -65,7 +67,8 @@ if __name__ == "__main__":
         ranks_per_node = 12
         pwdft_cmd = (f'mpiexec -n {args.num_nodes * ranks_per_node} --ppn {ranks_per_node} '
                      '--cpu-bind list:1-7:8-15:16-23:24-31:32-39:40-47:53-59:60-67:68-75:76-83:84-91:92-99 '
-                     '--mem-bind list:0:0:0:0:0:0:1:1:1:1:1:1 --env OMP_NUM_THREADS=1 ' # gpu_tile_compact.sh '
+                     '--mem-bind list:0:0:0:0:0:0:1:1:1:1:1:1 --env OMP_NUM_THREADS=1 '
+                     '/lus/flare/projects/MOFA/lward/mof-generation-at-scale/bin/gpu_dev_compact.sh '
                      '/lus/flare/projects/MOFA/lward/PWDFT/build_sycl/pwdft')
         config = Config(
             retries=2,
@@ -81,6 +84,7 @@ if __name__ == "__main__":
 module load frameworks
 source /lus/flare/projects/MOFA/lward/mof-generation-at-scale/venv/bin/activate
 cd $PBS_O_WORKDIR
+export ZE_FLAT_DEVICE_HIERARCHY=FLAT
 
 pwd
 which python
@@ -120,18 +124,14 @@ hostname
                 continue
             runtime, (atoms, run_path) = future.result()
 
-            # Get the strain
-    #        charges = compute_partial_charges(run_path).arrays['q']
             # Store the result
             with open('runtimes.jsonl', 'a') as fp:
                 print(json.dumps({
                     'host': node(),
                     'nodes': args.num_nodes,
-                    'ranks-per-node': args.ranks_per_node,
-                    'cp2k_cmd': cp2k_cmd,
+                    'pwdft_cmd': pwdft_cmd,
                     'steps': args.steps,
                     'mof': future.mof.name,
                     'runtime': runtime,
-    #                'charges': charges.tolist(),
                     'strc': write_to_string(atoms, 'vasp')
                 }), file=fp)
