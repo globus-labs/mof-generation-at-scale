@@ -145,15 +145,15 @@ def main(
 
             # Lock XPU to single device for now
             strategy = 'ddp' if args.strategy is None else args.strategy
-            accelerator = args.device #'xpu' #XPUAccelerator()
-            # We need some way to identify ranks/size, etc.  
+            accelerator = args.device  # 'xpu' #XPUAccelerator()
+            # We need some way to identify ranks/size, etc.
             # Not sure if parsl exposes some of this, but the
             # PBSClusterEnvironment is a good example of how to do this
             # using the mpi4py variables
             if args.strategy == 'ddp':
                 strategy = DDPStrategy(cluster_environment=PBSClusterEnvironment(),
-                        process_group_backend='ccl',
-                        )
+                                       process_group_backend='ccl',
+                                       )
             else:
                 strategy = SingleDeviceStrategy(device=args.device)
 
@@ -172,7 +172,7 @@ def main(
                 devices=12,
                 # TODO: have to expose number of nodes being used--
                 # however you do that in parsl
-                num_nodes = int(os.environ["NNODES"]),
+                num_nodes=int(os.environ["NNODES"]),
                 precision='32',
                 num_sanity_val_steps=0,
                 enable_progress_bar=args.enable_progress_bar,
@@ -281,7 +281,7 @@ def main(
 
 if __name__ == '__main__':
     """
-    Adding a main run here because I'm not sure how to get 
+    Adding a main run here because I'm not sure how to get
     parsl to expose MPI variables for the trainer.
     Args:
         model_path: Path to the model
@@ -293,7 +293,6 @@ if __name__ == '__main__':
         - Runtime (s)
     """
 
-    from tempfile import TemporaryDirectory
     from mofa.generator import train_generator
     from mofa.model import MOFRecord
 
@@ -306,7 +305,7 @@ if __name__ == '__main__':
     _model_path = "../../models/geom-300k/geom_difflinker_epoch=997_new.ckpt"
     _config_path = "../../models/geom-300k/config-tf32-a100.yaml"
     _training_set = Path("mofs.json.gz")
-    
+
     # Get the length of the runs, etc
     parser = argparse.ArgumentParser()
     parser.add_argument('--model-path', help='Version of DiffLinker to run', default=_model_path)
@@ -324,7 +323,7 @@ if __name__ == '__main__':
             record.pop('_id')
             training_set.append(MOFRecord(**record))
     if len(training_set) < args.training_size:
-        training_set = [l for l, _ in zip(cycle(training_set), range(args.training_size))]
+        training_set = [s for s, _ in zip(cycle(training_set), range(args.training_size))]
 
     # Run
     # with TemporaryDirectory() as tmp:

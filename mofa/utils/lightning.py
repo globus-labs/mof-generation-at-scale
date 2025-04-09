@@ -9,6 +9,7 @@ comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
 
+
 class XPUAccelerator(Accelerator):
     """Support for a hypothetical XPU, optimized for large-scale machine learning."""
 
@@ -38,10 +39,11 @@ class XPUAccelerator(Accelerator):
     def is_available() -> bool:
         return torch.xpu.is_available()
 
+
 class PBSClusterEnvironment(ClusterEnvironment):
     """TODO: Adapt to parsl-specific comm variables?
     Specification of a cluster environment.
-    
+
     """
 
     @property
@@ -66,14 +68,14 @@ class PBSClusterEnvironment(ClusterEnvironment):
     @staticmethod
     def detect() -> bool:
         """Detects the environment settings corresponding to this cluster and returns ``True`` if they match."""
-        return True # defaulting to intelligent users
+        return True  # defaulting to intelligent users
 
     def world_size(self) -> int:
         """The number of processes across all devices and nodes."""
         return size
 
     def set_world_size(self, size: int) -> None:
-        #???
+        # ???
         pass
 
     def global_rank(self) -> int:
@@ -85,7 +87,7 @@ class PBSClusterEnvironment(ClusterEnvironment):
 
     def local_rank(self) -> int:
         """The rank (index) of the currently running process inside of the current node."""
-        return rank % 12 # might be different for non-Aurora systems
+        return rank % 12  # might be different for non-Aurora systems
 
     def node_rank(self) -> int:
         """The rank (index) of the node on which the current process runs."""
@@ -95,7 +97,6 @@ class PBSClusterEnvironment(ClusterEnvironment):
         """Validates settings configured in the script against the environment, and raises an exception if there is an
         inconsistency."""
         pass
-
 
     def teardown(self) -> None:
         """Clean up any state set after execution finishes."""
