@@ -62,11 +62,11 @@ if __name__ == "__main__":
         pwdft_cmd = 'mpirun -np 12 /home/lward/Software/PWDFT/build/pwdft'
         config = Config(executors=[HighThroughputExecutor(max_workers_per_node=1)])
     elif args.config == "aurora":
-        assert args.ranks_per_node == 12, 'We only support 1 rank per tile on Aurora'
-        pwdft_cmd = (f'mpiexec -n {args.num_nodes * args.ranks_per_node} --ppn {args.ranks_per_node}'
-                    f' --cpu-bind depth --depth={104 // args.ranks_per_node} -env OMP_NUM_THREADS={104 // args.ranks_per_node} '
-                    '--env OMP_PLACES=cores '
-                    '/lus/flare/projects/MOFA/lward/PWDFT/build_sycl/pwdft')
+        ranks_per_node = 12
+        pwdft_cmd = (f'mpiexec -n {args.num_nodes * ranks_per_node} --ppn {ranks_per_node} '
+                     '--cpu-bind list:1-7:8-15:16-23:24-31:32-39:40-47:53-59:60-67:68-75:76-83:84-91:92-99 '
+                     '--mem-bind list:0:0:0:0:0:0:1:1:1:1:1:1 --env OMP_NUM_THREADS=1 ' # gpu_tile_compact.sh '
+                     '/lus/flare/projects/MOFA/lward/PWDFT/build_sycl/pwdft')
         config = Config(
             retries=2,
             executors=[
