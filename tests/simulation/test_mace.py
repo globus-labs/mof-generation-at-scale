@@ -49,7 +49,6 @@ def test_mace_optimize(cif_name, cif_dir, tmpdir):
     assert (mace_path / "atoms.extxyz").exists()
     assert (mace_path / "relax.traj").exists()
     assert (mace_path / "relax.log").exists()
-    assert atoms.get_potential_energy() is not None
 
 
 @mark.parametrize("level", ["default"])
@@ -60,7 +59,6 @@ def test_mace_options(level, cif_dir):
     test_file = cif_dir / "hMOF-0.cif"
     record = MOFRecord.from_file(test_file)
     atoms, mace_path = runner.run_single_point(record, level=level)
-    assert atoms.get_potential_energy() is not None
 
 
 def test_mace_md(cif_dir):

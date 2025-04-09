@@ -465,7 +465,7 @@ class AuroraConfig(PolarisConfig):
         "-k on g 1 -sf kk"
     ).split()
     lammps_env = {'OMP_NUM_THREADS': '1'}
-    raspa_cmd = (
+    graspa_cmd = (
         '/lus/flare/projects/MOFA/lward/gRASPA/graspa-sycl/bin/sycl.out'
     ).split()
     cpus_per_node = 96
