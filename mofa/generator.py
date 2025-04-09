@@ -1,13 +1,16 @@
 """Functions pertaining to training and running the generative model"""
 import gzip
 import json
+import os
 import shutil
+from platform import node
 from dataclasses import asdict
 from tempfile import TemporaryDirectory
 from typing import Iterator
 from pathlib import Path
 
 import yaml
+
 # TODO (wardlt): Torch is imported in the subsequent MOFA modules
 #  I plan to refactor those modules eventually,
 #  so am putting the Intel GPU imports here until I
@@ -30,7 +33,8 @@ def train_generator(
         examples: list[MOFRecord],
         num_epochs: int = 10,
         device: str = 'cpu',
-        strategy: str | None = None
+        strategy: str | None = None,
+        node_list: list[str] = ()
 ) -> Path:
     """Retrain a generative model for MOFs
 
@@ -41,10 +45,17 @@ def train_generator(
         examples: Path to examples used to train the generator. Should be a directory which contains SDF,
         num_epochs: Number of training epochs
         device: Device to use for training
-        strategy: Strategy used for
+        strategy: Strategy used for distributed training
+        node_list: List of nodes participating in training
     Returns:
         Path to the new model weights
     """
+
+    # Get rank if doing distributed training
+    if len(node_list) > 0:
+        rank_info = get_rank(node_list)
+    else:
+        rank_info = None
 
     # Load configuration from YML file
     #  TODO (wardlt): Move away from argparse? Could simplify making modular configuration files
@@ -87,7 +98,7 @@ def train_generator(
     args.test_epochs = num_epochs * 2  # Turn off testing during workflow training
     args.device = device
 
-    return main(args=args, run_directory=run_directory)
+    return main(args=args, run_directory=run_directory, rank_info=rank_info)
 
 
 def run_generator(
@@ -123,3 +134,29 @@ def run_generator(
             n_steps=n_steps,
             device=device
         )
+
+
+def get_rank(node_list: list[str]) -> tuple[int, int, int]:
+    """Determine rank of this process based on its node ID and local rank
+
+    Args:
+        node_list: List of nodes participating in the training
+    Returns:
+        - Rank of this process
+        - Total ranks in training pool
+        - Ranks per node
+    """
+    node_name = node()
+    for i, name in enumerate(node_list):
+        if name.startswith(node_name):
+            node_rank = i
+            break
+    else:
+        raise ValueError(f'Node ({node_name}) not found in list: {", ".join(node_list)}')
+
+    # Get the number of ranks per node from Parsl's environment variables
+    #  See: https://parsl.readthedocs.io/en/stable/stubs/parsl.executors.HighThroughputExecutor.html
+    local_rank = int(os.environ['PARSL_WORKER_RANK'])
+    local_size = int(os.environ['PARSL_WORKER_COUNT'])
+
+    return node_rank * local_size + local_rank, local_size * len(node_list), local_size

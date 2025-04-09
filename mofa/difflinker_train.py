@@ -3,6 +3,7 @@ import argparse
 import os
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
+from typing import Optional
 
 from pytorch_lightning import Trainer, callbacks
 from pytorch_lightning.callbacks import TQDMProgressBar
@@ -114,13 +115,15 @@ def find_last_checkpoint(checkpoints_dir):
 
 def main(
         args,
-        run_directory: Path
+        run_directory: Path,
+        rank_info: Optional[tuple[int, int, int]] = None
 ):
     """Run model training
 
     Args:
         args: Arguments from `get_args` and the configuration file
         run_directory: Directory in which to write output files
+        rank_info: Information about the ranks for this process: (rank, size, ranks_per_node)
     """
 
     # TODO (wardlt): I trimmed off Hyun's code for organizing experimental data. We should put it back if
@@ -142,16 +145,14 @@ def main(
             if '.' in args.train_data_prefix:
                 context_node_nf += 1
 
-            # Lock XPU to single device for now
+            # Determine the strategy for parallel training
             accelerator = args.device
-            # We need some way to identify ranks/size, etc.
-            # Not sure if parsl exposes some of this, but the
-            # PBSClusterEnvironment is a good example of how to do this
-            # using the mpi4py variables
-            if args.strategy == 'ddp' and accelerator == 'xpu':
-                strategy = DDPStrategy(cluster_environment=PBSClusterEnvironment(),
-                                       process_group_backend='ccl')
+            if args.strategy == 'ddp':
+                rank, size, ranks_per_node = rank_info
+                strategy = DDPStrategy(cluster_environment=PBSClusterEnvironment(*rank_info),
+                                       process_group_backend='ccl' if args.strategy == 'xpu' else 'nccl')
             else:
+                size = ranks_per_node = 1
                 strategy = SingleDeviceStrategy(device=args.device)
 
             checkpoint_callback = [callbacks.ModelCheckpoint(
@@ -166,10 +167,8 @@ def main(
                 max_epochs=args.n_epochs,
                 callbacks=checkpoint_callback,
                 accelerator=accelerator,
-                devices=12,
-                # TODO: have to expose number of nodes being used--
-                # however you do that in parsl
-                num_nodes=int(os.environ["NNODES"]),
+                devices=ranks_per_node,
+                num_nodes=size // ranks_per_node,
                 precision='32',
                 num_sanity_val_steps=0,
                 enable_progress_bar=args.enable_progress_bar,
@@ -274,65 +273,3 @@ def main(
             trained_path = run_directory / 'model.ckpt'
             trainer.save_checkpoint(trained_path)
             return trained_path
-
-
-if __name__ == '__main__':
-    """
-    Adding a main run here because I'm not sure how to get
-    parsl to expose MPI variables for the trainer.
-    Args:
-        model_path: Path to the model
-        config_path: Path to the configuration file
-        training_set: List of MOFs to use for training
-        num_epochs: Number of training epochs to run
-        device: Device on which to run generation
-    Returns:
-        - Runtime (s)
-    """
-
-    from mofa.generator import train_generator
-    from mofa.model import MOFRecord
-
-    from pathlib import Path
-    from time import perf_counter
-    import gzip
-    import json
-    from itertools import cycle
-    # Hard-coded defaults
-    _model_path = "../../models/geom-300k/geom_difflinker_epoch=997_new.ckpt"
-    _config_path = "../../models/geom-300k/config-tf32-a100.yaml"
-    _training_set = Path("mofs.json.gz")
-
-    # Get the length of the runs, etc
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--model-path', help='Version of DiffLinker to run', default=_model_path)
-    parser.add_argument('--training-size', help='Number of entries to use from training set', type=int, default=128)
-    parser.add_argument('--num-epochs', help='Number of training epochs', type=int, default=16)
-    parser.add_argument('--device', help='Device on which to run DiffLinker', default='cuda')
-    parser.add_argument('--config', help='Which compute configuration to use', default='local')
-    args = parser.parse_args()
-
-    # Load in examples from the training set
-    training_set = []
-    with gzip.open('mofs.json.gz') as fp:
-        for line, _ in zip(fp, range(args.training_size)):
-            record = json.loads(line)
-            record.pop('_id')
-            training_set.append(MOFRecord(**record))
-    if len(training_set) < args.training_size:
-        training_set = [s for s, _ in zip(cycle(training_set), range(args.training_size))]
-
-    # Run
-    # with TemporaryDirectory() as tmp:
-    start_time = perf_counter()
-    train_generator(
-        starting_model=args.model_path,
-        run_directory=Path("./"),
-        config_path=_config_path,
-        examples=training_set,
-        num_epochs=1,
-        device=args.device,
-    )
-    run_time = perf_counter() - start_time
-
-    print(f"Test run complete! {run_time}")

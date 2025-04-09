@@ -53,7 +53,11 @@ def load_model(path, device) -> DDPM:
 
 
 def main_run(templates: list[LigandTemplate],
-             model, output_dir, n_samples, n_steps, linker_size,
+             model,
+             output_dir,
+             n_samples,
+             n_steps,
+             linker_size,
              device: str = 'cpu') -> Iterator[LigandDescription]:
     """Run the linker generation"""
     if linker_size.isdigit():

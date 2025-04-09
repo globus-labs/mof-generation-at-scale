@@ -3,10 +3,12 @@ import os
 
 
 class PBSClusterEnvironment(ClusterEnvironment):
-    """TODO: Adapt to parsl-specific comm variables?
-    Specification of a cluster environment.
+    """Specification of a cluster environment where rank is determined externally"""
 
-    """
+    def __init__(self, rank: int, size: int, ranks_per_node: int):
+        self.rank = rank
+        self.size = size
+        self.ranks_per_node = ranks_per_node
 
     @property
     def creates_processes_externally(self) -> bool:
@@ -34,7 +36,7 @@ class PBSClusterEnvironment(ClusterEnvironment):
 
     def world_size(self) -> int:
         """The number of processes across all devices and nodes."""
-        return 12
+        return self.size
 
     def set_world_size(self, size: int) -> None:
         # ???
@@ -42,18 +44,18 @@ class PBSClusterEnvironment(ClusterEnvironment):
 
     def global_rank(self) -> int:
         """The rank (index) of the currently running process across all nodes and devices."""
-        return 0
+        return self.rank
 
     def set_global_rank(self, rank: int) -> None:
         pass
 
     def local_rank(self) -> int:
         """The rank (index) of the currently running process inside of the current node."""
-        return 0 % 12  # might be different for non-Aurora systems
+        return self.rank % self.ranks_per_node  # might be different for non-Aurora systems
 
     def node_rank(self) -> int:
         """The rank (index) of the node on which the current process runs."""
-        return 0 // 12
+        return self.rank // self.ranks_per_node
 
     def validate_settings(self, num_devices: int, num_nodes: int) -> None:
         """Validates settings configured in the script against the environment, and raises an exception if there is an
