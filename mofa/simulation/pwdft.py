@@ -472,7 +472,6 @@ class PWDFT(FileIOCalculator):
 
 _pwdft_options = {
     "default": {
-        "command": "mpiexec -n 1 pwdft < PREFIX.nwxi > PREFIX.nwxo",
         "echo": True,
         "charge": 0,
         "nwpw": {"cutoff": 30, "xc": "PBE", "loop": "10 250"},
@@ -495,7 +494,7 @@ class PWDFTRunner:
 
     run_dir: Path = Path("pwdft-runs")
     """Path in which to store PWDFT computation files"""
-    pwdft_path: str = "pwdft"
+    pwdft_cmd: str = "mpirun -n 1 pwdft"
     """Path to the PWDFT executable"""
 
     def run_single_point(
@@ -568,7 +567,7 @@ class PWDFTRunner:
             raise ValueError(f"No presets for {level}")
         options = _pwdft_options[level].copy()
 
-        options["command"] = options["command"].replace("pwdft", self.pwdft_path)
+        options["command"] = self.pwdft_cmd + " < PREFIX.nwxi > PREFIX.nwxo"
 
         out_dir = self.run_dir / f"{name}-{action}-{level}"
         start_dir = Path().cwd()
