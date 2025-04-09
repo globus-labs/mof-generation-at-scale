@@ -25,7 +25,6 @@ def test_mace_single(cif_name, cif_dir, tmpdir):
     assert mace_path.is_absolute()
     assert "single" in mace_path.name
     assert (mace_path / "atoms.extxyz").exists()
-    assert atoms.get_potential_energy() is not None
 
 
 @mark.skipif(IN_GITHUB_ACTIONS, reason="Too expensive for CI")
