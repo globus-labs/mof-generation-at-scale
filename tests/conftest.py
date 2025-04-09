@@ -1,8 +1,10 @@
+from mongomock.mongo_client import MongoClient
 from pytest import fixture
 from pathlib import Path
 from ase.io.cif import read_cif
 import ase
 
+from mofa.db import initialize_database
 from mofa.model import MOFRecord
 
 _files_path = Path(__file__).parent / 'files'
@@ -27,3 +29,10 @@ def example_mof(example_cif) -> ase.Atoms:
 @fixture()
 def example_record(example_cif) -> MOFRecord:
     return MOFRecord.from_file(example_cif)
+
+
+@fixture()
+def coll():
+    # Make the database
+    client = MongoClient()
+    return initialize_database(client)

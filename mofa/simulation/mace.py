@@ -189,10 +189,13 @@ class MACERunner(MDInterface):
         out_dir.mkdir(parents=True, exist_ok=True)
         os.chdir(out_dir)
 
+        # Load the model and move it to the device
+        calc = load_model(self.device, level)
+        for model in calc.models:
+            model.to(self.device)
+
         try:
             # Initialize MACE calculator
-            #  TODO (wardlt): Cache it in memory!
-            calc = load_model(self.device, level)
             atoms = atoms.copy()
             atoms.calc = calc
 
@@ -223,6 +226,12 @@ class MACERunner(MDInterface):
         finally:
             os.chdir(start_dir)
 
+            # Move the model back to the CPU
+            for model in calc.models:
+                model.to('cpu')
+
+        # Remove the calculator from the atoms
+        atoms.calc = None
         return atoms, out_dir.absolute()
 
     def run_md_with_lammps(

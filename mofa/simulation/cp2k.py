@@ -3,8 +3,8 @@ from contextlib import redirect_stdout, redirect_stderr
 from dataclasses import dataclass
 from subprocess import run
 from pathlib import Path
+from shutil import which
 import time
-import sys
 import os
 
 import ase
@@ -31,9 +31,13 @@ _cp2k_options = {
 }
 
 # Get the path to the CP2K atomic density guesses
-_atomic_density_folder_path = str(Path(sys.prefix) / "share" / "chargemol" / "atomic_densities")
-if not _atomic_density_folder_path.endswith("/"):
-    _atomic_density_folder_path = _atomic_density_folder_path + "/"
+_chargemol_path = which('chargemol')
+if _chargemol_path is not None:
+    _atomic_density_folder_path = str(Path(_chargemol_path).parent / ".." / "share" / "chargemol" / "atomic_densities")
+    if not _atomic_density_folder_path.endswith("/"):
+        _atomic_density_folder_path = _atomic_density_folder_path + "/"
+else:
+    _atomic_density_folder_path = None
 
 
 # Utility functions

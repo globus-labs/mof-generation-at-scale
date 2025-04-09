@@ -1,15 +1,5 @@
-from pytest import fixture
-from mongomock import MongoClient
-
-from mofa.db import initialize_database, create_records, get_records, update_records, count_records, get_all_records
+from mofa.db import create_records, get_records, update_records, count_records, get_all_records
 from mofa.model import MOFRecord
-
-
-@fixture()
-def coll():
-    # Make the database
-    client = MongoClient()
-    return initialize_database(client)
 
 
 def test_initialize(coll):

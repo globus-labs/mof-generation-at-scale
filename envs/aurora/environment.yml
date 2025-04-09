@@ -6,4 +6,8 @@ dependencies:
   # Services used by the workflow
   - redis==5.*
   - mongodb
-  - parallel  # Used to launch monitor
+  - parallel  # Used as a launcher
+
+  # Science apps from Conda-Forge
+  - chargemol
+  - raspa2

@@ -414,16 +414,19 @@ class MOFRecord:
     # Properties
     gas_storage: dict[str, float | tuple[float, float]] = field(default_factory=dict, repr=False)  # TODO (wardlt): Allow only one type of value
     """Storage capacity of the MOF for different gases and pressures. Key is the name of the gas, value is a single capacity value
-     or the capacity at different pressures (units TBD)"""
-    structure_stability: dict[str, dict[str, float]] = field(default_factory=dict, repr=False)
-    """How likely the structure is to be stable according to different assays
+     or the capacity at different pressures (units g/L)"""
+    structure_stability: dict[str, float] = field(default_factory=dict, repr=False)
+    """How likely the structure is to be stable according to different assays.
+    The value is the strain between the first and last timestep. Larger values indicate worse stability
 
-    The dictionary has two keys: the level of accuracy, then the number of timesteps in the trajectory.
-    The value is the strain between the first and last timestep. Larger values indicate worse stability"""
+    The strain for each assay should correspond to the strain from the longest trajectory in :attr:`md_trajectory`
+    """
 
     # Tracking provenance of structure
     times: dict[str, datetime] = field(default_factory=lambda: {'created': datetime.now()})
     """Listing times at which key events occurred"""
+    in_progress: list[str] = field(default_factory=list)
+    """Whether any assays are in progress"""
 
     def __post_init__(self):
         if self.name is None:

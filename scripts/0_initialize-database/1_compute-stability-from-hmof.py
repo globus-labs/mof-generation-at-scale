@@ -111,7 +111,7 @@ hostname
         lammps_env = {}
         device = 'xpu'
         config = Config(
-            retries=2,
+            retries=1,
             executors=[
                 HighThroughputExecutor(
                     label="sunspot_test",
@@ -132,13 +132,14 @@ export ZE_FLAT_DEVICE_HIERARCHY=FLAT
 FPATH=/opt/aurora/24.180.3/frameworks/aurora_nre_models_frameworks-2024.2.1_u1/lib/python3.10/site-packages
 export LD_LIBRARY_PATH=$FPATH/torch/lib:$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=$FPATH/intel_extension_for_pytorch/lib:$LD_LIBRARY_PATH
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 cd $PBS_O_WORKDIR
 pwd
 which python
 hostname
                         """,
-                        walltime="3:00:00",
+                        walltime="6:00:00",
                         launcher=MpiExecLauncher(
                             bind_cmd="--cpu-bind", overrides="--depth=208 --ppn 1"
                         ),
@@ -183,14 +184,16 @@ hostname
         # Load previous results
         out_strains = Path(f'{args.ff}-strains.jsonl')
         if out_strains.is_file():
-            prev_runs = pd.read_json(out_strains, lines=True)[['mof', 'timesteps', 'structure']]
-            print(f'Found {len(prev_runs)} previous runs with forcfield {args.ff}')
+            prev_run = pd.read_json(out_strains, lines=True)[['mof', 'timesteps', 'structure']]
+            print(f'Found {len(prev_run)} previous runs with forcfield {args.ff}')
 
-            prev_runs.sort_values('timesteps', ascending=True).drop_duplicates('mof')
+            latest_run = prev_run.sort_values('timesteps', ascending=True).drop_duplicates('mof', keep='last')
+            latest_run = dict((n, (t, s)) for n, t, s in latest_run.values)
 
-            prev_runs = dict((n, (t, s)) for n, t, s in prev_runs.values)
+            all_runs = prev_run.groupby('mof')['timesteps'].apply(set).to_dict()
         else:
-            prev_runs = {}
+            latest_run = {}
+            all_runs = {}
 
         # Submit each MOF
         futures = []
@@ -198,14 +201,16 @@ hostname
             mof = MOFRecord(**info)
             # Add the latest timestep to the MOF record
             num_ran = args.timesteps
-            if mof.name in prev_runs:
-                timesteps, strc = prev_runs[mof.name]
-                if timesteps >= args.timesteps:
+            if mof.name in latest_run:
+                timesteps, strc = latest_run[mof.name]
+                if args.timesteps in all_runs[mof.name]:
                     continue  # We're done
 
                 if args.continue_runs:
                     mof.md_trajectory[runner.traj_name] = [(timesteps, strc)]
                     num_ran -= timesteps
+            elif args.continue_runs:
+                continue  # Skip if not already run
             future = test_app(mof, args.timesteps, runner)
             future.mof = mof
             future.num_ran = num_ran
