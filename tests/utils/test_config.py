@@ -79,5 +79,6 @@ def test_aurora(tmpdir):
 
         assert len(config.hosts) == 20
         assert len(config.ai_hosts) == 2
+        assert len(config.training_nodes)
     finally:
         del os.environ['PBS_NODEFILE']
