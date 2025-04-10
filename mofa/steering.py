@@ -493,26 +493,29 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             self.logger.info(f'Preparing to retrain Difflinker in {train_dir}')
 
             # Submit training using the latest model
-            self.queues.send_inputs(
-                self.initial_weights,
-                input_kwargs={'examples': examples, 'run_directory': train_dir},
-                method='train_generator',
-                topic='training',
-                task_info={'train_size': len(examples)}
-            )
-            self.logger.info('Submitted training. Waiting until complete')
+            for i in range(self.hpc_config.num_training_ranks):
+                self.queues.send_inputs(
+                    self.initial_weights,
+                    input_kwargs={'examples': examples, 'run_directory': train_dir},
+                    method='train_generator',
+                    topic='training',
+                    task_info={'train_size': len(examples), 'rank': i}
+                )
+            self.logger.info('Submitted training tasks. Waiting until complete')
 
             # Wait until the model finishes training
-            while True:
-                try:
-                    result = self.queues.get_result(topic='training', timeout=1)
-                except TimeoutException:
-                    if self.done.is_set():
-                        return
-                    else:
-                        continue
-                break
-            result.task_info['train_size'] = len(examples)
+            result = None
+            for i in range(self.hpc_config.num_training_ranks):
+                while True:
+                    try:
+                        result = self.queues.get_result(topic='training', timeout=1)
+                        print(result.json(exclude={'inputs', 'value'}), file=self._output_files['training-results'], flush=True)
+                    except TimeoutException:
+                        if self.done.is_set():
+                            return
+                        else:
+                            continue
+                    break
             model_dir = Path(self.out_dir / 'models')
             model_dir.mkdir(exist_ok=True)
 
@@ -527,8 +530,6 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             else:
                 self.logger.warning(f'Training failed: {result.failure_info.exception} - {result.failure_info.traceback}')
             shutil.rmtree(train_dir)  # Clear training directory when done
-
-            print(result.json(exclude={'inputs', 'value'}), file=self._output_files['training-results'], flush=True)
 
     @task_submitter(task_type='cp2k')
     def submit_cp2k(self):

@@ -30,6 +30,12 @@ class HPCConfig:
     lammps_env: dict[str, str] = field(default_factory=dict)
     """Extra environment variables to include when running LAMMPS"""
 
+    # Settings related to distributed training
+    gpus_per_node: int = 1
+    """How many GPUs per compute node"""
+    nodes_per_training: int = 1
+    """How many nodes to use for training operations"""
+
     # How tasks are distributed
     ai_fraction: float = 0.1
     """Maximum fraction of resources set aside for AI tasks"""
@@ -47,6 +53,10 @@ class HPCConfig:
     """Which executors are available for AI tasks"""
     helper_executors: Literal['all'] | list[str] = 'all'
     """Which executors are available for processing tasks"""
+
+    @property
+    def num_training_ranks(self):
+        return self.gpus_per_node * self.nodes_per_training
 
     @property
     def num_workers(self) -> int:
