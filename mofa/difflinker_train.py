@@ -1,15 +1,18 @@
+"""Utility functions for training DiffLinker on new data"""
 import argparse
 import os
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
+from typing import Optional
 
 from pytorch_lightning import Trainer, callbacks
 from pytorch_lightning.callbacks import TQDMProgressBar
 from pytorch_lightning.strategies import SingleDeviceStrategy
+from pytorch_lightning.strategies import DDPStrategy
 
-from mofa.utils.lightning import XPUAccelerator
 from mofa.utils.src.const import NUMBER_OF_ATOM_TYPES, GEOM_NUMBER_OF_ATOM_TYPES
 from mofa.utils.src.lightning import DDPM
+from mofa.utils.lightning import PBSClusterEnvironment
 from mofa.utils.src.utils import disable_rdkit_logging
 
 
@@ -112,13 +115,15 @@ def find_last_checkpoint(checkpoints_dir):
 
 def main(
         args,
-        run_directory: Path
+        run_directory: Path,
+        rank_info: Optional[tuple[int, int, int]] = None
 ):
     """Run model training
 
     Args:
         args: Arguments from `get_args` and the configuration file
         run_directory: Directory in which to write output files
+        rank_info: Information about the ranks for this process: (rank, size, ranks_per_node)
     """
 
     # TODO (wardlt): I trimmed off Hyun's code for organizing experimental data. We should put it back if
@@ -129,7 +134,6 @@ def main(
     checkpoints_dir = run_directory / 'chkpt'
     for path in [log_directory, checkpoints_dir]:
         path.mkdir(exist_ok=True, parents=True)
-
     with (run_directory / 'stdout.txt').open('w') as fo, (run_directory / 'stderr.txt').open('w') as fe:
         with redirect_stderr(fe), redirect_stdout(fo):
             # Determine the number of atom types
@@ -141,13 +145,15 @@ def main(
             if '.' in args.train_data_prefix:
                 context_node_nf += 1
 
-            # Lock XPU to single device for now
-            strategy = 'ddp' if args.strategy is None else args.strategy
-            if args.device == 'xpu':
-                accelerator = XPUAccelerator()
-                strategy = SingleDeviceStrategy(device='xpu')
+            # Determine the strategy for parallel training
+            accelerator = args.device
+            if args.strategy == 'ddp':
+                rank, size, ranks_per_node = rank_info
+                strategy = DDPStrategy(cluster_environment=PBSClusterEnvironment(*rank_info),
+                                       process_group_backend='ccl' if args.strategy == 'xpu' else 'nccl')
             else:
-                accelerator = args.device
+                size = ranks_per_node = 1
+                strategy = SingleDeviceStrategy(device=args.device)
 
             checkpoint_callback = [callbacks.ModelCheckpoint(
                 dirpath=checkpoints_dir,
@@ -161,9 +167,13 @@ def main(
                 max_epochs=args.n_epochs,
                 callbacks=checkpoint_callback,
                 accelerator=accelerator,
+                devices=ranks_per_node,
+                num_nodes=size // ranks_per_node,
+                precision='32',
                 num_sanity_val_steps=0,
                 enable_progress_bar=args.enable_progress_bar,
-                strategy=strategy
+                strategy=strategy,
+                detect_anomaly=True,
             )
 
             # Get the model

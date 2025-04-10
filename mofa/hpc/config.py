@@ -30,6 +30,14 @@ class HPCConfig:
     lammps_env: dict[str, str] = field(default_factory=dict)
     """Extra environment variables to include when running LAMMPS"""
 
+    # Settings related to distributed training
+    gpus_per_node: int = 1
+    """How many GPUs per compute node"""
+    num_training_nodes: int = 1
+    """How many nodes to use for training operations"""
+    training_nodes: list[str] = ()
+    """Names of nodes participating in training"""
+
     # How tasks are distributed
     ai_fraction: float = 0.1
     """Maximum fraction of resources set aside for AI tasks"""
@@ -47,6 +55,10 @@ class HPCConfig:
     """Which executors are available for AI tasks"""
     helper_executors: Literal['all'] | list[str] = 'all'
     """Which executors are available for processing tasks"""
+
+    @property
+    def num_training_ranks(self):
+        return self.gpus_per_node * self.num_training_nodes
 
     @property
     def num_workers(self) -> int:
@@ -282,10 +294,10 @@ class PolarisConfig(HPCConfig):
             hosts = [x.strip() for x in fp]
 
         # Determine the number of nodes to use for AI
-        num_ai_hosts = max(1, min(int(self.ai_fraction * len(hosts)), len(hosts) - self.nodes_per_cp2k - 1))
+        num_ai_hosts = max(self.num_training_nodes, min(int(self.ai_fraction * len(hosts)), len(hosts) - self.nodes_per_cp2k - 1))
         self.ai_hosts = hosts[:num_ai_hosts]
-        if num_ai_hosts < 2:
-            raise ValueError('We need at least two AI workers. Increase node count or ai_fraction')
+        if num_ai_hosts < self.num_training_nodes:
+            raise ValueError(f'We need at least {self.num_training_nodes} AI workers. Increase node count or ai_fraction')
 
         # Determine the number of hosts to use for simulation
         sim_hosts = hosts[num_ai_hosts:]
@@ -298,7 +310,7 @@ class PolarisConfig(HPCConfig):
 
     @property
     def number_inf_workers(self):
-        return (len(self.ai_hosts) - 1) * self.gpus_per_node
+        return (len(self.ai_hosts) - self.num_training_nodes) * self.gpus_per_node
 
     @property
     def num_lammps_workers(self):
@@ -346,7 +358,7 @@ hostname""".strip()
                 available_accelerators=4,
                 provider=LocalProvider(
                     launcher=WrappedLauncher(
-                        f"mpiexec -n {len(self.ai_hosts) - 1} --ppn 1 --hostfile {ai_nodefile} --depth=64 --cpu-bind depth"
+                        f"mpiexec -n {len(self.ai_hosts) - self.num_training_nodes} --ppn 1 --hostfile {ai_nodefile} --depth=64 --cpu-bind depth"
                     ),
                     worker_init=worker_init,
                     min_blocks=1,
@@ -439,7 +451,7 @@ hostname""".strip()
         assert len(self.hosts) > 0, 'No hosts detected'  # TODO (wardlt): Also builds the hosts list, make that clearer/auto
 
         ai_nodefile = run_dir / 'ai.hosts'
-        ai_nodefile.write_text('\n'.join(self.ai_hosts[1:]))  # First is used for training
+        ai_nodefile.write_text('\n'.join(self.ai_hosts[self.num_training_nodes:]))  # First are used for training
         lammps_nodefile = run_dir / 'lammps.hosts'
         lammps_nodefile.write_text('\n'.join(self.lammps_hosts) + '\n')
         cp2k_nodefile = run_dir / 'cp2k.hosts'
@@ -487,6 +499,10 @@ export LD_LIBRARY_PATH=$FPATH/intel_extension_for_pytorch/lib:$LD_LIBRARY_PATH
     """.strip()
 
     @property
+    def training_nodes(self):
+        return self.ai_hosts[:self.num_training_nodes]
+
+    @property
     def cp2k_cmd(self):
         assert self.run_dir is not None, 'This must be run after the Parsl config is built'
         return (f'mpiexec -n {self.nodes_per_cp2k * self.gpus_per_node} --ppn {self.gpus_per_node}'
@@ -496,6 +512,7 @@ export LD_LIBRARY_PATH=$FPATH/intel_extension_for_pytorch/lib:$LD_LIBRARY_PATH
                 '/lus/flare/projects/MOFA/lward/mof-generation-at-scale/bin/cp2k_shell')
 
     def make_parsl_config(self, run_dir: Path) -> Config:
+        assert self.num_training_nodes == 1, 'Only supporting a single training node for now'
         # Set the run dir and write nodefiles to it
         self.run_dir = str(run_dir.absolute())
         ai_nodefile, lammps_nodefile = self._make_nodefiles(run_dir)
@@ -535,7 +552,7 @@ hostname"""
                     available_accelerators=12,
                     provider=LocalProvider(
                         launcher=WrappedLauncher(
-                            f"mpiexec -n {len(self.ai_hosts) - 1} --ppn 1 --hostfile {ai_nodefile} --depth=104 --cpu-bind depth"
+                            f"mpiexec -n {len(self.ai_hosts) - self.num_training_nodes} --ppn 1 --hostfile {ai_nodefile} --depth=104 --cpu-bind depth"
                         ),
                         worker_init=worker_init,
                         min_blocks=1,
@@ -544,7 +561,8 @@ hostname"""
                 ),
                 HighThroughputExecutor(
                     label='train',
-                    max_workers_per_node=1,
+                    max_workers_per_node=12,
+                    available_accelerators=12,
                     provider=LocalProvider(
                         launcher=WrappedLauncher(
                             f"mpiexec -n 1 --ppn 1 --host {self.ai_hosts[0]} --depth=104 --cpu-bind depth"

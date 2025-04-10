@@ -33,7 +33,7 @@ from mofa.simulation.mace import MACERunner
 from mofa.simulation.graspa_sycl import GRASPASyclRunner
 from mofa.steering import GeneratorConfig, TrainingConfig, MOFAThinker, SimulationConfig
 from mofa.hpc.colmena import DiffLinkerInference
-from mofa.hpc.config import configs as hpc_configs
+from mofa.hpc.config import configs as hpc_configs, HPCConfig
 
 RDLogger.DisableLog('rdApp.*')
 ob.obErrorLog.SetOutputLevel(0)
@@ -121,7 +121,7 @@ if __name__ == "__main__":
         templates.append(template)
 
     # Load the HPC configuration
-    hpc_config = hpc_configs[args.compute_config]()
+    hpc_config: HPCConfig = hpc_configs[args.compute_config]()
     hpc_config.ai_fraction = args.ai_fraction
     hpc_config.dft_fraction = args.dft_fraction
 
@@ -172,7 +172,8 @@ if __name__ == "__main__":
     train_func = partial(train_generator,
                          config_path=args.generator_config_path,
                          num_epochs=trainer.num_epochs,
-                         device=hpc_config.torch_device)
+                         device=hpc_config.torch_device,
+                         node_list=hpc_config.training_nodes)
     update_wrapper(train_func, train_generator)
 
     # Make the LAMMPS function
