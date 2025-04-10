@@ -20,7 +20,6 @@ from more_itertools import batched, make_decorator
 from colmena.task_server.parsl import ParslTaskServer
 from colmena.queue.redis import RedisQueues
 
-from mofa import hpc
 from mofa.db import initialize_database
 from mofa.assembly.assemble import assemble_many
 from mofa.assembly.validate import process_ligands
