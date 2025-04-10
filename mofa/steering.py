@@ -501,7 +501,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
                     topic='training',
                     task_info={'train_size': len(examples), 'rank': i}
                 )
-            self.logger.info('Submitted training tasks. Waiting until complete')
+            self.logger.info(f'Submitted {self.hpc_config.num_training_ranks} training tasks. Waiting until complete')
 
             # Wait until the model finishes training
             result = None

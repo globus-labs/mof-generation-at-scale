@@ -54,6 +54,10 @@ def train_generator(
     # Get rank if doing distributed training
     if len(node_list) > 0:
         rank_info = get_rank(node_list)
+        # TODO (wardlt): I'm not sure what's required here
+        #  Is it different than https://docs.alcf.anl.gov/aurora/data-science/frameworks/pytorch/
+        os.environ['MASTER_ADDR'] = node_list[0]
+        os.environ['MASTER_PORT'] = '75143'
     else:
         rank_info = None
 

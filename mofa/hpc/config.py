@@ -565,7 +565,7 @@ hostname"""
                     available_accelerators=12,
                     provider=LocalProvider(
                         launcher=WrappedLauncher(
-                            f"mpiexec -n 1 --ppn 1 --host {self.ai_hosts[:self.num_training_nodes]} --depth=104 --cpu-bind depth"
+                            f"mpiexec -n 1 --ppn 1 --host {self.ai_hosts[0]} --depth=104 --cpu-bind depth"
                         ),
                         worker_init=worker_init,
                         min_blocks=1,
