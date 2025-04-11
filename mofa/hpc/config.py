@@ -563,6 +563,7 @@ hostname"""
                     label='train',
                     max_workers_per_node=12,
                     available_accelerators=12,
+                    cpu_affinity="block",
                     provider=LocalProvider(
                         launcher=WrappedLauncher(
                             f"mpiexec -n 1 --ppn 1 --host {self.ai_hosts[0]} --depth=104 --cpu-bind depth"
