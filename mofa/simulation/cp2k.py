@@ -1,11 +1,12 @@
 """Run computations backed by CP2K"""
-from contextlib import redirect_stdout, redirect_stderr
-from dataclasses import dataclass
+from contextlib import redirect_stdout, redirect_stderr, ExitStack
+from dataclasses import dataclass, field
 from subprocess import run
 from pathlib import Path
 from shutil import which
 import time
 import os
+from typing import Optional
 
 import ase
 from ase.calculators.cp2k import CP2K
@@ -118,6 +119,12 @@ class CP2KRunner:
     run_dir: Path = Path('cp2k-runs')
     """Path in which to store CP2K files"""
 
+    close_cp2k: bool = False
+    """Whether to close CP2K after a successful job"""
+
+    _calc: Optional[CP2K] = field(default=None, init=False, repr=False)
+    """Holds the calculator"""
+
     def run_single_point(self, mof: MOFRecord,
                          level: str = 'pbe',
                          structure_source: tuple[str, int] | None = None) -> tuple[ase.Atoms, Path]:
@@ -197,16 +204,23 @@ class CP2KRunner:
         os.chdir(out_dir)
         with open('cp2k.stdout', 'w') as fo, redirect_stdout(fo), open('cp2k.stderr', 'w') as fe, redirect_stderr(fe):
             try:
-                with CP2K(
+                if self._calc is None:
+                    self._calc = CP2K(
                         command=self.cp2k_invocation,
                         directory=".",
                         inp=inp,
                         max_scf=128,
                         **options,
-                ) as calc:
+                    )
+
+                stack = ExitStack()
+                with stack:
+                    if self.close_cp2k:
+                        stack.enter_context(self._calc)
+
                     # Run the calculation
                     atoms = atoms.copy()
-                    atoms.calc = calc
+                    atoms.calc = self._calc
                     if action == 'single':
                         atoms.get_potential_energy()
                     elif action == 'optimize':
@@ -223,7 +237,10 @@ class CP2KRunner:
                     atoms.write('atoms.json')
             except AssertionError:
                 time.sleep(30)  # Give time for CP2K to exit cleanly
+                self._calc = None
                 raise
             finally:
+                if self.close_cp2k:
+                    self._calc = None
                 os.chdir(start_dir)
         return atoms, out_dir.absolute()

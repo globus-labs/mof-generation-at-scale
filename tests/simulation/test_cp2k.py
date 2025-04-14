@@ -15,6 +15,7 @@ def test_cp2k_single(cif_name, cif_dir, tmpdir):
     # Make a CP2k simulator that reads and writes to a temporary directory
     runner = CP2KRunner(
         cp2k_invocation="cp2k_shell",
+        close_cp2k=True,
     )
 
     test_file = cif_dir / f'{cif_name}.cif'
@@ -33,7 +34,8 @@ def test_cp2k_optimize(cif_name, cif_dir, tmpdir):
 
     # Make a CP2k simulator that reads and writes to a temporary directory
     runner = CP2KRunner(
-        cp2k_invocation="cp2k_shell",  # Maps to the 2024.1 CP2K on wardlt's machine (another reason I skip it on CI)
+        cp2k_invocation="cp2k_shell",
+        close_cp2k=True
     )
 
     test_file = cif_dir / f'{cif_name}.cif'
