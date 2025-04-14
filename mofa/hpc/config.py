@@ -388,7 +388,7 @@ hostname""".strip()
                 available_accelerators=self.lammps_per_gpu * self.gpus_per_node,
                 provider=LocalProvider(
                     launcher=WrappedLauncher(
-                        f"mpiexec -n {len(self.lammps_hosts)} --ppn 1 --hostfile {lammps_nodefile} --depth=64 --cpu-bind depth"
+                        f"mpiexec --no-abort-on-failure -n {len(self.lammps_hosts)} --ppn 1 --hostfile {lammps_nodefile} --depth=64 --cpu-bind depth"
                     ),
                     worker_init=worker_init,
                     min_blocks=1,
@@ -556,7 +556,7 @@ hostname"""
                     available_accelerators=12,
                     provider=LocalProvider(
                         launcher=WrappedLauncher(
-                            f"mpiexec -n {len(self.ai_hosts) - self.num_training_nodes} --ppn 1 --hostfile {ai_nodefile} --depth=104 --cpu-bind depth"
+                            f"mpiexec --no-abort-on-failure -n {len(self.ai_hosts) - self.num_training_nodes} --ppn 1 --hostfile {ai_nodefile} --depth=104 --cpu-bind depth"
                         ),
                         worker_init=worker_init,
                         min_blocks=1,
@@ -586,7 +586,7 @@ hostname"""
                     provider=LocalProvider(
                         worker_init=worker_init,
                         launcher=WrappedLauncher(
-                            f"mpiexec -n {len(self.lammps_hosts)} --ppn 1 --hostfile {lammps_nodefile} --depth=104 --cpu-bind depth"
+                            f"mpiexec --no-abort-on-failure -n {len(self.lammps_hosts)} --ppn 1 --hostfile {lammps_nodefile} --depth=104 --cpu-bind depth"
                         ),
                         min_blocks=1,
                         max_blocks=1,
