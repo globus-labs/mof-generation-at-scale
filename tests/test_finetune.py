@@ -27,3 +27,8 @@ def test_difflinker(coll, example_record):
     records = curr.get_training_set()
     assert len(records) == 8
     assert all(r.gas_storage['CO2'] > 1.5 for r in records)
+
+    curr.max_size = 4
+    records = curr.get_training_set()
+    assert len(records) == 4
+    assert all(r.gas_storage['CO2'] > 1.5 for r in records)
