@@ -291,7 +291,7 @@ class PolarisConfig(HPCConfig):
         # Determine the number of nodes from the PBS_NODEFILE
         node_file = os.environ['PBS_NODEFILE']
         with open(node_file) as fp:
-            hosts = [x.strip() for x in fp]
+            hosts = [x.strip() for x in fp][1:]  # TODO (wardlt): Make skipping rank 0 optional
 
         # Determine the number of nodes to use for AI
         num_ai_hosts = max(self.num_training_nodes, min(int(self.ai_fraction * len(hosts)), len(hosts) - self.nodes_per_cp2k - 1))
