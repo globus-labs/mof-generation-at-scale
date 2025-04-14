@@ -47,22 +47,29 @@ class DiffLinkerCurriculum:
             self.gas_capacity_field: {'$exists': True}
         })
         if gas_counts >= self.min_gas_counts:
+            # Sort by the gas capacity
             sort_field = self.gas_capacity_field
             sort_order = pymongo.DESCENDING
+            pipeline.append({
+                '$sort': {sort_field: sort_order}
+            })
+
+            # Take only the top half
+            pipeline.append({
+                '$limit': gas_counts // 2
+            })
+
+            # If there are more than the limit, sample down
+            if gas_counts > self.max_size:
+                pipeline.append({
+                    '$sample': {'size': self.max_size}
+                })
         else:
             pipeline.append({
                 '$sample': {'size': self.max_size}
             })
-            sort_field = 'position'
-            sort_order = pymongo.DESCENDING
-        pipeline.append({
-            '$sort': {sort_field: sort_order}
-        })
 
         # Run the aggregation
-        pipeline.append({
-            '$limit': self.max_size
-        })
         cursor = self.collection.aggregate(pipeline)
         output = []
         for record in cursor:
