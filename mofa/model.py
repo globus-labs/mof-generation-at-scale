@@ -9,8 +9,6 @@ from uuid import uuid4
 import json
 
 import yaml
-import torch
-import torch.nn.functional as F
 import numpy as np
 from ase import Atom
 from ase.io import read
@@ -307,6 +305,8 @@ class LigandDescription:
         Returns:
             Difflinker-format representation of the training example
         """
+        import torch
+        import torch.nn.functional as F
 
         # Start with a unique name of the ligand
         training_ligand = {"uuid": str(uuid4()), "name": self.smiles}
