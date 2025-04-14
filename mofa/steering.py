@@ -551,7 +551,6 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
                 sleep(0.1)  # Limits us to 100 tasks per second
                 return
 
-
     @result_processor(topic='cp2k')
     def store_cp2k(self, result: Result):
         """Store the results for the CP2K, submit any post-processing"""
