@@ -213,7 +213,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             self.ligand_process_queue.put(result)
 
         if not result.success:
-            self.logger.warning(f'Generation task failed: {result.failure_info.exception}\nStack: {result.failure_info.traceback}')
+            self.logger.warning(f'Generation task failed: {result.failure_info.exception}')
 
     @agent()
     def process_ligands(self):
@@ -253,16 +253,6 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
                 # Signal that we're ready for more MOFs
                 if len(valid_ligands) > 0:
                     self.make_mofs.set()
-
-                # Store the generated ligands
-                record_file = self.out_dir / 'all_ligands.csv'
-                first_write = not record_file.is_file()
-
-                with record_file.open('a') as fp:
-                    writer = DictWriter(fp, all_records[0].keys())
-                    if first_write:
-                        writer.writeheader()
-                    writer.writerows(all_records)
             else:
                 self.logger.warning(f'Generation failed: {result.failure_info.exception}')
 
@@ -309,7 +299,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
 
         # Skip if it failed
         if not result.success:
-            self.logger.warning(f'Assembly task failed: {result.failure_info.exception}\nStack: {result.failure_info.traceback}')
+            self.logger.warning(f'Assembly task failed: {result.failure_info.exception}')
             return
 
         # Add them to the database
@@ -389,7 +379,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
 
         # Retrieve the results
         if not result.success:
-            self.logger.warning(f'MD task failed: {result.failure_info.exception}\nStack: {result.failure_info.traceback}')
+            self.logger.warning(f'MD task failed: {result.failure_info.exception}')
         else:
             self.post_md_queue.put(result)
             self.simulations_left -= 1
@@ -528,7 +518,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
                 result.task_info['model_updated'] = datetime.now().timestamp()
                 self.logger.info(f'Received training result. Updated generator path to {new_model_path}, version number to {self.model_iteration}')
             else:
-                self.logger.warning(f'Training failed: {result.failure_info.exception} - {result.failure_info.traceback}')
+                self.logger.warning(f'Training failed: {result.failure_info.exception}')
             shutil.rmtree(train_dir)  # Clear training directory when done
 
     @task_submitter(task_type='cp2k')
@@ -590,7 +580,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             self.logger.info(f'Partial charges are complete for {mof_name}. Submitted RASPA')
         elif result.method == 'run_gcmc':
             # Store result
-            _, _, uptake_mean, uptake_std = result.value
+            uptake_mean, uptake_std, _, _ = result.value
             record = mofadb.get_records(self.collection, [mof_name])[0]
             record.gas_storage['CO2'] = uptake_mean
             record.times['raspa-done'] = datetime.now()
@@ -600,7 +590,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             self.num_raspa_completed += 1
             if self.num_raspa_completed > self.trainer_config.curriculum.min_gas_counts:
                 self.start_train.set()
-            self.logger.info(f'Stored gas storage capacity for {mof_name}: {uptake_mean:.3e} +/- {uptake_std:.3e} g/L. Completed {self.num_raspa_completed}')
+            self.logger.info(f'Stored gas storage capacity for {mof_name}: {uptake_mean:.3e} +/- {uptake_std:.3e} mol/kg. Completed {self.num_raspa_completed}')
         else:
             raise ValueError(f'Method not supported: {result.method}')
         print(result.json(exclude={'inputs', 'value'}), file=self._output_files['simulation-results'], flush=True)
