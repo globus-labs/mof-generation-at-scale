@@ -267,8 +267,6 @@ def test_generator(thinker, queues, cache_dir):
     tasks = _pull_tasks(queues)
     assert len(tasks) == 0  # The ligands won't create new tasks
 
-    assert thinker.out_dir.joinpath('all_ligands.csv').exists()
-
     queues.send_result(done_result)
     tasks = _pull_tasks(queues)
     assert len(tasks) == 1  # Sending a completed task will trigger new updates

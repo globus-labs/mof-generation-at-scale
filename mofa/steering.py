@@ -2,7 +2,6 @@
 import shutil
 from collections import deque, defaultdict
 from contextlib import AbstractContextManager
-from csv import DictWriter
 from dataclasses import dataclass
 from datetime import datetime
 from functools import cached_property
@@ -546,7 +545,12 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
                     task_info={'mof': record.name}
                 )
                 self.logger.info(f'Submitted {record.name} to run with CP2K')
+
+                # TODO (wardlt): Temporary hack: sleep to avoid overloading mpiexec
+                from time import sleep
+                sleep(0.1)  # Limits us to 100 tasks per second
                 return
+
 
     @result_processor(topic='cp2k')
     def store_cp2k(self, result: Result):
