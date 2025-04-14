@@ -369,6 +369,17 @@ def write_pwdft_in(
 
     fd.write("\n\n".join(out))
 
+    # TODO (wardlt): Do a better job at this, don't hard code it for every run
+    fd.write("""
+nwpw
+   dplot
+      density total valence_density.cube
+   end
+end
+
+task pspw pspw_dplot
+""")
+
 
 def read_pwdft_out(filename):
     with open(filename, "r") as file:

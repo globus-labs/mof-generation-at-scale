@@ -293,6 +293,10 @@ class PolarisConfig(HPCConfig):
         with open(node_file) as fp:
             hosts = [x.strip() for x in fp]
 
+        # TODO (wardlt): Make skipping rank 0 configurable
+        if len(hosts) > 1000:
+            hosts = hosts[1:]  # The service is running on Host 0
+
         # Determine the number of nodes to use for AI
         num_ai_hosts = max(self.num_training_nodes, min(int(self.ai_fraction * len(hosts)), len(hosts) - self.nodes_per_cp2k - 1))
         self.ai_hosts = hosts[:num_ai_hosts]
@@ -384,7 +388,7 @@ hostname""".strip()
                 available_accelerators=self.lammps_per_gpu * self.gpus_per_node,
                 provider=LocalProvider(
                     launcher=WrappedLauncher(
-                        f"mpiexec -n {len(self.lammps_hosts)} --ppn 1 --hostfile {lammps_nodefile} --depth=64 --cpu-bind depth"
+                        f"mpiexec --no-abort-on-failure -n {len(self.lammps_hosts)} --ppn 1 --hostfile {lammps_nodefile} --depth=64 --cpu-bind depth"
                     ),
                     worker_init=worker_init,
                     min_blocks=1,
@@ -552,7 +556,8 @@ hostname"""
                     available_accelerators=12,
                     provider=LocalProvider(
                         launcher=WrappedLauncher(
-                            f"mpiexec -n {len(self.ai_hosts) - self.num_training_nodes} --ppn 1 --hostfile {ai_nodefile} --depth=104 --cpu-bind depth"
+                            f"mpiexec --no-abort-on-failure -n {len(self.ai_hosts) - self.num_training_nodes} "
+                            f"--ppn 1 --hostfile {ai_nodefile} --depth=104 --cpu-bind depth"
                         ),
                         worker_init=worker_init,
                         min_blocks=1,
@@ -563,6 +568,7 @@ hostname"""
                     label='train',
                     max_workers_per_node=12,
                     available_accelerators=12,
+                    cpu_affinity="block",
                     provider=LocalProvider(
                         launcher=WrappedLauncher(
                             f"mpiexec -n 1 --ppn 1 --host {self.ai_hosts[0]} --depth=104 --cpu-bind depth"
@@ -581,7 +587,8 @@ hostname"""
                     provider=LocalProvider(
                         worker_init=worker_init,
                         launcher=WrappedLauncher(
-                            f"mpiexec -n {len(self.lammps_hosts)} --ppn 1 --hostfile {lammps_nodefile} --depth=104 --cpu-bind depth"
+                            f"mpiexec --no-abort-on-failure -n {len(self.lammps_hosts)} --ppn 1 "
+                            f"--hostfile {lammps_nodefile} --depth=104 --cpu-bind depth"
                         ),
                         min_blocks=1,
                         max_blocks=1,
