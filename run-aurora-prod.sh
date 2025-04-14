@@ -1,5 +1,5 @@
 #!/bin/bash -le
-#PBS -l select=64
+#PBS -l select=2048
 #PBS -l walltime=3:00:00
 #PBS -l filesystems=home:flare
 #PBS -q prod
@@ -17,11 +17,16 @@ source /lus/flare/projects/MOFA/lward/mof-generation-at-scale/venv/bin/activate
 conda deactivate
 export ZE_FLAT_DEVICE_HIERARCHY=FLAT
 
+# Ensure we don't overload threads
+export OPENBLAS_NUM_THREADS=2
+export GOTO_NUM_THREADS=2
+export OMP_NUM_THREADS=2
+
 # Put Redis and MongoDB on the path
 export PATH=$PATH:`realpath conda-env/bin/`
 
 # Start Redis
-redis-server --bind 0.0.0.0 --appendonly no --logfile redis.log &
+redis-server --bind 0.0.0.0 --appendonly no --maxclients 1000000 --logfile redis.log &
 redis_pid=$!
 echo launched redis on $redis_pid
 
@@ -32,11 +37,11 @@ python run_parallel_workflow.py \
       --generator-config-path models/geom-300k/config-tf32-a100.yaml \
       --ligand-templates input-files/zn-paddle-pillar/template_*_prompt.yml \
       --retrain-freq 64 \
-      --num-epochs 8 \
+      --num-epochs 16 \
       --num-samples 8096 \
       --gen-batch-size 512 \
-      --ai-fraction 0.05 \
-      --dft-fraction 0.4 \
+      --ai-fraction 0.075 \
+      --dft-fraction 0.6 \
       --simulation-budget -1 \
       --compute-config aurora \
       --mace-model-path ./input-files/mace/mace-mp0_medium-lammps.pt \
