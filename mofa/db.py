@@ -119,4 +119,5 @@ def mark_completed(coll: Collection, record: MOFRecord, task: str):
         task: Name of the task that has completed
     """
     coll.update_one({'name': record.name}, {'$pullAll': {'in_progress': [task]}})
-    record.in_progress.remove(task)
+    if task in record.in_progress:
+        record.in_progress.remove(task)

@@ -22,7 +22,7 @@ export ZE_FLAT_DEVICE_HIERARCHY=FLAT
 export PATH=$PATH:`realpath conda-env/bin/`
 
 # Start Redis
-redis-server --bind 0.0.0.0 --appendonly no --logfile redis.log &
+redis-server --bind 0.0.0.0 --appendonly no --maxclients 1000000 --logfile redis.log &
 redis_pid=$!
 echo launched redis on $redis_pid
 
