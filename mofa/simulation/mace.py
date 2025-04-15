@@ -1,5 +1,5 @@
 """Run computations backed by MACE"""
-
+import shutil
 from dataclasses import dataclass
 from functools import lru_cache
 from string import Template
@@ -114,6 +114,8 @@ class MACERunner(MDInterface):
     """How large of a supercell to use for the MD calculation"""
     device: str = 'cpu'
     """Which device to use for the calculations"""
+    deleted_finished: bool = False
+    """Whether to clear completed files from disk"""
 
     def run_single_point(
             self,
@@ -230,6 +232,10 @@ class MACERunner(MDInterface):
             for model in calc.models:
                 model.to('cpu')
 
+            # Clear out the completed files, if desired
+            if self.deleted_finished:
+                shutil.rmtree(out_dir)
+
         # Remove the calculator from the atoms
         atoms.calc = None
         return atoms, out_dir.absolute()
@@ -266,16 +272,20 @@ class MACERunner(MDInterface):
         )
 
         # Invoke LAMMPS
-        with open(out_dir / 'stdout.lmp', 'w') as fp, open(out_dir / 'stderr.lmp', 'w') as fe:
-            env = None
-            proc = run(list(self.lammps_cmd) + ['-i', inp_path.name], cwd=out_dir, stdout=fp, stderr=fe, env=env)
+        try:
+            with open(out_dir / 'stdout.lmp', 'w') as fp, open(out_dir / 'stderr.lmp', 'w') as fe:
+                env = None
+                proc = run(list(self.lammps_cmd) + ['-i', inp_path.name], cwd=out_dir, stdout=fp, stderr=fe, env=env)
 
-        if proc.returncode != 0:
-            raise ValueError(f'LAMMPS failed in {out_dir}')
+            if proc.returncode != 0:
+                raise ValueError(f'LAMMPS failed in {out_dir}')
 
-        # Read the outputs
-        with open(out_dir / 'dump.lammpstrj.all') as fp:
-            return [(i * write_freq, strc) for i, strc in enumerate(read_lammps_dump_text(fp, slice(None)))]
+            # Read the outputs
+            with open(out_dir / 'dump.lammpstrj.all') as fp:
+                return [(i * write_freq, strc) for i, strc in enumerate(read_lammps_dump_text(fp, slice(None)))]
+        finally:
+            if self.deleted_finished:
+                shutil.rmtree(out_dir)
 
     def run_molecular_dynamics(self,
                                mof: MOFRecord,
@@ -306,22 +316,30 @@ class MACERunner(MDInterface):
             # Increment the outputs by the start time
             return [(i + start_frame, atoms) for i, atoms in output]
         else:
-            out_atoms, out_dir = self._run_mace(
-                name=mof.name,
-                level='default',
-                action='md',
-                atoms=atoms,
-                steps=timesteps - start_frame,
-                loginterval=report_frequency,
-            )
+            orig_df = self.deleted_finished
+            out_dir = None
+            try:
+                self.deleted_finished = False
+                out_atoms, out_dir = self._run_mace(
+                    name=mof.name,
+                    level='default',
+                    action='md',
+                    atoms=atoms,
+                    steps=timesteps - start_frame,
+                    loginterval=report_frequency,
+                )
 
-            # Read in the trajectory file
-            output = []
-            for i, atoms in enumerate(io.iread(out_dir / 'md.traj')):
-                if continuation and i == 0:
-                    continue
-                timestep = start_frame + report_frequency * i
-                output.append((timestep, atoms))
-            if output[-1][0] != timesteps:
-                output.append((timesteps, out_atoms))
-            return output
+                # Read in the trajectory file
+                output = []
+                for i, atoms in enumerate(io.iread(out_dir / 'md.traj')):
+                    if continuation and i == 0:
+                        continue
+                    timestep = start_frame + report_frequency * i
+                    output.append((timestep, atoms))
+                if output[-1][0] != timesteps:
+                    output.append((timesteps, out_atoms))
+                return output
+            finally:
+                self.deleted_finished = orig_df
+                if self.deleted_finished and out_dir is not None:
+                    shutil.rmtree(out_dir)

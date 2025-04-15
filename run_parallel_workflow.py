@@ -179,7 +179,8 @@ if __name__ == "__main__":
     # Make the LAMMPS function
     lmp_runner = MACERunner(lammps_cmd=hpc_config.lammps_cmd,
                             model_path=Path(args.mace_model_path).absolute(),
-                            run_dir=Path('/dev/shm/lmp_run' if args.lammps_on_ramdisk else run_dir / 'lmp_run'))
+                            run_dir=Path('/dev/shm/lmp_run' if args.lammps_on_ramdisk else run_dir / 'lmp_run'),
+                            deleted_finished=args.lammps_on_ramdisk)
     md_fun = partial(lmp_runner.run_molecular_dynamics, report_frequency=args.md_snapshots_freq)
     update_wrapper(md_fun, lmp_runner.run_molecular_dynamics)
     sim_config = SimulationConfig(md_length=args.md_timesteps, md_report=args.md_snapshots_freq)
@@ -210,7 +211,8 @@ if __name__ == "__main__":
     # Make the RASPA function
     raspa_runner = GRASPASyclRunner(
         graspa_command=hpc_config.graspa_cmd,
-        run_dir=run_dir / 'raspa_run'
+        run_dir=Path('/tmp/' if args.lammps_on_ramdisk else run_dir) / 'raspa_run',
+        deleted_finished=args.lammps_on_ramdisk
     )
     raspa_fun = partial(raspa_runner.run_gcmc,
                         adsorbate='CO2',
