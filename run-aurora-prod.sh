@@ -48,7 +48,8 @@ python run_parallel_workflow.py \
       --mace-model-path ./input-files/mace/mace-mp0_medium-lammps.pt \
       --md-timesteps 3000 \
       --proxy-threshold 100000 \
-      --dft-opt-steps 2
+      --dft-opt-steps 2 \
+      --lammps-on-ramdisk
 
 echo Python done
 
