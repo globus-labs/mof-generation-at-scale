@@ -53,7 +53,7 @@ def test_mace_optimize(cif_name, cif_dir, tmpdir):
 @mark.parametrize("level", ["default"])
 def test_mace_options(level, cif_dir):
     """Test that different MACE options work"""
-    runner = MACERunner(deleted_finished=True)
+    runner = MACERunner(delete_finished=True)
 
     test_file = cif_dir / "hMOF-0.cif"
     record = MOFRecord.from_file(test_file)
@@ -72,7 +72,7 @@ def test_mace_md(cif_dir):
     runner = MACERunner(
         lammps_cmd=f"{lammps_path} -k on g 1 -sf kk".split() if lammps_path.exists() else None,
         model_path=model_path,
-        deleted_finished=True
+        delete_finished=True
     )
     output = runner.run_molecular_dynamics(
         mof=record,
