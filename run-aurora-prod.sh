@@ -1,10 +1,11 @@
 #!/bin/bash -le
-#PBS -l select=2048
+#PBS -l select=512
 #PBS -l walltime=3:00:00
 #PBS -l filesystems=home:flare
 #PBS -q prod
 #PBS -N mofa-prod
 #PBS -A MOFA
+#PBS -W tolerate_node_failures=all
 
 hostname
 # Change to working directory
@@ -18,9 +19,9 @@ conda deactivate
 export ZE_FLAT_DEVICE_HIERARCHY=FLAT
 
 # Ensure we don't overload threads
-export OPENBLAS_NUM_THREADS=2
-export GOTO_NUM_THREADS=2
-export OMP_NUM_THREADS=2
+export OPENBLAS_NUM_THREADS=1
+export GOTO_NUM_THREADS=1
+export OMP_NUM_THREADS=1
 
 # Put Redis and MongoDB on the path
 export PATH=$PATH:`realpath conda-env/bin/`
@@ -40,7 +41,7 @@ python run_parallel_workflow.py \
       --num-epochs 16 \
       --num-samples 8096 \
       --gen-batch-size 512 \
-      --ai-fraction 0.075 \
+      --ai-fraction 0.05 \
       --dft-fraction 0.6 \
       --simulation-budget -1 \
       --compute-config aurora \
