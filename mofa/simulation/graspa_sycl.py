@@ -19,9 +19,10 @@ class GRASPASyclRunner:
     run_dir: Path = Path("gRASPA-sycl-runs")
     """Path to store gRASPA-sycl files"""
 
-    def _calculate_cell_size(
-        self, atoms: ase.Atoms, cutoff: float = 12.8
-    ) -> list[int, int, int]:
+    # Whether to remove the simulation directory after the run.
+    delete_finished: bool = False
+
+    def _calculate_cell_size(self, atoms: ase.Atoms, cutoff: float = 12.8) -> list[int, int, int]:
         """Method to calculate Unitcells (for periodic boundary condition) for GCMC
 
         Args:
@@ -96,16 +97,12 @@ class GRASPASyclRunner:
 
             coords = atoms.get_scaled_positions().tolist()
             symbols = atoms.get_chemical_symbols()
-            occupancies = [
-                1 for i in range(len(symbols))
-            ]  # No partial occupancy
+            occupancies = [1 for i in range(len(symbols))]  # No partial occupancy
             charges = atoms.info["_atom_site_charge"]
 
             no = {}
 
-            for symbol, pos, occ, charge in zip(
-                symbols, coords, occupancies, charges
-            ):
+            for symbol, pos, occ, charge in zip(symbols, coords, occupancies, charges):
                 if symbol in no:
                     no[symbol] += 1
                 else:
@@ -162,9 +159,7 @@ class GRASPASyclRunner:
                     charges.append(float(data[4]))
                     positions.append([x, y, z])
         cell = [[a1, a2, a3], [b1, b2, b3], [c1, c2, c3]]
-        atoms = ase.Atoms(
-            symbols=symbols, positions=positions, cell=cell, pbc=True
-        )
+        atoms = ase.Atoms(symbols=symbols, positions=positions, cell=cell, pbc=True)
         atoms.info["_atom_site_charge"] = charges
 
         return atoms
@@ -200,14 +195,10 @@ class GRASPASyclRunner:
                 - E (g/L)
         """
 
-        out_dir = (
-            self.run_dir / f"{name}_{adsorbate}_{temperature}_{pressure:0e}"
-        )
+        out_dir = self.run_dir / f"{name}_{adsorbate}_{temperature}_{pressure:0e}"
         out_dir.mkdir(parents=True, exist_ok=True)
 
-        atoms = self._get_cif_from_chargemol(
-            cp2k_path, chargemol_fname=chargemol_fname
-        )
+        atoms = self._get_cif_from_chargemol(cp2k_path, chargemol_fname=chargemol_fname)
         # Write CIF file with charges
         self._write_cif(atoms, out_dir=out_dir, name=name + ".cif")
 
@@ -231,21 +222,17 @@ class GRASPASyclRunner:
                 if "PRESSURE" in line:
                     line = line.replace("PRESSURE", str(pressure))
                 if "UC_X UC_Y UC_Z" in line:
-                    line = line.replace(
-                        "UC_X UC_Y UC_Z", f"{uc_x} {uc_y} {uc_z}"
-                    )
+                    line = line.replace("UC_X UC_Y UC_Z", f"{uc_x} {uc_y} {uc_z}")
                 if "CUTOFF" in line:
                     line = line.replace("CUTOFF", str(cutoff))
                 if "CIFFILE" in line:
                     line = line.replace("CIFFILE", name)
                 f_out.write(line)
 
-        shutil.move(
-            f"{out_dir}/simulation.input.tmp", f"{out_dir}/simulation.input"
-        )
+        shutil.move(f"{out_dir}/simulation.input.tmp", f"{out_dir}/simulation.input")
 
         # Run gRASPA-sycl
-        with open(out_dir / 'raspa.log', 'w') as fp, open(out_dir / 'raspa.err', 'w') as fe:
+        with open(out_dir / "raspa.log", "w") as fp, open(out_dir / "raspa.err", "w") as fe:
             subprocess.run(self.graspa_command, cwd=out_dir, stdout=fp, stderr=fe)
 
         # Get output from Output/ folder
@@ -265,17 +252,13 @@ class GRASPASyclRunner:
 
         # Get unit in mol/kg
         framework_mass = sum(atoms.get_masses())
-        framework_mass = (
-            framework_mass * unitcell[0] * unitcell[1] * unitcell[2]
-        )
+        framework_mass = framework_mass * unitcell[0] * unitcell[1] * unitcell[2]
         uptake_mol_kg = uptake_total_molecule / framework_mass * 1000
         error_mol_kg = error_total_molecule / framework_mass * 1000
 
         # Get unit in g/L
         framework_vol = atoms.get_volume()  # in Angstrom^3
-        framework_vol_in_L = (
-            framework_vol * 1e-27 * unitcell[0] * unitcell[1] * unitcell[2]
-        )
+        framework_vol_in_L = framework_vol * 1e-27 * unitcell[0] * unitcell[1] * unitcell[2]
 
         # Hard code for CO2 and H2
         if adsorbate == "CO2":
@@ -284,16 +267,11 @@ class GRASPASyclRunner:
             molar_mass = 2.02
         else:
             raise ValueError(f"Adsorbate {adsorbate} is not supported.")
-        uptake_g_L = (
-            uptake_total_molecule
-            / (6.022 * 1e23)
-            * molar_mass
-            / framework_vol_in_L
-        )
-        error_g_L = (
-            error_total_molecule
-            / (6.022 * 1e23)
-            * molar_mass
-            / framework_vol_in_L
-        )
+        uptake_g_L = uptake_total_molecule / (6.022 * 1e23) * molar_mass / framework_vol_in_L
+        error_g_L = error_total_molecule / (6.022 * 1e23) * molar_mass / framework_vol_in_L
+
+        # Remove gRASPA simulation directory
+        if self.delete_finished:
+            shutil.rmtree(out_dir)
+
         return uptake_mol_kg, error_mol_kg, uptake_g_L, error_g_L
