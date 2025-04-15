@@ -32,7 +32,7 @@ if __name__ == "__main__":
                       adsorbate='CO2',
                       temperature=298,
                       pressure=1e4,
-                      n_cycle=100000)
+                      n_cycle=1000)
         run_app = python_app(fun)
         futures = []
         for _, row in pd.read_json('charges.jsonl', lines=True).iterrows():
@@ -49,7 +49,7 @@ if __name__ == "__main__":
 
         for future in tqdm(as_completed(futures), total=len(futures)):
             try:
-                mean, std = future.result()
+                mean, std, _, _ = future.result()
                 with output_path.open('a') as fp:
                     print(json.dumps({
                         'mof': future.row['mof'],
