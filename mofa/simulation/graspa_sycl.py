@@ -19,8 +19,8 @@ class GRASPASyclRunner:
     run_dir: Path = Path("gRASPA-sycl-runs")
     """Path to store gRASPA-sycl files"""
 
-    # Whether to remove the simulation directory after the run.
     delete_finished: bool = False
+    """Whether to remove the directory after run"""
 
     def _calculate_cell_size(self, atoms: ase.Atoms, cutoff: float = 12.8) -> list[int, int, int]:
         """Method to calculate Unitcells (for periodic boundary condition) for GCMC

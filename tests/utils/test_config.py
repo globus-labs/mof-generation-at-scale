@@ -70,6 +70,7 @@ def test_aurora(tmpdir):
         config.ai_fraction = 0.1
         config.dft_fraction = 0.25
         config.make_parsl_config(Path(tmpdir))
+        assert config.nodes_per_cp2k == 1
 
         assert 'flare' in config.graspa_cmd[0]
 

@@ -478,7 +478,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
             # Determine the run directory
             attempt_id = self.model_iteration + 1
             train_dir = self.out_dir / 'retraining' / f'model-v{attempt_id}'
-            train_dir.mkdir(parents=True)
+            train_dir.mkdir(parents=True, exist_ok=True)
             self.logger.info(f'Preparing to retrain Difflinker in {train_dir}')
 
             # Submit training using the latest model

@@ -114,7 +114,7 @@ class MACERunner(MDInterface):
     """How large of a supercell to use for the MD calculation"""
     device: str = 'cpu'
     """Which device to use for the calculations"""
-    deleted_finished: bool = False
+    delete_finished: bool = False
     """Whether to clear completed files from disk"""
 
     def run_single_point(
@@ -233,7 +233,7 @@ class MACERunner(MDInterface):
                 model.to('cpu')
 
             # Clear out the completed files, if desired
-            if self.deleted_finished:
+            if self.delete_finished:
                 shutil.rmtree(out_dir)
 
         # Remove the calculator from the atoms
@@ -284,7 +284,7 @@ class MACERunner(MDInterface):
             with open(out_dir / 'dump.lammpstrj.all') as fp:
                 return [(i * write_freq, strc) for i, strc in enumerate(read_lammps_dump_text(fp, slice(None)))]
         finally:
-            if self.deleted_finished:
+            if self.delete_finished:
                 shutil.rmtree(out_dir)
 
     def run_molecular_dynamics(self,
@@ -316,10 +316,10 @@ class MACERunner(MDInterface):
             # Increment the outputs by the start time
             return [(i + start_frame, atoms) for i, atoms in output]
         else:
-            orig_df = self.deleted_finished
+            orig_df = self.delete_finished
             out_dir = None
             try:
-                self.deleted_finished = False
+                self.delete_finished = False
                 out_atoms, out_dir = self._run_mace(
                     name=mof.name,
                     level='default',
@@ -340,6 +340,6 @@ class MACERunner(MDInterface):
                     output.append((timesteps, out_atoms))
                 return output
             finally:
-                self.deleted_finished = orig_df
-                if self.deleted_finished and out_dir is not None:
+                self.delete_finished = orig_df
+                if self.delete_finished and out_dir is not None:
                     shutil.rmtree(out_dir)
