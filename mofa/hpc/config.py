@@ -252,7 +252,7 @@ class PolarisConfig(HPCConfig):
     lammps_env = {}
     run_dir: str | None = None  # Set when building the configuration
 
-    nodes_per_cp2k: int = 2
+    nodes_per_cp2k: int = field(default=2, init=False)
     """Number of nodes per CP2K task"""
     lammps_per_gpu: int = field(default=4, init=False)
     """Number of LAMMPS to run per GPU"""
@@ -488,6 +488,7 @@ class AuroraConfig(PolarisConfig):
     gpus_per_node = 12
     lammps_per_gpu = 1
     max_helper_nodes = 256
+    nodes_per_cp2k = 1
 
     worker_init = """
 # General environment variables
