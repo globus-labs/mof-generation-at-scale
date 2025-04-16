@@ -32,7 +32,7 @@ if __name__ == "__main__":
                       adsorbate='CO2',
                       temperature=298,
                       pressure=1e4,
-                      n_cycle=1000)
+                      n_cycle=100000)
         run_app = python_app(fun)
         futures = []
         for _, row in pd.read_json('charges.jsonl', lines=True).iterrows():
