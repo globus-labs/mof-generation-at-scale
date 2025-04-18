@@ -1,6 +1,7 @@
 """Interfaces for functions which produce scores on either the full MOF or just the geometry of the linker"""
 
 import ase
+import typing as t
 
 from mofa.model import MOFRecord
 
