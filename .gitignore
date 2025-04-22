@@ -166,3 +166,6 @@ logs/
 
 # MOFA project related 
 run 
+
+# Octopus, Mofka, and ProxyStream related 
+*secrets.sh

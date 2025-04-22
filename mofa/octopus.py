@@ -14,7 +14,6 @@ import logging
 import os
 import pickle
 from datetime import datetime
-from time import time
 from typing import Collection, Dict, Optional, Tuple, Union
 
 from colmena.exceptions import KillSignalException, TimeoutException
