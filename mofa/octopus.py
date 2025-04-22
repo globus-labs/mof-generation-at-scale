@@ -217,10 +217,6 @@ if __name__ == "__main__":
 
     # Set higher log levels for third-party modules
     logging.getLogger("kafka").setLevel(logging.ERROR)
-    logging.getLogger("kafka.client").setLevel(logging.ERROR)
-    logging.getLogger("kafka.conn").setLevel(logging.ERROR)
-    logging.getLogger("kafka.coordinator").setLevel(logging.ERROR)
-    logging.getLogger("kafka.consumer").setLevel(logging.ERROR)
 
     # Initialize OctopusQueues with defined topics.
     topics = ["generation", "lammps", "cp2k", "training", "assembly"]

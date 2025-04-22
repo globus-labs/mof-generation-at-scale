@@ -45,6 +45,8 @@ def confluent_consumer_conf(group_id: str, auto_offset_reset: str):
         "oauth_cb": oauth_cb,
         "group.id": group_id,
         "auto.offset.reset": auto_offset_reset,
+        "enable.auto.commit": False,
+        "max.poll.interval.ms": 600000,  # 10 minutes
     }
 
 
@@ -213,6 +215,17 @@ class ProxyQueues(ColmenaQueues):
 
 
 if __name__ == "__main__":
+    # Configure logging only when running as main script
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+    # Set higher log levels for third-party modules
+    logging.getLogger("proxystore.store").setLevel(logging.ERROR)
+    logging.getLogger("botocore.credentials").setLevel(logging.ERROR)
+    
     queues = ProxyQueues(
         topics=["generation", "lammps", "cp2k", "training", "assembly"],
     )
@@ -243,7 +256,7 @@ if __name__ == "__main__":
     queues_dumped = pickle.dumps(queues)
     queues_loaded = pickle.loads(queues_dumped)
     for i in range(10):
-        print(queues_loaded._get_request())
-        print(queues_loaded._get_request())
-        print(queues_loaded._get_result("generation"))
-        print(queues_loaded._get_result("generation"))
+        logger.info(queues_loaded._get_request())
+        logger.info(queues_loaded._get_request())
+        logger.info(queues_loaded._get_result("generation"))
+        logger.info(queues_loaded._get_result("generation"))

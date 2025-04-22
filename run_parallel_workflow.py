@@ -35,6 +35,7 @@ from mofa.steering import GeneratorConfig, TrainingConfig, MOFAThinker, Simulati
 from mofa.hpc.colmena import DiffLinkerInference
 from mofa.hpc.config import configs as hpc_configs
 from mofa.octopus import OctopusQueues
+from mofa.proxyqueue import ProxyQueues
 
 RDLogger.DisableLog('rdApp.*')
 ob.obErrorLog.SetOutputLevel(0)
@@ -107,7 +108,7 @@ if __name__ == "__main__":
     store = Store(name='redis', connector=RedisConnector(hostname=args.redis_host, port=6379), metrics=True)
     register_store(store)
 
-    queues = OctopusQueues(
+    queues = ProxyQueues(
         topics=['generation', 'lammps', 'cp2k', 'training', 'assembly'],
     )
 
