@@ -34,6 +34,7 @@ from mofa.simulation.raspa2 import RASPA2Runner
 from mofa.steering import GeneratorConfig, TrainingConfig, MOFAThinker, SimulationConfig
 from mofa.hpc.colmena import DiffLinkerInference
 from mofa.hpc.config import configs as hpc_configs
+from mofa.octopus import OctopusQueues
 
 RDLogger.DisableLog('rdApp.*')
 ob.obErrorLog.SetOutputLevel(0)
@@ -106,12 +107,8 @@ if __name__ == "__main__":
     store = Store(name='redis', connector=RedisConnector(hostname=args.redis_host, port=6379), metrics=True)
     register_store(store)
 
-    # Configure to a use Redis queue, which allows streaming results form other nodes
-    queues = RedisQueues(
-        hostname=args.redis_host,
+    queues = OctopusQueues(
         topics=['generation', 'lammps', 'cp2k', 'training', 'assembly'],
-        proxystore_name='redis',
-        proxystore_threshold=args.proxy_threshold
     )
 
     # Load the ligand descriptions
@@ -258,6 +255,7 @@ if __name__ == "__main__":
             (assemble_many, {'executors': hpc_config.helper_executors})
         ],
         queues=queues,
+        timeout=1,
         config=config
     )
 
