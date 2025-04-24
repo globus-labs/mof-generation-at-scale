@@ -10,7 +10,9 @@ import logging
 import hashlib
 import json
 import sys
+import os
 
+from proxystore.connectors.endpoint import EndpointConnector
 from proxystore.connectors.redis import RedisConnector
 from proxystore.store import Store, register_store
 from pymongo import MongoClient
@@ -91,6 +93,10 @@ if __name__ == "__main__":
     group = parser.add_argument_group(title='Selector Settings', description='Control how simulation tasks are selected')
     group.add_argument('--md-new-fraction', default=0.8, help='How frequently to start MD on a new MOF')
 
+    group = parser.add_argument_group(title='Mini App Settings', description='Controls the mini app startup type')
+    group.add_argument('--launch-option', default='both', help='require one of [both|thinker|server]')
+    group.add_argument('--queue-type', default='redis', help='require one of [octopus|proxystream]')
+    
     args = parser.parse_args()
 
     # Load the example MOF
@@ -104,14 +110,18 @@ if __name__ == "__main__":
     run_dir = Path('run') / f'parallel-{args.compute_config}-{start_time.strftime("%d%b%y%H%M%S")}-{params_hash}'
     run_dir.mkdir(parents=True)
 
-    # Open a proxystore with Redis
-    store = Store(name='redis', connector=RedisConnector(hostname=args.redis_host, port=6379), metrics=True)
-    register_store(store)
+    if args.queue_type == "octopus":
+        store = Store(name='redis', connector=RedisConnector(hostname=args.redis_host, port=6379), metrics=True)
+        register_store(store)
+    
+        queues = OctopusQueues(topics=['generation', 'lammps', 'cp2k', 'training', 'assembly'])
 
-    queues = ProxyQueues(
-        topics=['generation', 'lammps', 'cp2k', 'training', 'assembly'],
-    )
-
+    elif args.queue_type == "proxystream":
+        store = Store("my-store", connector=EndpointConnector([os.environ["PROXYSTORE_ENDPOINT"]]))
+        register_store(store)
+    
+        queues = ProxyQueues(topics=['generation', 'lammps', 'cp2k', 'training', 'assembly'])
+        
     # Load the ligand descriptions
     templates = []
     for path in args.ligand_templates:
@@ -128,13 +138,14 @@ if __name__ == "__main__":
     with (run_dir / 'compute-config.json').open('w') as fp:
         json.dump(asdict(hpc_config), fp)
 
-    # Launch MongoDB as a subprocess
-    mongo_dir = run_dir / 'db'
-    mongo_dir.mkdir(parents=True)
-    mongo_proc = Popen(
-        f'mongod --wiredTigerCacheSizeGB 4 --dbpath {mongo_dir.absolute()} --logpath {(run_dir / "mongo.log").absolute()}'.split(),
-        stderr=(run_dir / 'mongo.err').open('w')
-    )
+    if args.launch_option in ['both', 'thinker']:
+        # Launch MongoDB as a subprocess
+        mongo_dir = run_dir / 'db'
+        mongo_dir.mkdir(parents=True)
+        mongo_proc = Popen(
+            f'mongod --wiredTigerCacheSizeGB 4 --dbpath {mongo_dir.absolute()} --logpath {(run_dir / "mongo.log").absolute()}'.split(),
+            stderr=(run_dir / 'mongo.err').open('w')
+        )
     mongo_client = MongoClient()
     mongo_coll = initialize_database(mongo_client)
 
@@ -216,23 +227,25 @@ if __name__ == "__main__":
                         n_cycle=args.raspa_timesteps)
     update_wrapper(raspa_fun, raspa_runner.run_gcmc)
 
-    # Make the thinker
-    thinker = MOFAThinker(queues,
-                          collection=mongo_coll,  # Connect to a local service
-                          hpc_config=hpc_config,
-                          generator_config=generator,
-                          trainer_config=trainer,
-                          simulation_config=sim_config,
-                          simulation_budget=args.simulation_budget,
-                          dft_selector=dft_selector,
-                          md_selector=md_selector,
-                          node_template=node_template,
-                          out_dir=run_dir)
+    if args.launch_option in ['both', 'thinker']:
+        # Make the thinker
+        thinker = MOFAThinker(queues,
+                            collection=mongo_coll,  # Connect to a local service
+                            hpc_config=hpc_config,
+                            generator_config=generator,
+                            trainer_config=trainer,
+                            simulation_config=sim_config,
+                            simulation_budget=args.simulation_budget,
+                            dft_selector=dft_selector,
+                            md_selector=md_selector,
+                            node_template=node_template,
+                            out_dir=run_dir)
 
     # Turn on logging
     my_logger = logging.getLogger('main')
     handlers = [logging.StreamHandler(sys.stdout), logging.FileHandler(run_dir / 'run.log')]
-    for logger in [my_logger, thinker.logger]:
+    loggers = [my_logger, thinker.logger] if args.launch_option in ['both', 'thinker'] else [my_logger]
+    for logger in loggers:
         for handler in handlers:
             handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
             logger.addHandler(handler)
@@ -243,22 +256,23 @@ if __name__ == "__main__":
     (run_dir / 'params.json').write_text(json.dumps(run_params))
 
     # Launch the thinker and task server
-    doer = ParslTaskServer(
-        methods=[
-            (gen_method, {'executors': hpc_config.inference_executors}),
-            (train_func, {'executors': hpc_config.train_executors}),
-            (md_fun, {'executors': hpc_config.lammps_executors}),
-            (md_opt_fun, {'executors': hpc_config.lammps_executors}),
-            (cp2k_fun, {'executors': hpc_config.cp2k_executors}),
-            (compute_partial_charges, {'executors': hpc_config.helper_executors}),
-            (process_ligands, {'executors': hpc_config.helper_executors}),
-            (raspa_fun, {'executors': hpc_config.helper_executors}),
-            (assemble_many, {'executors': hpc_config.helper_executors})
-        ],
-        queues=queues,
-        timeout=1,
-        config=config
-    )
+    if args.launch_option in ["both", "server"]:
+        doer = ParslTaskServer(
+            methods=[
+                (gen_method, {'executors': hpc_config.inference_executors}),
+                (train_func, {'executors': hpc_config.train_executors}),
+                (md_fun, {'executors': hpc_config.lammps_executors}),
+                (md_opt_fun, {'executors': hpc_config.lammps_executors}),
+                (cp2k_fun, {'executors': hpc_config.cp2k_executors}),
+                (compute_partial_charges, {'executors': hpc_config.helper_executors}),
+                (process_ligands, {'executors': hpc_config.helper_executors}),
+                (raspa_fun, {'executors': hpc_config.helper_executors}),
+                (assemble_many, {'executors': hpc_config.helper_executors})
+            ],
+            queues=queues,
+            timeout=1,
+            config=config
+        )
 
     # Launch the utilization logging
     log_dir = run_dir / 'logs'
@@ -269,18 +283,24 @@ if __name__ == "__main__":
     my_logger.info(f'Launched monitoring process. pid={util_proc.pid}')
 
     try:
-        doer.start()
-        my_logger.info(f'Running parsl. pid={doer.pid}')
+        if args.launch_option in ["both", "server"]:
+            doer.start()
+            my_logger.info(f'Running parsl. pid={doer.pid}')
 
-        with thinker:  # Opens the output files
-            thinker.run()
+        if args.launch_option in ["both", "thinker"]:
+            with thinker:  # Opens the output files
+                thinker.run()
     finally:
-        queues.send_kill_signal()
+        if args.launch_option in ["both", "thinker"]:
+            queues.send_kill_signal()
 
-        # Kill the services launched during workflow
+            # Kill the services launched during workflow
+            mongo_proc.terminate()
+            mongo_proc.poll()
+
+        if args.launch_option in ["server"]:
+            doer.join()
+            
         util_proc.terminate()
-        mongo_proc.terminate()
-        mongo_proc.poll()
-
         # Close the proxy store
         store.close()
