@@ -1,3 +1,7 @@
+# Project directory ignores
+scripts/sc25_artifacts/prod-runs/
+
+
 # IDE ignores
 .idea/
 
