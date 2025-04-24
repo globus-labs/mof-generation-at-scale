@@ -66,54 +66,50 @@ mpiexec -n 16 --ppn 8 --cpu-bind depth --depth 4 -env OMP_NUM_THREADS=4 \
 
 ## Building LAMMPS on Polaris
 
-We need a copy of LAMMPS that uses GPUs and not MPI.
-While the recommended option from [from ALCF is to build LAMMPS with Kokkos](https://github.com/argonne-lcf/GettingStarted/tree/master/Applications/Polaris/LAMMPS),
-our MOF simulations run best with the GPU package.
+We need a copy of LAMMPS that uses GPUs and not MPI,
+and one that includes the still-experimental ML-MACE module.
 
-First download then build LAMMPS following
+First clone our fork of the MACE teams's fork of LAMMPS:
+
+```
+git clone -b mace-no-mpi https://github.com/WardLT/lammps-mace.git
+```
+
+Then download libtorch ([link](https://download.pytorch.org/libtorch/cu126/libtorch-win-shared-with-deps-2.7.0%2Bcu126.zip)) and extract it nearby.
+
+Compile LAMMPS using the following build script (editing paths to libtorch appropriately):
 
 ```bash
-#! /bin/bash
-
 # Make the build environment
 module reset
 module use /soft/modulefiles
-module use /soft/modulefiles
 module load spack-pe-base cmake
+module load gcc
+module load cudatoolkit-standalone/12.6
+module load kokkos
 module list
 
-mkdir build-gpu-nompi-mixed
-cd build-gpu-nompi-mixed
-
-cmake ../cmake -DCMAKE_BUILD_TYPE=release \
+mkdir -p build-mace
+cd build-mace
+cmake \
+    -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_CUDA_COMPILER=nvcc \
     -DCMAKE_C_COMPILER=nvc++ \
     -DCMAKE_CXX_COMPILER=nvc++ \
     -DCMAKE_CXX_STANDARD=14 \
-    -DLAMMPS_MEMALIGN=64 \
-    -DLAMMPS_SIZES=smallsmall \
-    -DPKG_MOFFF=on \
-    -DFFT=KISS \
-    -DPKG_QEQ=on \
-    -DPKG_REAXFF=on \
-    -DPKG_RIGID=on \
-    -DPKG_MOLECULE=on \
-    -DPKG_EXTRA-MOLECULE=on \
-    -DPKG_EXTRA-FIX=on \
-    -DPKG_KSPACE=on \
-    -DPKG_MANYBODY=on \
-    -DPKG_GRANULAR=on \
-    -DPKG_GPU=on \
-    -DGPU_API=cuda \
-    -DGPU_PREC=mixed \
-    -DGPU_ARCH=sm_80 \
-    -DGPU_DEBUG=no \
-    -DCUDA_MPS_SUPPORT=yes \
-    -DBUILD_OMP=no \
-    -DBUILD_MPI=no \
-    -DCUDA_NVCC_FLAGS="-std=c++14 -allow-unsupported-compiler -Xcompiler" \
-    -DCMAKE_CXX_FLAGS="-std=c++14 -DCUDA_PROXY"
-
-make -j 16
+    -DCMAKE_INSTALL_PREFIX=$(pwd) \
+    -DCMAKE_CXX_STANDARD_REQUIRED=ON \
+    -DBUILD_SHARED_LIBS=ON \
+    -DBUILD_MPI=OFF \
+    -DPKG_KOKKOS=ON \
+    -DKokkos_ENABLE_CUDA=ON \
+    -DCMAKE_CXX_COMPILER=$(pwd)/../lib/kokkos/bin/nvcc_wrapper \
+    -DKokkos_ARCH_ZEN3=ON \
+    -DKokkos_ARCH_AMPERE86=ON \
+    -DCMAKE_PREFIX_PATH=$(pwd)/../../libtorch \
+    -DPKG_ML-MACE=ON \
+    ../cmake
+make -j 8
+make install
 
 ```
