@@ -69,6 +69,9 @@ class GraphFeatureScorer:
             # since having a graph sampled from it.
             cluster_priorities[c] -= 1
 
+        if all([item == float("-inf") for item in graphs]):
+            return []
+
         return graph_priorities
 
     def _score_graph_features(self, graphs: Collection[nx.Graph]) -> np.ndarray:
