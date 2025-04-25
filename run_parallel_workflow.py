@@ -149,14 +149,13 @@ if __name__ == "__main__":
     with (run_dir / 'compute-config.json').open('w') as fp:
         json.dump(asdict(hpc_config), fp)
 
-    if args.launch_option in ['both', 'thinker']:
-        # Launch MongoDB as a subprocess
-        mongo_dir = run_dir / 'db'
-        mongo_dir.mkdir(parents=True)
-        mongo_proc = Popen(
-            f'mongod --wiredTigerCacheSizeGB 4 --dbpath {mongo_dir.absolute()} --logpath {(run_dir / "mongo.log").absolute()}'.split(),
-            stderr=(run_dir / 'mongo.err').open('w')
-        )
+    # Launch MongoDB as a subprocess
+    mongo_dir = run_dir / 'db'
+    mongo_dir.mkdir(parents=True)
+    mongo_proc = Popen(
+        f'mongod --wiredTigerCacheSizeGB 4 --dbpath {mongo_dir.absolute()} --logpath {(run_dir / "mongo.log").absolute()}'.split(),
+        stderr=(run_dir / 'mongo.err').open('w')
+    )
     mongo_client = MongoClient()
     mongo_coll = initialize_database(mongo_client)
 
