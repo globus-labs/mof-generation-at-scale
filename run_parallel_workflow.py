@@ -96,6 +96,8 @@ if __name__ == "__main__":
     group = parser.add_argument_group(title='Mini App Settings', description='Controls the mini app startup type')
     group.add_argument('--launch-option', default='both', help='require one of [both|thinker|server]')
     group.add_argument('--queue-type', default='redis', help='require one of [redis|octopus|proxystream]')
+    group.add_argument('--mongo-host',  default="localhost", help='Host for the Mongo server')
+    
     
     args = parser.parse_args()
 
@@ -149,14 +151,15 @@ if __name__ == "__main__":
     with (run_dir / 'compute-config.json').open('w') as fp:
         json.dump(asdict(hpc_config), fp)
 
-    # Launch MongoDB as a subprocess
-    mongo_dir = run_dir / 'db'
-    mongo_dir.mkdir(parents=True)
-    mongo_proc = Popen(
-        f'mongod --wiredTigerCacheSizeGB 4 --dbpath {mongo_dir.absolute()} --logpath {(run_dir / "mongo.log").absolute()}'.split(),
-        stderr=(run_dir / 'mongo.err').open('w')
-    )
-    mongo_client = MongoClient()
+    if args.launch_option in ['both', 'thinker']:
+        # Launch MongoDB as a subprocess
+        mongo_dir = run_dir / 'db'
+        mongo_dir.mkdir(parents=True)
+        mongo_proc = Popen(
+            f'mongod --wiredTigerCacheSizeGB 4 --dbpath {mongo_dir.absolute()} --logpath {(run_dir / "mongo.log").absolute()} --bind_ip 0.0.0.0'.split(),
+            stderr=(run_dir / 'mongo.err').open('w')
+        )
+    mongo_client = MongoClient(args.mongo_host)
     mongo_coll = initialize_database(mongo_client)
 
     # Make the generator settings and the function
