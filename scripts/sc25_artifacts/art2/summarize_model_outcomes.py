@@ -60,6 +60,7 @@ def extract_mofs(directory: Path) -> None:
             x[: x.index(".")] + "Z" if "." in x else x, "%Y-%m-%dT%H:%M:%SZ"
         )
     )
+    records["cumulative_found"] = (records["structure_stability.uff"] < 0.1).cumsum()
     records["walltime"] = (records["time"] - records["time"].min()).apply(
         lambda x: x.total_seconds()
     )
