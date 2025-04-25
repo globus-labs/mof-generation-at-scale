@@ -95,7 +95,7 @@ if __name__ == "__main__":
 
     group = parser.add_argument_group(title='Mini App Settings', description='Controls the mini app startup type')
     group.add_argument('--launch-option', default='both', help='require one of [both|thinker|server]')
-    group.add_argument('--queue-type', default='redis', help='require one of [octopus|proxystream]')
+    group.add_argument('--queue-type', default='redis', help='require one of [redis|octopus|proxystream]')
     
     args = parser.parse_args()
 
@@ -110,7 +110,18 @@ if __name__ == "__main__":
     run_dir = Path('run') / f'parallel-{args.compute_config}-{start_time.strftime("%d%b%y%H%M%S")}-{params_hash}'
     run_dir.mkdir(parents=True)
 
-    if args.queue_type == "octopus":
+    if args.queue_type == "redis":
+        store = Store(name='redis', connector=RedisConnector(hostname=args.redis_host, port=6379), metrics=True)
+        register_store(store)
+
+        queues = RedisQueues(
+            hostname=args.redis_host,
+            topics=['generation', 'lammps', 'cp2k', 'training', 'assembly'],
+            proxystore_name='redis',
+            proxystore_threshold=args.proxy_threshold
+        )
+
+    elif args.queue_type == "octopus":
         store = Store(name='redis', connector=RedisConnector(hostname=args.redis_host, port=6379), metrics=True)
         register_store(store)
     
@@ -270,7 +281,7 @@ if __name__ == "__main__":
                 (assemble_many, {'executors': hpc_config.helper_executors})
             ],
             queues=queues,
-            timeout=1,
+            timeout=1 if args.queue_type != "redis" else None,
             config=config
         )
 
