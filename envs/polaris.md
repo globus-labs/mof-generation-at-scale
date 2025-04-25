@@ -105,7 +105,7 @@ cmake \
     -DKokkos_ENABLE_CUDA=ON \
     -DCMAKE_CXX_COMPILER=$(pwd)/../lib/kokkos/bin/nvcc_wrapper \
     -DKokkos_ARCH_ZEN3=ON \
-    -DKokkos_ARCH_AMPERE86=ON \
+    -DKokkos_ARCH_AMPERE80=ON \
     -DCMAKE_PREFIX_PATH=$(pwd)/../../libtorch \
     -DPKG_ML-MACE=ON \
     ../cmake
@@ -113,3 +113,13 @@ make -j 8
 make install
 
 ```
+
+Load the CUDA module and set the path to libtorch before running
+
+```bash
+module load cudatoolkit-standalone/12.6
+
+FPATH=/lus/eagle/projects/MOFA/lward/libtorch/lib
+export LD_LIBRARY_PATH=$FPATH:$LD_LIBRARY_PATH
+```
+
