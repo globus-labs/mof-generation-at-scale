@@ -53,14 +53,16 @@ def extract_mofs(directory: Path) -> None:
     # Convert to `DataFrame` and format features.
     records = pd.concat(records, ignore_index=True)
     records["model_version"] = records[
-        ["ligand.cyano.metadata.model_version", "ligand.COO.metadata.model_version"]
+        ["ligand.cyano.metadata.model_version",
+            "ligand.COO.metadata.model_version"]
     ].max(axis=1)
     records["time"] = records["time"].apply(
         lambda x: datetime.strptime(
             x[: x.index(".")] + "Z" if "." in x else x, "%Y-%m-%dT%H:%M:%SZ"
         )
     )
-    records["cumulative_found"] = (records["structure_stability.uff"] < 0.1).cumsum()
+    records["cumulative_found"] = (
+        records["structure_stability.uff"] < 0.1).cumsum()
     records["walltime"] = (records["time"] - records["time"].min()).apply(
         lambda x: x.total_seconds()
     )
@@ -78,9 +80,11 @@ if __name__ == "__main__":
     start_time = perf_counter()
     dirs = list(RUN_DIR.glob("**/mofs.json.gz"))
     pbar = tqdm(total=len(dirs))
+    print(f">> Processing {len(dirs)} directories.")
     for d in dirs:
         pbar.set_description("Processing `{}`".format(d.parent))
         extract_mofs(d.parent)
         pbar.update()
 
+    # TODO: Parallelize this.
     print(f"Time taken (sec.): {perf_counter() - start_time}")
