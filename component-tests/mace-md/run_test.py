@@ -60,6 +60,45 @@ if __name__ == "__main__":
     if args.config == "local":
         config = Config(executors=[HighThroughputExecutor(max_workers_per_node=1, cpu_affinity='block')])
         lammps_cmd = "/home/lward/Software/lammps-mace/build-mace/lmp -k on g 1 -sf kk".split()
+    elif args.config == "polaris":
+        lammps_cmd = (
+            ' /lus/eagle/projects/MOFA/lward/lammps-mace/build-mace/lmp '
+            "-k on g 1 -sf kk"
+        ).split()
+        lammps_env = {'OMP_NUM_THREADS': '1'}
+        config = Config(retries=4, executors=[
+            HighThroughputExecutor(
+                max_workers_per_node=4,
+                cpu_affinity='block-reverse',
+                available_accelerators=4,
+                provider=PBSProProvider(
+                    launcher=MpiExecLauncher(bind_cmd="--cpu-bind", overrides="--depth=64 --ppn 1"),
+                    account='MOFA',
+                    queue='debug',
+                    select_options="ngpus=4",
+                    scheduler_options="#PBS -l filesystems=home:eagle",
+                    worker_init="""
+module list
+source activate /lus/eagle/projects/MOFA/lward/mof-generation-at-scale/env
+module load cudatoolkit-standalone/12.6
+
+FPATH=/lus/eagle/projects/MOFA/lward/libtorch/lib
+export LD_LIBRARY_PATH=$FPATH:$LD_LIBRARY_PATH
+
+cd $PBS_O_WORKDIR
+pwd
+which python
+hostname
+                    """,
+                    nodes_per_block=1,
+                    init_blocks=1,
+                    min_blocks=0,
+                    max_blocks=1,
+                    cpus_per_node=32,
+                    walltime="1:00:00",
+                )
+            )
+        ])
     elif args.config.startswith("aurora"):
         # Map processes to specific tiles or whole devices
         lammps_cmd = (
