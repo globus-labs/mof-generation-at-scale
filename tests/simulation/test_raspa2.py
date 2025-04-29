@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from mofa.simulation.raspa2 import RASPA2Runner
+from mofa.simulation.raspa.raspa2 import RASPA2Runner
 from pytest import mark
 
 
@@ -14,15 +14,14 @@ def test_raspa2_runner(adsorbate, temperature, pressure):
     # Can use different sets of parameters
     params = {
         "name": "test",
-        "cp2k_path": _file_path,
+        "cp2k_dir": _file_path,
         "adsorbate": adsorbate,
         "temperature": temperature,
         "pressure": pressure,
-        "n_cycle": 100,
+        "cycles": 100,
     }
     raspa2_command = "simulate"
-    r2r = RASPA2Runner()
-    r2r.raspa2_command = raspa2_command
+    r2r = RASPA2Runner(raspa_command=raspa2_command, delete_finished=True)
     uptake_mol_kg, error_mol_kg, uptake_g_L, error_g_L = r2r.run_gcmc(**params)
     assert isinstance(uptake_mol_kg, float)
     assert isinstance(error_mol_kg, float)

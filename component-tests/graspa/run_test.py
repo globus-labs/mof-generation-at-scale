@@ -25,7 +25,7 @@ def test_function(path: Path, invocation: list[str], timesteps: int) -> tuple[fl
         - Runtime (s)
         - Gas capacities
     """
-    from mofa.simulation.graspa_sycl import GRASPASyclRunner
+    from mofa.simulation.raspa.graspa_sycl import GRASPASyclRunner
     from time import perf_counter
     from pathlib import Path
 

@@ -30,7 +30,7 @@ from mofa.selection.dft import DFTSelector
 from mofa.selection.md import MDSelector
 from mofa.simulation.cp2k import CP2KRunner, compute_partial_charges
 from mofa.simulation.mace import MACERunner
-from mofa.simulation.graspa_sycl import GRASPASyclRunner
+from mofa.simulation.raspa.graspa_sycl import GRASPASyclRunner
 from mofa.steering import GeneratorConfig, TrainingConfig, MOFAThinker, SimulationConfig
 from mofa.hpc.colmena import DiffLinkerInference
 from mofa.hpc.config import configs as hpc_configs, HPCConfig
@@ -210,7 +210,7 @@ if __name__ == "__main__":
 
     # Make the RASPA function
     raspa_runner = GRASPASyclRunner(
-        graspa_command=hpc_config.graspa_cmd,
+        raspa_command=hpc_config.graspa_cmd,
         run_dir=Path('/tmp/' if args.lammps_on_ramdisk else run_dir) / 'raspa_run',
         delete_finished=args.lammps_on_ramdisk
     )
