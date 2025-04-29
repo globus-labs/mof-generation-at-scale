@@ -17,11 +17,11 @@ def test_graspa_runner(adsorbate, temperature, pressure):
     # Can use different sets of parameters
     params = {
         "name": "test",
-        "cp2k_path": _file_path,
+        "cp2k_dir": _file_path,
         "adsorbate": adsorbate,
         "temperature": temperature,
         "pressure": pressure,
-        "n_cycle": 100,
+        "steps": 100,
     }
     gr = gRASPARunner(run_dir=_file_path)
 
@@ -31,7 +31,7 @@ def test_graspa_runner(adsorbate, temperature, pressure):
     else:
         gr.graspa_command = graspa_path
 
-    uptake_mol_kg, error_mol_kg, uptake_g_L, error_g_L = gr.run_graspa(**params)
+    uptake_mol_kg, error_mol_kg, uptake_g_L, error_g_L = gr.run_gcmc(**params)
     assert isinstance(uptake_mol_kg, float)
     assert isinstance(error_mol_kg, float)
     assert isinstance(uptake_g_L, float)

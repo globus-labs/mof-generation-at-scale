@@ -14,11 +14,11 @@ def test_raspa2_runner(adsorbate, temperature, pressure):
     # Can use different sets of parameters
     params = {
         "name": "test",
-        "cp2k_path": _file_path,
+        "cp2k_dir": _file_path,
         "adsorbate": adsorbate,
         "temperature": temperature,
         "pressure": pressure,
-        "n_cycle": 100,
+        "steps": 100,
     }
     raspa2_command = "simulate"
     r2r = RASPA2Runner()
