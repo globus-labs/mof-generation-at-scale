@@ -5,6 +5,7 @@ from pytest import mark
 
 from mofa.simulation.raspa.graspa import gRASPARunner
 
+_file_path = Path(__file__).parent
 graspa_path = which('graspa.x')
 _cache_dir = Path(__file__).parent / 'graspa-runs' / 'cached'
 
@@ -16,13 +17,13 @@ def test_graspa_runner(adsorbate, temperature, pressure):
     # Can use different sets of parameters
     params = {
         "name": "test",
-        "cp2k_path": ".",
+        "cp2k_path": _file_path,
         "adsorbate": adsorbate,
         "temperature": temperature,
         "pressure": pressure,
         "n_cycle": 100,
     }
-    gr = gRASPARunner()
+    gr = gRASPARunner(run_dir=_file_path)
 
     if graspa_path is None:
         name = "{name}_{adsorbate}_{temperature}_{pressure:0e}".format(**params)

@@ -5,7 +5,6 @@ from mofa.simulation.raspa.graspa_sycl import GRASPASyclRunner
 from pytest import mark
 
 _file_path = Path(__file__).parent
-
 graspa_scyl_path = which('sycl.out')
 _cache_dir = Path(__file__).parent / 'gRASPA-sycl-runs' / 'cached'
 
@@ -25,7 +24,7 @@ def test_graspa_sycl_runner(adsorbate, temperature, pressure):
         "pressure": pressure,
         "n_cycle": 100,
     }
-    gr = GRASPASyclRunner()
+    gr = GRASPASyclRunner(run_dir=_file_path)
 
     if graspa_scyl_path is not None:
         name = "{name}_{adsorbate}_{temperature}_{pressure:0e}".format(**params)
