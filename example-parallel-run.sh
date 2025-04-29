@@ -1,4 +1,5 @@
 #! /bin/bash
+# Run MOFA locally on a system with a single NVIDIA GPU
 
 python run_parallel_workflow.py \
       --node-path input-files/zn-paddle-pillar/node.json \
@@ -8,10 +9,14 @@ python run_parallel_workflow.py \
       --retrain-freq 2 \
       --num-epochs 4 \
       --num-samples 128 \
-      --gen-batch-size 64 \
+      --gen-batch-size 128 \
       --simulation-budget 8 \
       --redis-host 127.0.0.1 \
-      --compute-config local
+      --compute-config "local" \
+      --mace-model-path ./input-files/mace/mace-mp0_medium-lammps.pt \
+      --md-timesteps 1000 \
+      --dft-opt-steps 2
+
 
 # Xiaoli local
 # python run_parallel_workflow.py \

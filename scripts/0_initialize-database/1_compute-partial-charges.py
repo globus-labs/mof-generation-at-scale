@@ -1,5 +1,4 @@
 """Test LAMMPS by running a large number of MD simulations with different runtimes"""
-from concurrent.futures import as_completed
 from pathlib import Path
 from platform import node
 import argparse
@@ -18,10 +17,11 @@ from parsl.launchers import SimpleLauncher
 
 from mofa.model import MOFRecord
 from mofa.simulation.cp2k import compute_partial_charges
+from mofa.simulation.mace import MACERunner
 from mofa.utils.conversions import write_to_string
 
 
-def test_function(strc: MOFRecord, cp2k_invocation: str, steps: int) -> tuple[float, tuple[Atoms, Path]]:
+def run_cp2k(strc: MOFRecord, cp2k_invocation: str, steps: int) -> tuple[float, tuple[Atoms, Path]]:
     """Run a LAMMPS simulation, report runtime and resultant traj
 
     Args:
@@ -36,11 +36,11 @@ def test_function(strc: MOFRecord, cp2k_invocation: str, steps: int) -> tuple[fl
     from time import perf_counter
     from pathlib import Path
 
-    run_dir = Path(f'run-{steps}')
+    run_dir = Path(f'cp2k-run-{steps}')
     run_dir.mkdir(exist_ok=True, parents=True)
 
     # Run
-    runner = CP2KRunner(cp2k_invocation, run_dir=run_dir)
+    runner = CP2KRunner(cp2k_invocation, run_dir=run_dir, close_cp2k=True)
     start_time = perf_counter()
     output = runner.run_optimization(strc, steps=steps)
     run_time = perf_counter() - start_time
@@ -71,6 +71,7 @@ if __name__ == "__main__":
                     '/lus/eagle/projects/ExaMol/cp2k-2024.1/exe/local_cuda/cp2k_shell.psmp')
         config = Config(retries=1, executors=[
             MPIExecutor(
+                label='mpi',
                 max_workers_per_block=32 // args.num_nodes,
                 provider=PBSProProvider(
                     launcher=SimpleLauncher(),
@@ -106,12 +107,55 @@ hostname
                 )
             )
         ])
+    elif args.config == "aurora":
+        assert args.ranks_per_node == 12, 'We only support 1 rank per tile on Aurora'
+        cp2k_cmd = (f'mpiexec -n {args.num_nodes * args.ranks_per_node} --ppn {args.ranks_per_node}'
+                    f' --cpu-bind depth --depth={104 // args.ranks_per_node} -env OMP_NUM_THREADS={104 // args.ranks_per_node} '
+                    '--env OMP_PLACES=cores '
+                    '/lus/flare/projects/MOFA/lward/mof-generation-at-scale/bin/cp2k_shell')
+        config = Config(
+            retries=2,
+            executors=[
+                HighThroughputExecutor(
+                    label="sunspot_test",
+                    prefetch_capacity=0,
+                    max_workers_per_node=1,
+                    provider=PBSProProvider(
+                        account="MOFA",
+                        queue="debug",
+                        worker_init="""
+module load frameworks
+source /lus/flare/projects/MOFA/lward/mof-generation-at-scale/venv/bin/activate
+cd $PBS_O_WORKDIR
+
+pwd
+which python
+hostname
+                                """,
+                        walltime="1:00:00",
+                        launcher=SimpleLauncher(),
+                        scheduler_options="#PBS -l filesystems=home:flare",
+                        nodes_per_block=args.num_nodes,
+                        min_blocks=0,
+                        max_blocks=1,  # Can increase more to have more parallel batch jobs
+                        cpus_per_node=208,
+                    ),
+                ),
+            ]
+        )
     else:
         raise ValueError(f'Configuration not defined: {args.config}')
 
+    # Make the MACE runner
+    runner = MACERunner(
+        model_path=Path('../../input-files/mace/mace-mp0_medium'),
+        run_dir=Path('mace-relax'),
+    )
+
     # Prepare parsl
     with parsl.load(config):
-        test_app = PythonApp(test_function)
+        test_app = PythonApp(run_cp2k)
+        relax_app = PythonApp(runner.run_optimization)
 
         # Gather MOFs from an example set
         example_set = pd.read_csv('raw-data/ZnNCO_hMOF_cat0_valid_ads_angle_clean.csv').sample(frac=1., random_state=1).head(args.num_to_run)
@@ -128,36 +172,33 @@ hostname
             prev_runs = []
 
         # Submit each MOF
-        futures = []
-        for mof in structures.values():
+        for mof in tqdm(structures.values(), total=len(structures)):
             mof = MOFRecord(**mof)
             if (mof.name, args.steps) not in prev_runs:
+
+                # First relax
+                atoms, _ = relax_app(mof, 'default', steps=1024, fmax=0.5).result()
+                mof.structure = write_to_string(atoms, 'vasp')
+
+                # Then submit CP2K
                 future = test_app(mof, cp2k_cmd, args.steps)
-                future.mof = mof
-                futures.append(future)
+                runtime, (atoms, run_path) = future.result()
 
-        # Store results
-        for future in tqdm(as_completed(futures), total=len(futures)):
-            if future.exception() is not None:
-                print(f'{future.mof.name} failed: {future.exception()}')
-                continue
-            runtime, (atoms, run_path) = future.result()
-
-            # Get the strain
-            try:
-                charges = compute_partial_charges(run_path).arrays['q'].tolist()
-            except:
-                charges = None
-            # Store the result
-            with open('charges.jsonl', 'a') as fp:
-                print(json.dumps({
-                    'host': node(),
-                    'nodes': args.num_nodes,
-                    'ranks-per-node': args.ranks_per_node,
-                    'cp2k_cmd': cp2k_cmd,
-                    'steps': args.steps,
-                    'mof': future.mof.name,
-                    'runtime': runtime,
-                    'charges': charges,
-                    'strc': write_to_string(atoms, 'vasp')
-                }), file=fp)
+                # Get the strain
+                try:
+                    charges = compute_partial_charges(run_path).arrays['q'].tolist()
+                except:
+                    charges = None
+                # Store the result
+                with open('charges.jsonl', 'a') as fp:
+                    print(json.dumps({
+                        'host': node(),
+                        'nodes': args.num_nodes,
+                        'ranks-per-node': args.ranks_per_node,
+                        'cp2k_cmd': cp2k_cmd,
+                        'steps': args.steps,
+                        'mof': mof.name,
+                        'runtime': runtime,
+                        'charges': charges,
+                        'strc': atoms
+                    }), file=fp)

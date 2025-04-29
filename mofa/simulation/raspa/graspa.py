@@ -223,7 +223,8 @@ class gRASPARunner(BaseRaspaRunner):
         self.graspa_command = self.graspa_command + " > raspa.err 2> raspa.log"
 
         # Run gRASPA
-        subprocess.run(self.graspa_command, shell=True, cwd=out_dir)
+        with open(out_dir / 'raspa.log', 'w') as fp, open(out_dir / 'raspa.err', 'w') as fe:
+            subprocess.run(self.graspa_command, cwd=out_dir, stdout=fp, stderr=fe)
 
         # Get output from raspa.log file
         results = []

@@ -1,27 +1,19 @@
+"""Utility functions for training DiffLinker on new data"""
 import argparse
 import os
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
+from typing import Optional
 
 from pytorch_lightning import Trainer, callbacks
 from pytorch_lightning.callbacks import TQDMProgressBar
 from pytorch_lightning.strategies import SingleDeviceStrategy
-
-try:
-    import intel_extension_for_pytorch as ipex  # noqa: F401
-    import oneccl_bindings_for_pytorch  # noqa: F401
-except ImportError:
-    pass
+from pytorch_lightning.strategies import DDPStrategy
 
 from mofa.utils.src.const import NUMBER_OF_ATOM_TYPES, GEOM_NUMBER_OF_ATOM_TYPES
 from mofa.utils.src.lightning import DDPM
+from mofa.utils.lightning import PBSClusterEnvironment
 from mofa.utils.src.utils import disable_rdkit_logging
-
-
-def _intel_on_train_start(trainer: Trainer):
-    """Hook for optimizing the model and optimizer before training"""
-    assert len(trainer.optimizers) == 1, 'We only support one optimizer for now'
-    trainer.model, trainer.optimizers[0] = ipex.optimize(trainer.model, optimizer=trainer.optimizers[0])
 
 
 def get_args(args: list[str]) -> argparse.Namespace:
@@ -123,13 +115,15 @@ def find_last_checkpoint(checkpoints_dir):
 
 def main(
         args,
-        run_directory: Path
+        run_directory: Path,
+        rank_info: Optional[tuple[int, int, int]] = None
 ):
     """Run model training
 
     Args:
         args: Arguments from `get_args` and the configuration file
         run_directory: Directory in which to write output files
+        rank_info: Information about the ranks for this process: (rank, size, ranks_per_node)
     """
 
     # TODO (wardlt): I trimmed off Hyun's code for organizing experimental data. We should put it back if
@@ -140,7 +134,6 @@ def main(
     checkpoints_dir = run_directory / 'chkpt'
     for path in [log_directory, checkpoints_dir]:
         path.mkdir(exist_ok=True, parents=True)
-
     with (run_directory / 'stdout.txt').open('w') as fo, (run_directory / 'stderr.txt').open('w') as fe:
         with redirect_stderr(fe), redirect_stdout(fo):
             # Determine the number of atom types
@@ -152,10 +145,15 @@ def main(
             if '.' in args.train_data_prefix:
                 context_node_nf += 1
 
-            # Lock XPU to single device for now
-            strategy = 'ddp_spawn' if args.strategy is None else SingleDeviceStrategy(device='xpu')
-            if args.device == 'xpu':
-                strategy = SingleDeviceStrategy(device='xpu')
+            # Determine the strategy for parallel training
+            accelerator = args.device
+            if args.strategy == 'ddp':
+                rank, size, ranks_per_node = rank_info
+                strategy = DDPStrategy(cluster_environment=PBSClusterEnvironment(*rank_info),
+                                       process_group_backend='ccl' if args.strategy == 'xpu' else 'nccl')
+            else:
+                size = ranks_per_node = 1
+                strategy = SingleDeviceStrategy(device=args.device)
 
             checkpoint_callback = [callbacks.ModelCheckpoint(
                 dirpath=checkpoints_dir,
@@ -168,15 +166,15 @@ def main(
                 default_root_dir=log_directory,
                 max_epochs=args.n_epochs,
                 callbacks=checkpoint_callback,
-                accelerator=args.device,
+                accelerator=accelerator,
+                devices=ranks_per_node,
+                num_nodes=size // ranks_per_node,
+                precision='32',
                 num_sanity_val_steps=0,
                 enable_progress_bar=args.enable_progress_bar,
-                strategy=strategy
+                strategy=strategy,
+                detect_anomaly=True,
             )
-
-            # Add a callback for fit setup
-            if args.device == "xpu":
-                trainer.on_fit_start = _intel_on_train_start
 
             # Get the model
             if args.resume is None:
@@ -260,7 +258,8 @@ def main(
                     center_of_mass=args.center_of_mass,
                     inpainting=args.inpainting,
                     anchors_context=anchors_context,
-                    dataset_override=args.dataset_override)
+                    dataset_override=args.dataset_override
+                )
 
             # Force converting the dataset now before we start distributed training
             #  There might be issues in each training rank writing to disk at the same time

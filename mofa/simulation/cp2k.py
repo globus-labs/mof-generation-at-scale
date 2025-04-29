@@ -1,11 +1,14 @@
 """Run computations backed by CP2K"""
-from contextlib import redirect_stdout, redirect_stderr
-from dataclasses import dataclass
+import shutil
+import uuid
+from contextlib import redirect_stdout, redirect_stderr, ExitStack
+from dataclasses import dataclass, field
 from subprocess import run
 from pathlib import Path
+from shutil import which
 import time
-import sys
 import os
+from typing import Optional
 
 import ase
 from ase.calculators.cp2k import CP2K
@@ -15,7 +18,7 @@ from ase.io import Trajectory
 from ase.optimize import LBFGS
 
 from mofa.model import MOFRecord
-from mofa.utils.conversions import read_from_string
+from mofa.utils.conversions import read_from_string, write_to_string
 
 _file_dir = Path(__file__).parent / 'files'
 
@@ -31,9 +34,13 @@ _cp2k_options = {
 }
 
 # Get the path to the CP2K atomic density guesses
-_atomic_density_folder_path = str(Path(sys.prefix) / "share" / "chargemol" / "atomic_densities")
-if not _atomic_density_folder_path.endswith("/"):
-    _atomic_density_folder_path = _atomic_density_folder_path + "/"
+_chargemol_path = which('chargemol')
+if _chargemol_path is not None:
+    _atomic_density_folder_path = str(Path(_chargemol_path).parent / ".." / "share" / "chargemol" / "atomic_densities")
+    if not _atomic_density_folder_path.endswith("/"):
+        _atomic_density_folder_path = _atomic_density_folder_path + "/"
+else:
+    _atomic_density_folder_path = None
 
 
 # Utility functions
@@ -114,9 +121,15 @@ class CP2KRunner:
     run_dir: Path = Path('cp2k-runs')
     """Path in which to store CP2K files"""
 
+    close_cp2k: bool = False
+    """Whether to close CP2K after a successful job"""
+
+    _calc: Optional[CP2K] = field(default=None, init=False, repr=False)
+    """Holds the calculator"""
+
     def run_single_point(self, mof: MOFRecord,
                          level: str = 'pbe',
-                         structure_source: tuple[str, int] | None = None) -> tuple[ase.Atoms, Path]:
+                         structure_source: tuple[str, int] | None = None) -> tuple[str, Path]:
         """Perform a single-point computation at a certain level
 
         Args:
@@ -125,7 +138,7 @@ class CP2KRunner:
             structure_source: Name of the MD trajectory and frame ID from which to source the
                 input structure. Default is to use the as-assembled structure
         Returns:
-            - Structure with the
+            - Structure
             - Path to the run directory
         """
 
@@ -136,7 +149,7 @@ class CP2KRunner:
                          level: str = 'pbe',
                          structure_source: tuple[str, int] | None = None,
                          steps: int = 8,
-                         fmax: float = 1e-2) -> tuple[ase.Atoms, Path]:
+                         fmax: float = 1e-2) -> tuple[str, Path]:
         """Perform a single-point computation at a certain level
 
         Args:
@@ -155,7 +168,7 @@ class CP2KRunner:
         return self._run_cp2k(mof.name, atoms, 'optimize', level, steps, fmax, ignore_failure=True)
 
     def _run_cp2k(self, name: str, atoms: ase.Atoms, action: str, level: str,
-                  steps: int = 8, fmax: float = 1e-2, ignore_failure: bool = False) -> tuple[ase.Atoms, Path]:
+                  steps: int = 8, fmax: float = 1e-2, ignore_failure: bool = False) -> tuple[str, Path] | None:
         """Run CP2K in a special directory
 
         Args:
@@ -184,25 +197,42 @@ class CP2KRunner:
             raise ValueError(f'No presents for {level}')
         options = _cp2k_options[level]
 
-        # Open then move to the output directory
-        #  CP2K does not like long directory names in input files, so we move to the local directory
+        # Either run in the eventual output directory if one MOF per CP2K,
+        #  or run in a separate dir if we will re-use the CP2K executable
         out_dir = self.run_dir / f'{name}-{action}-{level}'
+        if self.close_cp2k:
+            run_dir = out_dir
+        elif self._calc is None:
+            run_dir = self.run_dir / f'temp-{uuid.uuid4()}'
+            run_dir.mkdir(parents=True, exist_ok=True)
+        else:
+            run_dir = self._calc.run_dir
+
+        # Begin execution
         start_dir = Path().cwd()
         out_dir.mkdir(parents=True, exist_ok=True)
         (out_dir / 'cp2k.out').write_text('')  # Clear old content
-        os.chdir(out_dir)
+        os.chdir(run_dir)
         with open('cp2k.stdout', 'w') as fo, redirect_stdout(fo), open('cp2k.stderr', 'w') as fe, redirect_stderr(fe):
             try:
-                with CP2K(
+                if self._calc is None:
+                    self._calc = CP2K(
                         command=self.cp2k_invocation,
                         directory=".",
                         inp=inp,
                         max_scf=128,
                         **options,
-                ) as calc:
+                    )
+                    self._calc.run_dir = run_dir
+
+                stack = ExitStack()
+                with stack:
+                    if self.close_cp2k:
+                        stack.enter_context(self._calc)
+
                     # Run the calculation
                     atoms = atoms.copy()
-                    atoms.calc = calc
+                    atoms.calc = self._calc
                     if action == 'single':
                         atoms.get_potential_energy()
                     elif action == 'optimize':
@@ -219,7 +249,15 @@ class CP2KRunner:
                     atoms.write('atoms.json')
             except AssertionError:
                 time.sleep(30)  # Give time for CP2K to exit cleanly
+                self._calc = None
                 raise
             finally:
-                os.chdir(start_dir)
-        return atoms, out_dir.absolute()
+                os.chdir(start_dir)  # Paths are relative to the start directory
+                if self.close_cp2k:
+                    self._calc = None
+                else:
+                    # Copy files from the run directory to here
+                    for path in self._calc.run_dir.iterdir():
+                        shutil.copy(path, out_dir / path.name)
+
+        return write_to_string(atoms, 'vasp'), out_dir.absolute()

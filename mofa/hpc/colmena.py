@@ -23,7 +23,13 @@ class DiffLinkerInference(PythonGeneratorMethod):
         self.__dict__.update(state)
 
         # Make sure the store is registered
+        self.store = Store.from_config(state['store'])
         register_store(self.store, exist_ok=True)
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        state['store'] = self.store.config()
+        return state
 
     def stream_result(self, y: Any, result: Result, start_time: float):
         """Submit a new task given the linkers"""

@@ -70,7 +70,7 @@ def utilization_cli() -> NoReturn:
     xpu_smi = shutil.which('xpu-smi')
     if xpu_smi is not None:
         Popen(
-            [xpu_smi, 'dump', '-d', '-1', '-m', '0,1,17,18', '-i', str(int(args.frequency))],
+            [xpu_smi, 'dump', '-d', '-1', '-m', '0,1,9,17,18,22', '-i', str(int(args.frequency))],
             stdout=(log_path / f'{platform.node()}-xpu.csv').open('w')  # Leave open. Will close as Python exits
         )
 

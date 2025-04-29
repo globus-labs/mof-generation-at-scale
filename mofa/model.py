@@ -9,8 +9,6 @@ from uuid import uuid4
 import json
 
 import yaml
-import torch
-import torch.nn.functional as F
 import numpy as np
 from ase import Atom
 from ase.io import read
@@ -307,6 +305,8 @@ class LigandDescription:
         Returns:
             Difflinker-format representation of the training example
         """
+        import torch
+        import torch.nn.functional as F
 
         # Start with a unique name of the ligand
         training_ligand = {"uuid": str(uuid4()), "name": self.smiles}
@@ -404,25 +404,29 @@ class MOFRecord:
     """A representative 3D structure of the MOF in POSCAR format"""
 
     # Detailed outputs from simulations
-    md_trajectory: dict[str, dict[str, list[str]]] = field(default_factory=dict, repr=False)
+    md_trajectory: dict[str, list[tuple[int, str]]] = field(default_factory=dict, repr=False)
     """Structures of the molecule produced during molecular dynamics simulations.
 
-    The dictionary has two keys: the level of accuracy, then the number of timesteps in the trajectory.
-    The values are the structures at each timestep in POSCAR format"""
+    The key of the dictionary is the name of the method (e.g., forcefield) used
+    for the molecular dynamics.
+    The values are a list of pairs of the MD timestep and the structure at that timestep"""
 
     # Properties
     gas_storage: dict[str, float | tuple[float, float]] = field(default_factory=dict, repr=False)  # TODO (wardlt): Allow only one type of value
     """Storage capacity of the MOF for different gases and pressures. Key is the name of the gas, value is a single capacity value
-     or the capacity at different pressures (units TBD)"""
-    structure_stability: dict[str, dict[str, float]] = field(default_factory=dict, repr=False)
-    """How likely the structure is to be stable according to different assays
+     or the capacity at different pressures (units g/L)"""
+    structure_stability: dict[str, float] = field(default_factory=dict, repr=False)
+    """How likely the structure is to be stable according to different assays.
+    The value is the strain between the first and last timestep. Larger values indicate worse stability
 
-    The dictionary has two keys: the level of accuracy, then the number of timesteps in the trajectory.
-    The value is the strain between the first and last timestep. Larger values indicate worse stability"""
+    The strain for each assay should correspond to the strain from the longest trajectory in :attr:`md_trajectory`
+    """
 
     # Tracking provenance of structure
     times: dict[str, datetime] = field(default_factory=lambda: {'created': datetime.now()})
     """Listing times at which key events occurred"""
+    in_progress: list[str] = field(default_factory=list)
+    """Whether any assays are in progress"""
 
     def __post_init__(self):
         if self.name is None:
