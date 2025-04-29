@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from mofa.simulation.raspa2 import RASPA2Runner
+from mofa.simulation.raspa.raspa2 import RASPA2Runner
 from pytest import mark
 
 

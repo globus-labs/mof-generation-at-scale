@@ -233,7 +233,10 @@ class GRASPASyclRunner:
 
         # Run gRASPA-sycl
         with open(out_dir / "raspa.log", "w") as fp, open(out_dir / "raspa.err", "w") as fe:
-            subprocess.run(self.graspa_command, cwd=out_dir, stdout=fp, stderr=fe)
+            result = subprocess.run(self.graspa_command, cwd=out_dir, stdout=fp, stderr=fe)
+
+        if result.returncode != 0:
+            raise ValueError(f'RASPA failed in {out_dir}')
 
         # Get output from Output/ folder
         with open(f"{out_dir}/raspa.log", "r") as rf:

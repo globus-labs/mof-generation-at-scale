@@ -1,12 +1,16 @@
 from pathlib import Path
-from mofa.simulation.graspa_sycl import GRASPASyclRunner
-from pytest import mark
+from shutil import which
 
+from mofa.simulation.raspa.graspa_sycl import GRASPASyclRunner
+from pytest import mark
 
 _file_path = Path(__file__).parent
 
+has_graspa_scyl = which('sycl.out') is not None
 
-@mark.skip()
+
+# TODO (wardlt): Spoof the outputs if gRASPA not available
+@mark.skipif(not has_graspa_scyl, reason='gRASPA-sycl not found')
 @mark.parametrize(
     "adsorbate,temperature,pressure", [("CO2", 298, 1e4), ("H2", 160, 1e4)]
 )
@@ -22,9 +26,9 @@ def test_graspa_sycl_runner(adsorbate, temperature, pressure):
         "pressure": pressure,
         "n_cycle": 100,
     }
-    graspa_sycl_command = "sycl.out"
+    graspa_sycl_command = [which("sycl.out")]
     gr = GRASPASyclRunner()
-    gr.graspa_sycl_command = graspa_sycl_command
+    gr.graspa_command = graspa_sycl_command
 
     uptake_mol_kg, error_mol_kg, uptake_g_L, error_g_L = gr.run_gcmc(**params)
     assert isinstance(uptake_mol_kg, float)

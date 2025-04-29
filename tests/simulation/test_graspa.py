@@ -1,8 +1,14 @@
-from mofa.simulation.raspa.graspa import gRASPARunner
+from shutil import which
+
 from pytest import mark
 
+from mofa.simulation.raspa.graspa import gRASPARunner
 
-@mark.skip()
+graspa_path = which('graspa.x')
+
+
+# TODO (wardlt): Spoof the outputs if gRASPA not available
+@mark.skipif(graspa_path is None, reason='graspa not found')
 @mark.parametrize("adsorbate,temperature,pressure", [("CO2", 298, 1e4), ("H2", 160, 5e5)])
 def test_graspa_runner(adsorbate, temperature, pressure):
     """Test for gRASPA runner"""
@@ -16,12 +22,8 @@ def test_graspa_runner(adsorbate, temperature, pressure):
         "pressure": pressure,
         "n_cycle": 100,
     }
-    graspa_command = (
-        "/opt/cray/pals/1.3.4/bin/mpiexec -n 1 --cpu-bind list:0 "
-        "/eagle/projects/HPCBot/thang/soft/gRASPA/src_clean/nvc_main.x"
-    )
     gr = gRASPARunner()
-    gr.graspa_command = graspa_command
+    gr.graspa_command = graspa_path
     uptake_mol_kg, error_mol_kg, uptake_g_L, error_g_L = gr.run_graspa(**params)
     assert isinstance(uptake_mol_kg, float)
     assert isinstance(error_mol_kg, float)

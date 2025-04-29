@@ -1,4 +1,4 @@
-"""Interface to the GPU Version of RASPA, `gRASPA <https://github.com/snurr-group/gRASPA>`_"""
+"""Interface to the CUDA Version of RASPA, `gRASPA <https://github.com/snurr-group/gRASPA>`_"""
 from dataclasses import dataclass
 import subprocess
 import os
@@ -219,12 +219,14 @@ class gRASPARunner(BaseRaspaRunner):
                 f_out.write(line)
 
         shutil.move(f"{out_dir}/simulation.input.tmp", f"{out_dir}/simulation.input")
-        # Store outputs in raspa.log. Some minor outputs are in raspa.err.
-        self.graspa_command = self.graspa_command + " > raspa.err 2> raspa.log"
 
         # Run gRASPA
-        with open(out_dir / 'raspa.log', 'w') as fp, open(out_dir / 'raspa.err', 'w') as fe:
-            subprocess.run(self.graspa_command, cwd=out_dir, stdout=fp, stderr=fe)
+        err_path = out_dir / 'raspa.err'
+        with open(out_dir / 'raspa.log', 'w') as fp, open(err_path, 'w') as fe:
+            result = subprocess.run(self.graspa_command, cwd=out_dir, stdout=fe, stderr=fp)
+
+        if result.returncode != 0:
+            raise ValueError(f'gRASPA failed: {err_path.read_text()[:128]}')
 
         # Get output from raspa.log file
         results = []
