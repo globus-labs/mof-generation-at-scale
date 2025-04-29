@@ -26,7 +26,7 @@ def test_graspa_sycl_runner(adsorbate, temperature, pressure):
     }
     gr = GRASPASyclRunner(run_dir=_file_path)
 
-    if graspa_scyl_path is not None:
+    if graspa_scyl_path is None:
         name = "{name}_{adsorbate}_{temperature}_{pressure:0e}".format(**params)
         gr.graspa_command = ["cp", f"{_cache_dir.absolute() / name}.log", "raspa.log"]
     else:
