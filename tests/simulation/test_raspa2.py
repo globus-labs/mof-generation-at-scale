@@ -18,11 +18,10 @@ def test_raspa2_runner(adsorbate, temperature, pressure):
         "adsorbate": adsorbate,
         "temperature": temperature,
         "pressure": pressure,
-        "steps": 100,
+        "cycles": 100,
     }
     raspa2_command = "simulate"
-    r2r = RASPA2Runner()
-    r2r.raspa2_command = raspa2_command
+    r2r = RASPA2Runner(raspa_command=raspa2_command, delete_finished=True)
     uptake_mol_kg, error_mol_kg, uptake_g_L, error_g_L = r2r.run_gcmc(**params)
     assert isinstance(uptake_mol_kg, float)
     assert isinstance(error_mol_kg, float)

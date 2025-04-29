@@ -7,8 +7,10 @@ import subprocess
 from pathlib import Path
 import shutil
 
+import ase
+
 from mofa.simulation.raspa import BaseRaspaRunner
-from mofa.simulation.raspa.utils import write_cif, calculate_cell_size, get_cif_from_chargemol
+from mofa.simulation.raspa.utils import calculate_cell_size
 
 _file_dir = Path(__file__).parent / "files" / "graspa_sycl_template"
 
@@ -17,29 +19,13 @@ _file_dir = Path(__file__).parent / "files" / "graspa_sycl_template"
 class GRASPASyclRunner(BaseRaspaRunner):
     """Interface for running pre-defined gRASPA-sycl workflows."""
 
-    graspa_command: list[str] = ()
-    """Invocation used to run gRASPA-sycl on this system"""
-
-    run_dir: Path = Path("gRASPA-sycl-runs")
-    """Path to store gRASPA-sycl files"""
-    delete_finished: bool = False
-    """Whether to remove the directory after run"""
-
-    def run_gcmc(
-            self,
-            name: str,
-            cp2k_dir: Path,
-            adsorbate: str,
-            steps: int,
-            temperature: float,
-            pressure: float,
-    ) -> tuple[float, float, float, float]:
-        out_dir = self.run_dir / f"{name}_{adsorbate}_{temperature}_{pressure:0e}"
-        out_dir.mkdir(parents=True, exist_ok=True)
-
-        atoms = get_cif_from_chargemol(cp2k_dir)
-        write_cif(atoms, out_dir=out_dir, name=name + ".cif")
-
+    def _write_inputs(self,
+                      out_dir: Path,
+                      atoms: ase.Atoms,
+                      cycles: int,
+                      adsorbate: str,
+                      temperature: float,
+                      pressure: float):
         # Copy other input files (simulation.input, force fields and definition files) from template folder.
         subprocess.run(f"cp {_file_dir}/* {out_dir}/", shell=True)
 
@@ -52,7 +38,7 @@ class GRASPASyclRunner(BaseRaspaRunner):
         ):
             for line in f_in:
                 if "NCYCLE" in line:
-                    line = line.replace("NCYCLE", str(steps))
+                    line = line.replace("NCYCLE", str(cycles))
                 if "ADSORBATE" in line:
                     line = line.replace("ADSORBATE", adsorbate)
                 if "TEMPERATURE" in line:
@@ -64,18 +50,12 @@ class GRASPASyclRunner(BaseRaspaRunner):
                 if "CUTOFF" in line:
                     line = line.replace("CUTOFF", str(self.cutoff))
                 if "CIFFILE" in line:
-                    line = line.replace("CIFFILE", name)
+                    line = line.replace("CIFFILE", "input")
                 f_out.write(line)
 
         shutil.move(f"{out_dir}/simulation.input.tmp", f"{out_dir}/simulation.input")
 
-        # Run gRASPA-sycl
-        with open(out_dir / "raspa.log", "w") as fp, open(out_dir / "raspa.err", "w") as fe:
-            result = subprocess.run(self.graspa_command, cwd=out_dir, stdout=fp, stderr=fe)
-
-        if result.returncode != 0:
-            raise ValueError(f'RASPA failed in {out_dir}')
-
+    def _read_outputs(self, out_dir: Path, atoms: ase.Atoms, adsorbate: str) -> tuple[float, float, float, float]:
         # Get output from Output/ folder
         with open(f"{out_dir}/raspa.log", "r") as rf:
             for line in rf:

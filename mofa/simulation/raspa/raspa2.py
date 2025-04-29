@@ -4,8 +4,10 @@ import os
 from pathlib import Path
 import shutil
 
+import ase
+
 from mofa.simulation.raspa import BaseRaspaRunner
-from mofa.simulation.raspa.utils import get_cif_from_chargemol, calculate_cell_size, write_cif
+from mofa.simulation.raspa.utils import calculate_cell_size
 
 _file_dir = Path(__file__).parent / "files" / "raspa2_template"
 
@@ -14,26 +16,16 @@ _file_dir = Path(__file__).parent / "files" / "raspa2_template"
 class RASPA2Runner(BaseRaspaRunner):
     """Interface for running pre-defined RASPA2 workflows."""
 
-    raspa2_command: str = "simulate"
-    """Invocation used to run RASPA2 on this system"""
     run_dir: Path = Path("raspa2-runs")
     """Path to store RASPA2 files"""
 
-    def run_gcmc(
-            self,
-            name: str,
-            cp2k_dir: Path,
-            adsorbate: str,
-            steps: int,
-            temperature: float,
-            pressure: float,
-    ) -> tuple[float, float, float, float]:
-        out_dir = self.run_dir / f"{name}_{adsorbate}_{temperature}_{pressure:0e}"
-        out_dir.mkdir(parents=True, exist_ok=True)
-
-        # Write CIF file with charges
-        atoms = get_cif_from_chargemol(cp2k_dir)
-        write_cif(atoms, out_dir, name + ".cif")
+    def _write_inputs(self,
+                      out_dir: Path,
+                      atoms: ase.Atoms,
+                      cycles: int,
+                      adsorbate: str,
+                      temperature: float,
+                      pressure: float):
 
         # Copy other input files (simulation.input, force fields and definition files) from template folder.
         subprocess.run(f"cp {_file_dir}/* {out_dir}/", shell=True)
@@ -47,7 +39,7 @@ class RASPA2Runner(BaseRaspaRunner):
         ):
             for line in f_in:
                 if "NCYCLE" in line:
-                    line = line.replace("NCYCLE", str(steps))
+                    line = line.replace("NCYCLE", str(cycles))
                 if "ADSORBATE" in line:
                     line = line.replace("ADSORBATE", adsorbate)
                 if "TEMPERATURE" in line:
@@ -61,20 +53,14 @@ class RASPA2Runner(BaseRaspaRunner):
                 if "CUTOFF" in line:
                     line = line.replace("CUTOFF", str(self.cutoff))
                 if "CIFFILE" in line:
-                    line = line.replace("CIFFILE", name)
+                    line = line.replace("CIFFILE", "input")
                 f_out.write(line)
 
         shutil.move(
             f"{out_dir}/simulation.input.tmp", f"{out_dir}/simulation.input"
         )
 
-        # Run RASPA2
-        with open(out_dir / "raspa2.out", 'w') as fo, open(out_dir / 'raspa2.err', 'w') as fe:
-            result = subprocess.run(self.raspa2_command, cwd=out_dir, stdout=fo, stderr=fe)
-        if result.returncode != 0:
-            raise ValueError('RASPA failed')
-
-        # Get output from Output/ folder
+    def _read_outputs(self, out_dir: Path, atoms: ase.Atoms, adsorbate: str) -> tuple[float, float, float, float]:
         system_dir = os.path.join(out_dir, "Output", "System_0")
         output_file = next(
             (

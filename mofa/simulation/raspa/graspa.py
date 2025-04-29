@@ -4,8 +4,10 @@ from pathlib import Path
 import subprocess
 import shutil
 
+import ase
+
 from .base import BaseRaspaRunner
-from .utils import get_cif_from_chargemol, write_cif, calculate_cell_size
+from .utils import calculate_cell_size
 
 _file_dir = Path(__file__).parent / "files" / "graspa_template"
 
@@ -19,21 +21,13 @@ class gRASPARunner(BaseRaspaRunner):
     run_dir: Path = Path("graspa-runs")
     """Path to store gRASPA files"""
 
-    def run_gcmc(
-            self,
-            name: str,
-            cp2k_dir: Path,
-            adsorbate: str,
-            steps: int,
-            temperature: float,
-            pressure: float,
-    ) -> tuple[float, float, float, float]:
-        out_dir = self.run_dir / f"{name}_{adsorbate}_{temperature}_{pressure:0e}"
-        out_dir.mkdir(parents=True, exist_ok=True)
-
-        atoms = get_cif_from_chargemol(cp2k_dir)
-        write_cif(atoms, out_dir=out_dir, name=name + ".cif")
-
+    def _write_inputs(self,
+                      out_dir: Path,
+                      atoms: ase.Atoms,
+                      cycles: int,
+                      adsorbate: str,
+                      temperature: float,
+                      pressure: float):
         # Copy other input files (simulation.input, force fields and definition files) from template folder.
         subprocess.run(f"cp {_file_dir}/* {out_dir}/", shell=True)
         [uc_x, uc_y, uc_z] = calculate_cell_size(atoms=atoms)
@@ -45,7 +39,7 @@ class gRASPARunner(BaseRaspaRunner):
         ):
             for line in f_in:
                 if "NCYCLE" in line:
-                    line = line.replace("NCYCLE", str(steps))
+                    line = line.replace("NCYCLE", str(cycles))
                 if "ADSORBATE" in line:
                     line = line.replace("ADSORBATE", adsorbate)
                 if "TEMPERATURE" in line:
@@ -57,22 +51,15 @@ class gRASPARunner(BaseRaspaRunner):
                 if "CUTOFF" in line:
                     line = line.replace("CUTOFF", str(self.cutoff))
                 if "CIF" in line:
-                    line = line.replace("CIF", name)
+                    line = line.replace("CIF", "input")
                 f_out.write(line)
 
         shutil.move(f"{out_dir}/simulation.input.tmp", f"{out_dir}/simulation.input")
 
-        # Run gRASPA
-        err_path = out_dir / 'raspa.err'
-        with open(out_dir / 'raspa.log', 'w') as fp, open(err_path, 'w') as fe:
-            result = subprocess.run(self.graspa_command, cwd=out_dir, stdout=fe, stderr=fp)
-
-        if result.returncode != 0:
-            raise ValueError(f'gRASPA failed: {err_path.read_text()[:128]}')
-
+    def _read_outputs(self, out_dir: Path, atoms: ase.Atoms, adsorbate: str) -> tuple[float, float, float, float]:
         # Get output from raspa.log file
         results = []
-        with open(f"{out_dir}/raspa.log", "r") as rf:
+        with open(f"{out_dir}/raspa.err", "r") as rf:
             for line in rf:
                 if "Overall: Average" in line:
                     results.append(line.strip())

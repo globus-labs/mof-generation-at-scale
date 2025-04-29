@@ -18,19 +18,19 @@ def test_graspa_sycl_runner(adsorbate, temperature, pressure):
     # Can use different sets of parameters
     params = {
         "name": "test",
-        "cp2k_path": _file_path,
+        "cp2k_dir": _file_path,
         "adsorbate": adsorbate,
         "temperature": temperature,
         "pressure": pressure,
-        "n_cycle": 100,
+        "cycles": 100,
     }
-    gr = GRASPASyclRunner(run_dir=_file_path)
 
     if graspa_scyl_path is None:
         name = "{name}_{adsorbate}_{temperature}_{pressure:0e}".format(**params)
-        gr.graspa_command = ["cp", f"{_cache_dir.absolute() / name}.log", "raspa.log"]
+        graspa_command = ["cp", f"{_cache_dir.absolute() / name}.log", "raspa.log"]
     else:
-        gr.graspa_command = [graspa_scyl_path]
+        graspa_command = [graspa_scyl_path]
+    gr = GRASPASyclRunner(run_dir=_file_path, raspa_command=graspa_command)
 
     uptake_mol_kg, error_mol_kg, uptake_g_L, error_g_L = gr.run_gcmc(**params)
     assert isinstance(uptake_mol_kg, float)
