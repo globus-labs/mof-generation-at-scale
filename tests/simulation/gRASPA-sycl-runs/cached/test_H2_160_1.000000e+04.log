@@ -1,0 +1,676 @@
+There are 1 simulations
+running only one simulation
+------------------PARSING FORCE FIELD MIXING RULES----------------
+Ac    lennard-jones    16.60    3.10
+Ag    lennard-jones    18.11    2.80
+Al    lennard-jones    254.09   4.01
+Am    lennard-jones    7.04     3.01
+Ar    lennard-jones    93.08    3.45
+As    lennard-jones    155.47   3.77
+At    lennard-jones    142.89   4.23
+Au    lennard-jones    19.62    2.93
+B     lennard-jones    90.57    3.64
+Ba    lennard-jones    183.15   3.30
+Be    lennard-jones    42.77    2.45
+Bi    lennard-jones    260.63   3.89
+Bk    lennard-jones    6.54     2.97
+Br    lennard-jones    126.30   3.73
+C     lennard-jones    52.83    3.43
+Ca    lennard-jones    119.75    3.03
+Cd    lennard-jones    114.72    2.54
+Ce    lennard-jones    6.54    3.17
+Cf    lennard-jones    6.54    2.95
+Cl    lennard-jones    114.23    3.517
+Cm    lennard-jones    6.54    2.96
+Co    lennard-jones    7.04    2.56
+Cr    lennard-jones    7.55    2.69
+Cs    lennard-jones    22.64    4.02
+Cu    lennard-jones    2.516    3.114
+Dy    lennard-jones    3.52    3.05
+Er    lennard-jones    3.52    3.02
+Es    lennard-jones    6.04    2.94
+Eu    lennard-jones    4.03    3.11
+F    lennard-jones    25.16    2.997
+Fe    lennard-jones    6.54    2.59
+Fm    lennard-jones    6.04    2.93
+Fr    lennard-jones    25.16    4.37
+Ga    lennard-jones    208.81    3.90
+Gd    lennard-jones    4.53    3.00
+Ge    lennard-jones    190.69    3.81
+H    lennard-jones    22.14    2.57
+He    lennard-jones    10.9    2.64
+Hf    lennard-jones    36.23    2.80
+Hg    lennard-jones    193.71    2.41
+Ho    lennard-jones    3.52    3.04
+I    lennard-jones    170.57    4.01
+In    lennard-jones    301.39    3.98
+Ir    lennard-jones    36.73    2.53
+K    lennard-jones    17.61    3.40
+Kr    lennard-jones    166.40    3.636
+La    lennard-jones    8.55    3.14
+Li    lennard-jones    12.58    2.18
+Lu    lennard-jones    20.63    3.24
+Md    lennard-jones    5.53    2.92
+Mg    lennard-jones    55.85    2.69
+Mn    lennard-jones    6.54    2.64
+Mo    lennard-jones    28.18    2.72
+N    lennard-jones    34.72    3.26
+Na    lennard-jones    15.09    2.66
+Nb    lennard-jones    29.69    2.82
+Nd    lennard-jones    5.03    3.18
+Ne    lennard-jones    21.13    2.66
+Ni    lennard-jones    7.55    2.52
+No    lennard-jones    5.53    2.89
+Np    lennard-jones    9.56    3.05
+O    lennard-jones    30.19    3.12
+Os    lennard-jones    18.62    2.78
+P    lennard-jones    153.46    3.69
+Pa    lennard-jones    11.07    3.05
+Pb    lennard-jones    333.59    3.83
+Pd    lennard-jones    24.15    2.58
+Pm    lennard-jones    4.53    3.16
+Po    lennard-jones    163.52    4.20
+Pr    lennard-jones    5.03    3.21
+Pt    lennard-jones    40.25    2.45
+Pu    lennard-jones    8.05    3.05
+Ra    lennard-jones    203.27    3.28
+Rb    lennard-jones    20.13    3.67
+Re    lennard-jones    33.21    2.63
+Rh    lennard-jones    26.67    2.61
+Rn    lennard-jones    124.78    4.25
+Ru    lennard-jones    28.18    2.64
+S    lennard-jones    137.86    3.59
+Sb    lennard-jones    225.91    3.94
+Sc    lennard-jones    9.56    2.94
+Se    lennard-jones    146.42    3.75
+Si    lennard-jones    202.27    3.83
+Sm    lennard-jones    4.03    3.14
+Sn    lennard-jones    285.28    3.91
+Sr    lennard-jones    118.24    3.24
+Ta    lennard-jones    40.75    2.82
+Tb    lennard-jones    3.52    3.07
+Tc    lennard-jones    24.15    2.67
+Te    lennard-jones    200.25    3.98
+Th    lennard-jones    13.08    3.03
+Ti    lennard-jones    8.55    2.83
+Tl    lennard-jones    342.14    3.87
+Tm    lennard-jones    3.02    3.01
+U    lennard-jones    11.07    3.02
+V    lennard-jones    8.05    2.80
+W    lennard-jones    33.71    2.73
+Xe    lennard-jones    221.00    4.10
+Y    lennard-jones    36.23    2.98
+Yb    lennard-jones    114.72    2.99
+Zn    lennard-jones    62.40    2.46
+Zr    lennard-jones    34.72    2.783
+C_co2    lennard-jones    27.0    2.80
+O_co2    lennard-jones    79.0    3.05
+H_h2     lennard-jones    0.0   0.0
+H_com    lennard-jones    36.7  2.958
+------------------------------------------------------------------
+-------------PARSING PSEUDO ATOMS FILE-------------
+Name: Ac, 0.00000, 227.00000, 0.00000, 0.00000
+Name: Ag, 0.00000, 107.86800, 0.00000, 0.00000
+Name: Al, 0.00000, 26.98200, 0.00000, 0.00000
+Name: Am, 0.00000, 243.00000, 0.00000, 0.00000
+Name: Ar, 0.00000, 39.94800, 0.00000, 0.00000
+Name: As, 0.00000, 74.92200, 0.00000, 0.00000
+Name: At, 0.00000, 210.00000, 0.00000, 0.00000
+Name: Au, 0.00000, 196.96700, 0.00000, 0.00000
+Name: B, 0.00000, 10.81100, 0.00000, 0.00000
+Name: Ba, 0.00000, 137.32700, 0.00000, 0.00000
+Name: Be, 0.00000, 9.01200, 0.00000, 0.00000
+Name: Bi, 0.00000, 208.98000, 0.00000, 0.00000
+Name: Bk, 0.00000, 247.00000, 0.00000, 0.00000
+Name: Br, 0.00000, 79.90400, 0.00000, 0.00000
+Name: C, 0.00000, 12.01100, 0.00000, 0.00000
+Name: Ca, 0.00000, 40.07800, 0.00000, 0.00000
+Name: Cd, 0.00000, 112.41100, 0.00000, 0.00000
+Name: Ce, 0.00000, 140.11600, 0.00000, 0.00000
+Name: Cf, 0.00000, 251.00000, 0.00000, 0.00000
+Name: Cl, 0.00000, 35.45300, 0.00000, 0.00000
+Name: Cm, 0.00000, 247.00000, 0.00000, 0.00000
+Name: Co, 0.00000, 58.93300, 0.00000, 0.00000
+Name: Cr, 0.00000, 51.99600, 0.00000, 0.00000
+Name: Cs, 0.00000, 132.90500, 0.00000, 0.00000
+Name: Cu, 0.00000, 63.54600, 0.00000, 0.00000
+Name: Dy, 0.00000, 162.50000, 0.00000, 0.00000
+Name: Er, 0.00000, 167.26000, 0.00000, 0.00000
+Name: Es, 0.00000, 252.00000, 0.00000, 0.00000
+Name: Eu, 0.00000, 151.96400, 0.00000, 0.00000
+Name: F, 0.00000, 18.99800, 0.00000, 0.00000
+Name: Fe, 0.00000, 55.84500, 0.00000, 0.00000
+Name: Fm, 0.00000, 257.00000, 0.00000, 0.00000
+Name: Fr, 0.00000, 223.00000, 0.00000, 0.00000
+Name: Ga, 0.00000, 69.72300, 0.00000, 0.00000
+Name: Gd, 0.00000, 157.25000, 0.00000, 0.00000
+Name: Ge, 0.00000, 72.61000, 0.00000, 0.00000
+Name: H, 0.00000, 1.00800, 0.00000, 0.00000
+Name: He, 0.00000, 4.00300, 0.00000, 0.00000
+Name: Hf, 0.00000, 178.49000, 0.00000, 0.00000
+Name: Hg, 0.00000, 200.59000, 0.00000, 0.00000
+Name: Ho, 0.00000, 164.93000, 0.00000, 0.00000
+Name: I, 0.00000, 126.90400, 0.00000, 0.00000
+Name: In, 0.00000, 114.81800, 0.00000, 0.00000
+Name: Ir, 0.00000, 192.21700, 0.00000, 0.00000
+Name: K, 0.00000, 39.09800, 0.00000, 0.00000
+Name: Kr, 0.00000, 83.80000, 0.00000, 0.00000
+Name: La, 0.00000, 138.90600, 0.00000, 0.00000
+Name: Li, 0.00000, 6.94100, 0.00000, 0.00000
+Name: Lu, 0.00000, 174.96700, 0.00000, 0.00000
+Name: Md, 0.00000, 258.00000, 0.00000, 0.00000
+Name: Mg, 0.00000, 24.30500, 0.00000, 0.00000
+Name: Mn, 0.00000, 54.93800, 0.00000, 0.00000
+Name: Mo, 0.00000, 95.94000, 0.00000, 0.00000
+Name: N, 0.00000, 14.00700, 0.00000, 0.00000
+Name: Na, 0.00000, 22.99100, 0.00000, 0.00000
+Name: Nb, 0.00000, 92.90600, 0.00000, 0.00000
+Name: Nd, 0.00000, 144.24000, 0.00000, 0.00000
+Name: Ne, 0.00000, 20.18000, 0.00000, 0.00000
+Name: Ni, 0.00000, 58.69300, 0.00000, 0.00000
+Name: No, 0.00000, 259.00000, 0.00000, 0.00000
+Name: Np, 0.00000, 237.00000, 0.00000, 0.00000
+Name: O, 0.00000, 15.99900, 0.00000, 0.00000
+Name: Os, 0.00000, 190.23000, 0.00000, 0.00000
+Name: P, 0.00000, 30.97400, 0.00000, 0.00000
+Name: Pa, 0.00000, 231.03600, 0.00000, 0.00000
+Name: Pb, 0.00000, 207.20000, 0.00000, 0.00000
+Name: Pd, 0.00000, 106.42000, 0.00000, 0.00000
+Name: Pm, 0.00000, 145.00000, 0.00000, 0.00000
+Name: Po, 0.00000, 210.00000, 0.00000, 0.00000
+Name: Pr, 0.00000, 140.90800, 0.00000, 0.00000
+Name: Pt, 0.00000, 195.07800, 0.00000, 0.00000
+Name: Pu, 0.00000, 244.00000, 0.00000, 0.00000
+Name: Ra, 0.00000, 226.00000, 0.00000, 0.00000
+Name: Rb, 0.00000, 85.46800, 0.00000, 0.00000
+Name: Re, 0.00000, 186.20700, 0.00000, 0.00000
+Name: Rh, 0.00000, 102.90600, 0.00000, 0.00000
+Name: Rn, 0.00000, 222.00000, 0.00000, 0.00000
+Name: Ru, 0.00000, 101.07000, 0.00000, 0.00000
+Name: S, 0.00000, 32.06600, 0.00000, 0.00000
+Name: Sb, 0.00000, 121.76000, 0.00000, 0.00000
+Name: Sc, 0.00000, 44.95600, 0.00000, 0.00000
+Name: Se, 0.00000, 78.96000, 0.00000, 0.00000
+Name: Si, 0.00000, 28.08600, 0.00000, 0.00000
+Name: Sm, 0.00000, 150.36000, 0.00000, 0.00000
+Name: Sn, 0.00000, 118.71000, 0.00000, 0.00000
+Name: Sr, 0.00000, 87.62000, 0.00000, 0.00000
+Name: Ta, 0.00000, 180.94800, 0.00000, 0.00000
+Name: Tb, 0.00000, 158.92500, 0.00000, 0.00000
+Name: Tc, 0.00000, 98.00000, 0.00000, 0.00000
+Name: Te, 0.00000, 127.60000, 0.00000, 0.00000
+Name: Th, 0.00000, 232.03800, 0.00000, 0.00000
+Name: Ti, 0.00000, 47.86700, 0.00000, 0.00000
+Name: Tl, 0.00000, 204.38300, 0.00000, 0.00000
+Name: Tm, 0.00000, 168.93400, 0.00000, 0.00000
+Name: U, 0.00000, 238.02900, 0.00000, 0.00000
+Name: V, 0.00000, 50.94200, 0.00000, 0.00000
+Name: W, 0.00000, 183.84000, 0.00000, 0.00000
+Name: Xe, 0.00000, 131.29000, 0.00000, 0.00000
+Name: Y, 0.00000, 88.90600, 0.00000, 0.00000
+Name: Yb, 0.00000, 173.04000, 0.00000, 0.00000
+Name: Zn, 0.00000, 65.39000, 0.00000, 0.00000
+Name: Zr, 0.00000, 91.22400, 0.00000, 0.00000
+Name: C_co2, 0.00000, 12.01100, 0.70000, 0.00000
+Name: O_co2, 0.00000, 15.99940, -0.35000, 0.00000
+Name: H_h2, 0.00000, 1.00794, 0.46800, 0.00000
+Name: H_com, 0.00000, 0.00000, -0.93600, 0.00000
+---------------------------------------------------
+------------------GENERAL SIMULATION SETUP-------------
+Random Seed is 0
+Allocate space for adsorbate is 30240
+USE EWALD SUMMATION FOR CHARGE
+Setting Maximum Number of Steps for a Cycle, Max Step = 1
+-------------------------------------------------------
+==========================================
+====== Preparing Simulation box 0 ======
+==========================================
+Force Field OverWrite file not found
+------------------------PARSING FRAMEWORK DATA------------------------
+Reading Framework 0, FrameworkName: test
+Reading Framework 0, UnitCells: 2.00 2.00 2.00
+atom_site starts at line 15, and ends at 23
+label location: 0, xyz location: 2 3 4, charge: 8
+------------------CIF FILE SUMMARY------------------
+CIF FILE IS: test.cif
+Number of Unit Cells: 2.00 2.00 2.00
+Box size: 
+31.91142 0.00000 0.00000
+3.61957 31.69422 0.00000
+0.00047 0.00056 30.05150
+Framework Pseudo Atom[14], Name: C, #: 352
+Framework Pseudo Atom[36], Name: H, #: 240
+Framework Pseudo Atom[53], Name: N, #: 16
+Framework Pseudo Atom[61], Name: O, #: 112
+Framework Pseudo Atom[100], Name: Zn, #: 16
+----------------------------------------------------
+Reading CIF File
+The Simulation Box is NOT Cubic
+----------------------END OF PARSING FRAMEWORK DATA----------------------
+----------------EWALD SUMMATION SETUP-----------------
+tol: 3.35650, tol1: 3.20137
+ALpha is 0.24773, Prefactor: 138935.48350
+kmax: 8 8 8, ReciprocalCutOff: 70.56000
+------------------------------------------------------
+Component 0 starts at line number 33
+-------------- READING Component 0 (H2) --------------
+Adsorbate Component is rigid
+Bonds not implemented. Break
+Atom [0]: Type [104], Name: H_h2, 0.00000 0.00000 0.37000
+Atom [1]: Type [105], Name: H_com, 0.00000 0.00000 0.00000
+Atom [2]: Type [104], Name: H_h2, 0.00000 0.00000 -0.37000
+Adsorbate Type[104], Name: H_h2, #: 2
+Adsorbate Type[105], Name: H_com, #: 1
+Ideal Chain Rosenbluth Weight: 1.00000
+ACCUMULATED Probabilities:
+Translation Probability:   0.25000
+Rotation Probability:      0.50000
+Widom Probability:         0.50000
+Reinsertion Probability:   0.50000
+Identity Swap Probability: 0.50000
+CBCF Swap Probability:     0.50000
+Swap Probability:          1.00000
+-------------- END OF READING Component 0 (H2) --------------
+------------------- SIMULATION BOX PARAMETERS -----------------
+Pressure:        0.00060
+Box Volume:      30394.31192
+Box Beta:        0.00752
+Box Temperature: 160.00000
+---------------------------------------------------------------
+----------------- MEMORY ALLOCAION STATUS -----------------
+System allocate_sizes are: 736, 30240
+Component allocate_sizes are: 736, 30240
+Allocated Blocksum size: 47251
+Allocated 47251 doubles for Blocksums
+------------------------------------------------------------
+======================== CALCULATING INITIAL STAGE ENERGY ========================
+****** Calculating VDW + Real Energy (CPU) ******
+HGVDW: 0.00000, HGReal: 0.00000, GGVDW: 0.00000, GGReal: 0.00000, EwaldE: 0.00000, HGEwaldE: 0.00000, TailE: 0.00000, DNN_E: 0.00000
+****** Calculating Ewald Energy (CPU) ******
+Total ewaldE Fourier: 0.0000000000, Framework Fourier: 20481.5541543605, Framework-Guest Fourier: 0.0000000000
+Component: 0, SelfAtomE: 1246795.88795
+Component: 1, SelfAtomE: 0.00000
+Component: 0, Intra-Molecular ExclusionE: 1279765.62842
+Component: 1, Intra-Molecular ExclusionE: 0.00000
+Framework Ewald: 53451.2946320412
+HostEwald took 0.13435 sec
+Component 0, Intra Exclusion Energy: -1279765.62842
+Component 0, Atom Self Exclusion Energy: 1246795.88795
+DEBUG: comp: 0, IntraE: -1279765.62842, SelfE: 1246795.88795
+Component 1, Intra Exclusion Energy: -25518.41804
+Component 1, Atom Self Exclusion Energy: 25519.13144
+DEBUG: comp: 1, IntraE: -25518.41804, SelfE: 25519.13144
+******   Allocating Ewald WaveVectors (INITIAL STAGE ONLY)   ******
+Allocated 26496 26496 26496 space for eikxyz
+Wave Vector 0 is 0.00000 0.00000
+Wave Vector 1 is 0.00000 0.00000
+Wave Vector 2 is 0.00000 0.00000
+Wave Vector 3 is 0.00000 0.00000
+Wave Vector 4 is 0.00000 0.00000
+Wave Vector 5 is 0.00000 0.00000
+Wave Vector 6 is 0.00000 0.00000
+Wave Vector 7 is 0.00000 0.00000
+Wave Vector 8 is 0.00000 0.00000
+Wave Vector 9 is 0.00000 0.00000
+****** DONE Allocating Ewald WaveVectors (INITIAL STAGE ONLY) ******
+ ****** CHECKING WaveVectors Stored on CPU vs. GPU ****** 
+Wave Vector 0, CPU: 0.00000 0.00000, GPU: 0.00000 0.00000
+Wave Vector 1, CPU: 0.00000 0.00000, GPU: 0.00000 0.00000
+Wave Vector 2, CPU: 0.00000 0.00000, GPU: 0.00000 0.00000
+Wave Vector 3, CPU: 0.00000 0.00000, GPU: 0.00000 0.00000
+Wave Vector 4, CPU: 0.00000 0.00000, GPU: 0.00000 0.00000
+Wave Vector 5, CPU: 0.00000 0.00000, GPU: 0.00000 0.00000
+Wave Vector 6, CPU: 0.00000 0.00000, GPU: 0.00000 0.00000
+Wave Vector 7, CPU: 0.00000 0.00000, GPU: 0.00000 0.00000
+Wave Vector 8, CPU: 0.00000 0.00000, GPU: 0.00000 0.00000
+Wave Vector 9, CPU: 0.00000 0.00000, GPU: 0.00000 0.00000
+ ****** CHECKING Framework WaveVectors Stored on CPU ****** 
+Framework Wave Vector 0, real: 0.00000 imag: 0.00000
+Framework Wave Vector 1, real: 0.00000 imag: 0.00000
+Framework Wave Vector 2, real: 0.00000 imag: 0.00000
+Framework Wave Vector 3, real: 0.00000 imag: 0.00000
+Framework Wave Vector 4, real: 0.00000 imag: 0.00000
+Framework Wave Vector 5, real: 0.00000 imag: 0.00000
+Framework Wave Vector 6, real: -7.80801 imag: -5.08555
+Framework Wave Vector 7, real: 0.00000 imag: -0.00000
+Framework Wave Vector 8, real: -11.90775 imag: -6.44867
+Framework Wave Vector 9, real: -0.00000 imag: -0.00000
+====================== DONE CALCULATING INITIAL STAGE ENERGY ======================
+Running Simulation Boxes in SERIAL, currently [0] box; pres: 0.00060, temp: 160.00000
+Cycle: 0, 0 Adsorbate Molecules, Total Energy: 0.00000  ||  Component 0 [MOF], 1 Molecules  ||  Component 1 [H2], 0 Molecules  ||  
+======================== MOVE STATISTICS FOR COMPONENT [1] (H2) ========================
+=====================TRANSLATION MOVES=====================
+Translation Performed: 27
+Translation Accepted: 6
+Max Translation: 3.1911420005, 3.1694217278, 3.0051500052
+===========================================================
+=====================ROTATION MOVES========================
+Rotation Performed: 23
+Rotation Accepted: 22
+Max Rotation: 0.5235833333, 0.5235833333, 0.5235833333
+===========================================================
+=====================SWAP MOVES=====================
+Insertion Performed:   25
+Insertion Accepted:    2
+Deletion Performed:    25
+Deletion Accepted:     1
+Reinsertion Performed: 0
+Reinsertion Accepted:  0
+====================================================
+=====================IDENTITY SWAP MOVES=====================
+=============================================================
+================================================================================================
+Running Simulation Boxes in SERIAL, currently [0] box; pres: 0.00060, temp: 160.00000
+Running Simulation Boxes in SERIAL, currently [0] box; pres: 0.00060, temp: 160.00000
+Cycle: 0, 1 Adsorbate Molecules, Total Energy: -336.80176  ||  Component 0 [MOF], 1 Molecules  ||  Component 1 [H2], 1 Molecules  ||  
+======================== MOVE STATISTICS FOR COMPONENT [1] (H2) ========================
+=====================TRANSLATION MOVES=====================
+Translation Performed: 53
+Translation Accepted: 14
+Max Translation: 3.0315849005, 3.0109506414, 2.8548925050
+===========================================================
+=====================ROTATION MOVES========================
+Rotation Performed: 55
+Rotation Accepted: 51
+Max Rotation: 0.5497625000, 0.5497625000, 0.5497625000
+===========================================================
+=====================SWAP MOVES=====================
+Insertion Performed:   51
+Insertion Accepted:    2
+Deletion Performed:    41
+Deletion Accepted:     1
+Reinsertion Performed: 0
+Reinsertion Accepted:  0
+====================================================
+=====================IDENTITY SWAP MOVES=====================
+=============================================================
+================================================================================================
+=====================BLOCK AVERAGES (ENERGIES)================
+BLOCK [0], Blocksize: 20, Average: 0.00000, ErrorBar: 0.00000
+BLOCK [1], Blocksize: 20, Average: 0.00000, ErrorBar: 0.00000
+BLOCK [2], Blocksize: 20, Average: 0.00000, ErrorBar: 0.00000
+BLOCK [3], Blocksize: 20, Average: 0.00000, ErrorBar: 0.00000
+BLOCK [4], Blocksize: 20, Average: 0.00000, ErrorBar: 0.00000
+Overall: Average: 0.00000, ErrorBar: 0.00000
+==============================================================
+=====================BLOCK AVERAGES (# MOLECULES)=============
+COMPONENT [0] (MOF)
+BLOCK [0], Blocksize: 20, Average: 1.00000, ErrorBar: 0.00000
+BLOCK [1], Blocksize: 20, Average: 1.00000, ErrorBar: 0.00000
+BLOCK [2], Blocksize: 20, Average: 1.00000, ErrorBar: 0.00000
+BLOCK [3], Blocksize: 20, Average: 1.00000, ErrorBar: 0.00000
+BLOCK [4], Blocksize: 20, Average: 1.00000, ErrorBar: 0.00000
+Overall: Average: 1.00000, ErrorBar: 0.00000
+----------------------------------------------------------
+COMPONENT [1] (H2)
+BLOCK [0], Blocksize: 20, Average: 1.00000, ErrorBar: 0.00000
+BLOCK [1], Blocksize: 20, Average: 1.00000, ErrorBar: 0.00000
+BLOCK [2], Blocksize: 20, Average: 1.00000, ErrorBar: 0.00000
+BLOCK [3], Blocksize: 20, Average: 1.00000, ErrorBar: 0.00000
+BLOCK [4], Blocksize: 20, Average: 1.00000, ErrorBar: 0.00000
+Overall: Average: 1.00000, ErrorBar: 0.00000
+----------------------------------------------------------
+==============================================================
+Work took 1.826444 seconds
+======================================
+CHECKING FINAL ENERGY FOR SYSTEM [0]
+======================================
+======================== CALCULATING FINAL STAGE ENERGY ========================
+****** Calculating VDW + Real Energy (CPU) ******
+HGVDW: -195.92712, HGReal: -0.38948, GGVDW: 0.00000, GGReal: 0.00000, EwaldE: 0.00000, HGEwaldE: 0.00000, TailE: 0.00000, DNN_E: 0.00000
+****** Calculating Ewald Energy (CPU) ******
+Total ewaldE Fourier: 0.7127087270, Framework Fourier: 20481.5541543605, Framework-Guest Fourier: -2.9956810961
+Component: 0, SelfAtomE: 1246795.88795
+Component: 1, SelfAtomE: 25519.13144
+Component: 0, Intra-Molecular ExclusionE: 1279765.62842
+Component: 1, Intra-Molecular ExclusionE: 25518.41804
+Framework Ewald: 53451.2946320412
+HostEwald took 0.13522 sec
+ ****** CHECKING WaveVectors Stored on CPU vs. GPU ****** 
+Wave Vector 0, CPU: 0.00000 0.00000, GPU: 0.00000 0.00000
+Wave Vector 1, CPU: 0.00000 0.00000, GPU: 0.00000 0.00000
+Wave Vector 2, CPU: 0.00000 0.00000, GPU: 0.00000 0.00000
+Wave Vector 3, CPU: 0.00000 0.00000, GPU: 0.00000 0.00000
+Wave Vector 4, CPU: 0.00000 0.00000, GPU: 0.00000 0.00000
+Wave Vector 5, CPU: 0.00000 0.00000, GPU: 0.00000 0.00000
+Wave Vector 6, CPU: -0.04415 -0.02509, GPU: -0.04415 -0.02509
+Wave Vector 7, CPU: 0.03988 -0.01167, GPU: 0.03988 -0.01167
+Wave Vector 8, CPU: -0.01549 0.02940, GPU: -0.01549 0.02940
+Wave Vector 9, CPU: -0.00804 -0.02453, GPU: -0.00804 -0.02453
+ ****** CHECKING Framework WaveVectors Stored on CPU ****** 
+Framework Wave Vector 0, real: 0.00000 imag: 0.00000
+Framework Wave Vector 1, real: 0.00000 imag: 0.00000
+Framework Wave Vector 2, real: 0.00000 imag: 0.00000
+Framework Wave Vector 3, real: 0.00000 imag: 0.00000
+Framework Wave Vector 4, real: 0.00000 imag: 0.00000
+Framework Wave Vector 5, real: 0.00000 imag: 0.00000
+Framework Wave Vector 6, real: -7.80801 imag: -5.08555
+Framework Wave Vector 7, real: 0.00000 imag: -0.00000
+Framework Wave Vector 8, real: -11.90775 imag: -6.44867
+Framework Wave Vector 9, real: -0.00000 imag: -0.00000
+====================== DONE CALCULATING FINAL STAGE ENERGY ======================
+======================================
+======================== ENERGY SUMMARY (Simulation 0) =========================
+ *** INITIAL STAGE *** 
+========================================================================
+VDW [Host-Guest]:           0.00000 (0.00000 [K])
+VDW [Guest-Guest]:          0.00000 (0.00000 [K])
+Real Coulomb [Host-Guest]:  0.00000 (0.00000 [K])
+Real Coulomb [Guest-Guest]: 0.00000 (0.00000 [K])
+Ewald [Host-Guest]:         0.00000 (0.00000 [K])
+Ewald [Guest-Guest]:        0.00000 (0.00000 [K])
+DNN Energy:                 0.00000 (0.00000 [K])
+Tail Correction Energy:     0.00000 (0.00000 [K])
+Total Energy:               0.00000 (0.00000 [K])
+========================================================================
+ *** CREATE MOLECULE STAGE *** 
+========================================================================
+VDW [Host-Guest]:           0.00000 (0.00000 [K])
+VDW [Guest-Guest]:          0.00000 (0.00000 [K])
+Real Coulomb [Host-Guest]:  0.00000 (0.00000 [K])
+Real Coulomb [Guest-Guest]: 0.00000 (0.00000 [K])
+Ewald [Host-Guest]:         0.00000 (0.00000 [K])
+Ewald [Guest-Guest]:        0.00000 (0.00000 [K])
+DNN Energy:                 0.00000 (0.00000 [K])
+Tail Correction Energy:     0.00000 (0.00000 [K])
+Total Energy:               0.00000 (0.00000 [K])
+========================================================================
+ *** RUNNING DELTA_E (CREATE MOLECULE - INITIAL) *** 
+========================================================================
+VDW [Host-Guest]:           0.00000 (0.00000 [K])
+VDW [Guest-Guest]:          0.00000 (0.00000 [K])
+Real Coulomb [Host-Guest]:  0.00000 (0.00000 [K])
+Real Coulomb [Guest-Guest]: 0.00000 (0.00000 [K])
+Ewald [Host-Guest]:         0.00000 (0.00000 [K])
+Ewald [Guest-Guest]:        0.00000 (0.00000 [K])
+DNN Energy:                 0.00000 (0.00000 [K])
+Tail Correction Energy:     0.00000 (0.00000 [K])
+Total Energy:               0.00000 (0.00000 [K])
+========================================================================
+ *** CHECK DELTA_E (CREATE MOLECULE - INITIAL) *** 
+========================================================================
+VDW [Host-Guest]:           0.00000 (0.00000 [K])
+VDW [Guest-Guest]:          0.00000 (0.00000 [K])
+Real Coulomb [Host-Guest]:  0.00000 (0.00000 [K])
+Real Coulomb [Guest-Guest]: 0.00000 (0.00000 [K])
+Ewald [Host-Guest]:         0.00000 (0.00000 [K])
+Ewald [Guest-Guest]:        0.00000 (0.00000 [K])
+DNN Energy:                 0.00000 (0.00000 [K])
+Tail Correction Energy:     0.00000 (0.00000 [K])
+Total Energy:               0.00000 (0.00000 [K])
+========================================================================
+ *** FINAL STAGE *** 
+========================================================================
+VDW [Host-Guest]:           -195.92712 (-235.64630 [K])
+VDW [Guest-Guest]:          0.00000 (0.00000 [K])
+Real Coulomb [Host-Guest]:  -0.38948 (-0.46844 [K])
+Real Coulomb [Guest-Guest]: 0.00000 (0.00000 [K])
+Ewald [Host-Guest]:         -2.99568 (-3.60298 [K])
+Ewald [Guest-Guest]:        -0.00070 (-0.00084 [K])
+DNN Energy:                 0.00000 (0.00000 [K])
+Tail Correction Energy:     0.00000 (0.00000 [K])
+Total Energy:               -199.31298 (-239.71856 [K])
+========================================================================
+ *** RUNNING DELTA_E (FINAL - CREATE MOLECULE) *** 
+========================================================================
+VDW [Host-Guest]:           -195.92712 (-235.64630 [K])
+VDW [Guest-Guest]:          0.00000 (0.00000 [K])
+Real Coulomb [Host-Guest]:  -0.38948 (-0.46844 [K])
+Real Coulomb [Guest-Guest]: 0.00000 (0.00000 [K])
+Ewald [Host-Guest]:         -2.99568 (-3.60298 [K])
+Ewald [Guest-Guest]:        -0.00070 (-0.00084 [K])
+DNN Energy:                 0.00000 (0.00000 [K])
+Tail Correction Energy:     0.00000 (0.00000 [K])
+Total Energy:               -199.31298 (-239.71856 [K])
+========================================================================
+ *** CHECK DELTA_E (FINAL - CREATE MOLECULE) *** 
+========================================================================
+VDW [Host-Guest]:           -195.92712 (-235.64630 [K])
+VDW [Guest-Guest]:          0.00000 (0.00000 [K])
+Real Coulomb [Host-Guest]:  -0.38948 (-0.46844 [K])
+Real Coulomb [Guest-Guest]: 0.00000 (0.00000 [K])
+Ewald [Host-Guest]:         -2.99568 (-3.60298 [K])
+Ewald [Guest-Guest]:        -0.00070 (-0.00084 [K])
+DNN Energy:                 0.00000 (0.00000 [K])
+Tail Correction Energy:     0.00000 (0.00000 [K])
+Total Energy:               -199.31298 (-239.71856 [K])
+========================================================================
+ *** ENERGY DRIFT *** 
+========================================================================
+VDW [Host-Guest]:           0.00000 (0.00000 [K])
+VDW [Guest-Guest]:          0.00000 (0.00000 [K])
+Real Coulomb [Host-Guest]:  0.00000 (0.00000 [K])
+Real Coulomb [Guest-Guest]: 0.00000 (0.00000 [K])
+Ewald [Host-Guest]:         -0.00000 (-0.00000 [K])
+Ewald [Guest-Guest]:        -0.00000 (-0.00000 [K])
+DNN Energy:                 0.00000 (0.00000 [K])
+Tail Correction Energy:     0.00000 (0.00000 [K])
+Total Energy:               -0.00000 (-0.00000 [K])
+========================================================================
+================================================================================
+DNN Rejection Summary:
+Translation+Rotation: 0
+Reinsertion: 0
+Insertion: 0
+Deletion: 0
+SingleSwap: 0
+DNN Drift Summary:
+Translation+Rotation: 0.00000
+Reinsertion: 0.00000
+Insertion: 0.00000
+Deletion: 0.00000
+SingleSwap: 0.00000
+Random Numbers Regenerated 0 times, offset: 2164, randomsize: 333334
+DNN Feature Preparation Time: 0.00000, DNN Prediction Time: 0.00000
+DNN GPU Time: 0.00000, DNN Sort Time: 0.00000, std::sort Time: 0.00000, Featurization Time: 0.00000
+System 0
+Printing: Component: 0 (MOF), NumMol: 1, Molsize: 736
+Printing: Component: 1 (H2), NumMol: 1, Molsize: 3
+Component 0, Molsize: 736
+Component 1, Molsize: 3
+PseudoAtom Type: Ac[0], #: 0
+PseudoAtom Type: Ag[1], #: 0
+PseudoAtom Type: Al[2], #: 0
+PseudoAtom Type: Am[3], #: 0
+PseudoAtom Type: Ar[4], #: 0
+PseudoAtom Type: As[5], #: 0
+PseudoAtom Type: At[6], #: 0
+PseudoAtom Type: Au[7], #: 0
+PseudoAtom Type: B[8], #: 0
+PseudoAtom Type: Ba[9], #: 0
+PseudoAtom Type: Be[10], #: 0
+PseudoAtom Type: Bi[11], #: 0
+PseudoAtom Type: Bk[12], #: 0
+PseudoAtom Type: Br[13], #: 0
+PseudoAtom Type: C[14], #: 352
+PseudoAtom Type: Ca[15], #: 0
+PseudoAtom Type: Cd[16], #: 0
+PseudoAtom Type: Ce[17], #: 0
+PseudoAtom Type: Cf[18], #: 0
+PseudoAtom Type: Cl[19], #: 0
+PseudoAtom Type: Cm[20], #: 0
+PseudoAtom Type: Co[21], #: 0
+PseudoAtom Type: Cr[22], #: 0
+PseudoAtom Type: Cs[23], #: 0
+PseudoAtom Type: Cu[24], #: 0
+PseudoAtom Type: Dy[25], #: 0
+PseudoAtom Type: Er[26], #: 0
+PseudoAtom Type: Es[27], #: 0
+PseudoAtom Type: Eu[28], #: 0
+PseudoAtom Type: F[29], #: 0
+PseudoAtom Type: Fe[30], #: 0
+PseudoAtom Type: Fm[31], #: 0
+PseudoAtom Type: Fr[32], #: 0
+PseudoAtom Type: Ga[33], #: 0
+PseudoAtom Type: Gd[34], #: 0
+PseudoAtom Type: Ge[35], #: 0
+PseudoAtom Type: H[36], #: 240
+PseudoAtom Type: He[37], #: 0
+PseudoAtom Type: Hf[38], #: 0
+PseudoAtom Type: Hg[39], #: 0
+PseudoAtom Type: Ho[40], #: 0
+PseudoAtom Type: I[41], #: 0
+PseudoAtom Type: In[42], #: 0
+PseudoAtom Type: Ir[43], #: 0
+PseudoAtom Type: K[44], #: 0
+PseudoAtom Type: Kr[45], #: 0
+PseudoAtom Type: La[46], #: 0
+PseudoAtom Type: Li[47], #: 0
+PseudoAtom Type: Lu[48], #: 0
+PseudoAtom Type: Md[49], #: 0
+PseudoAtom Type: Mg[50], #: 0
+PseudoAtom Type: Mn[51], #: 0
+PseudoAtom Type: Mo[52], #: 0
+PseudoAtom Type: N[53], #: 16
+PseudoAtom Type: Na[54], #: 0
+PseudoAtom Type: Nb[55], #: 0
+PseudoAtom Type: Nd[56], #: 0
+PseudoAtom Type: Ne[57], #: 0
+PseudoAtom Type: Ni[58], #: 0
+PseudoAtom Type: No[59], #: 0
+PseudoAtom Type: Np[60], #: 0
+PseudoAtom Type: O[61], #: 112
+PseudoAtom Type: Os[62], #: 0
+PseudoAtom Type: P[63], #: 0
+PseudoAtom Type: Pa[64], #: 0
+PseudoAtom Type: Pb[65], #: 0
+PseudoAtom Type: Pd[66], #: 0
+PseudoAtom Type: Pm[67], #: 0
+PseudoAtom Type: Po[68], #: 0
+PseudoAtom Type: Pr[69], #: 0
+PseudoAtom Type: Pt[70], #: 0
+PseudoAtom Type: Pu[71], #: 0
+PseudoAtom Type: Ra[72], #: 0
+PseudoAtom Type: Rb[73], #: 0
+PseudoAtom Type: Re[74], #: 0
+PseudoAtom Type: Rh[75], #: 0
+PseudoAtom Type: Rn[76], #: 0
+PseudoAtom Type: Ru[77], #: 0
+PseudoAtom Type: S[78], #: 0
+PseudoAtom Type: Sb[79], #: 0
+PseudoAtom Type: Sc[80], #: 0
+PseudoAtom Type: Se[81], #: 0
+PseudoAtom Type: Si[82], #: 0
+PseudoAtom Type: Sm[83], #: 0
+PseudoAtom Type: Sn[84], #: 0
+PseudoAtom Type: Sr[85], #: 0
+PseudoAtom Type: Ta[86], #: 0
+PseudoAtom Type: Tb[87], #: 0
+PseudoAtom Type: Tc[88], #: 0
+PseudoAtom Type: Te[89], #: 0
+PseudoAtom Type: Th[90], #: 0
+PseudoAtom Type: Ti[91], #: 0
+PseudoAtom Type: Tl[92], #: 0
+PseudoAtom Type: Tm[93], #: 0
+PseudoAtom Type: U[94], #: 0
+PseudoAtom Type: V[95], #: 0
+PseudoAtom Type: W[96], #: 0
+PseudoAtom Type: Xe[97], #: 0
+PseudoAtom Type: Y[98], #: 0
+PseudoAtom Type: Yb[99], #: 0
+PseudoAtom Type: Zn[100], #: 16
+PseudoAtom Type: Zr[101], #: 0
+PseudoAtom Type: C_co2[102], #: 0
+PseudoAtom Type: O_co2[103], #: 0
+PseudoAtom Type: H_h2[104], #: 2
+PseudoAtom Type: H_com[105], #: 1

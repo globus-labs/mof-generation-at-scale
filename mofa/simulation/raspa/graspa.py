@@ -16,7 +16,7 @@ _file_dir = Path(__file__).parent / "files" / "graspa_template"
 class gRASPARunner(BaseRaspaRunner):
     """Interface for running pre-defined gRASPA workflows."""
 
-    graspa_command: str = ""
+    graspa_command: list[str] = ("graspa.x",)
     """Invocation used to run gRASPA on this system"""
 
     run_dir: Path = Path("graspa-runs")

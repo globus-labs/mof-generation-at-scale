@@ -6,11 +6,10 @@ from pytest import mark
 
 _file_path = Path(__file__).parent
 
-has_graspa_scyl = which('sycl.out') is not None
+graspa_scyl_path = which('sycl.out')
+_cache_dir = Path(__file__).parent / 'gRASPA-sycl-runs' / 'cached'
 
 
-# TODO (wardlt): Spoof the outputs if gRASPA not available
-@mark.skipif(not has_graspa_scyl, reason='gRASPA-sycl not found')
 @mark.parametrize(
     "adsorbate,temperature,pressure", [("CO2", 298, 1e4), ("H2", 160, 1e4)]
 )
@@ -26,9 +25,13 @@ def test_graspa_sycl_runner(adsorbate, temperature, pressure):
         "pressure": pressure,
         "n_cycle": 100,
     }
-    graspa_sycl_command = [which("sycl.out")]
     gr = GRASPASyclRunner()
-    gr.graspa_command = graspa_sycl_command
+
+    if graspa_scyl_path is not None:
+        name = "{name}_{adsorbate}_{temperature}_{pressure:0e}".format(**params)
+        gr.graspa_command = ["cp", f"{_cache_dir.absolute() / name}.log", "raspa.log"]
+    else:
+        gr.graspa_command = [graspa_scyl_path]
 
     uptake_mol_kg, error_mol_kg, uptake_g_L, error_g_L = gr.run_gcmc(**params)
     assert isinstance(uptake_mol_kg, float)
