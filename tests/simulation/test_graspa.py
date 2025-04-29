@@ -25,7 +25,7 @@ def test_graspa_runner(adsorbate, temperature, pressure):
     }
     if graspa_path is None:
         name = "{name}_{adsorbate}_{temperature}_{pressure:0e}".format(**params)
-        graspa_command = f"cp {_cache_dir.absolute() / name}.log raspa.log".split()
+        graspa_command = f"cp {_cache_dir.absolute() / name}.log raspa.err".split()
     else:
         graspa_command = graspa_path
     gr = gRASPARunner(raspa_command=graspa_command, run_dir=_file_path)
