@@ -1,8 +1,9 @@
 """Interface definitions"""
-import shutil
 from dataclasses import dataclass
+from typing import Sequence
 from pathlib import Path
 import subprocess
+import shutil
 
 import ase
 
@@ -16,7 +17,7 @@ class BaseRaspaRunner:
     # Settings used by every invocation of RASPA
     run_dir: Path
     """Path in which to store output files"""
-    raspa_command: list[str]
+    raspa_command: Sequence[str]
     """Command to launch a calculation"""
     delete_finished: bool = False
     """Whether to delete the run files after completing"""

@@ -210,7 +210,7 @@ if __name__ == "__main__":
 
     # Make the RASPA function
     raspa_runner = GRASPASyclRunner(
-        graspa_command=hpc_config.graspa_cmd,
+        raspa_command=hpc_config.graspa_cmd,
         run_dir=Path('/tmp/' if args.lammps_on_ramdisk else run_dir) / 'raspa_run',
         delete_finished=args.lammps_on_ramdisk
     )

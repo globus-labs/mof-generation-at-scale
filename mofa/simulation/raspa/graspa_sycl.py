@@ -9,7 +9,7 @@ import shutil
 
 import ase
 
-from mofa.simulation.raspa import BaseRaspaRunner
+from mofa.simulation.raspa.base import BaseRaspaRunner
 from mofa.simulation.raspa.utils import calculate_cell_size
 
 _file_dir = Path(__file__).parent / "files" / "graspa_sycl_template"
