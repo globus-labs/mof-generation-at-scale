@@ -1,9 +1,23 @@
+from collections import deque
 from concurrent.futures import as_completed
+from contextlib import AbstractContextManager
+from dataclasses import asdict
+from dataclasses import dataclass
+from functools import cached_property
+from functools import partial
+from functools import update_wrapper
 from itertools import product
+from more_itertools import batched
+from more_itertools import make_decorator
 from platform import node
 from pathlib import Path
+from random import shuffle
+from threading import Lock
+from typing import TextIO
+
 import argparse
 import json
+import os
 
 from tqdm import tqdm
 import parsl
@@ -12,6 +26,24 @@ from parsl.app.python import PythonApp
 from parsl.executors import HighThroughputExecutor
 from parsl.providers import PBSProProvider
 from parsl.launchers import MpiExecLauncher
+
+from colmena.models import Result
+from colmena.queue import ColmenaQueues
+from colmena.exceptions import TimeoutException
+from colmena.thinker import BaseThinker, ResourceCounter, task_submitter, result_processor
+from colmena.queue.redis import RedisQueues
+
+from proxystore.connectors.endpoint import EndpointConnector
+from proxystore.connectors.redis import RedisConnector
+from proxystore.store import Store, register_store
+
+from mofa.generator import run_generator
+from mofa.hpc.colmena import DiffLinkerInference
+from mofa.hpc.config import HPCConfig
+from mofa.model import LigandTemplate
+from mofa.model import NodeDescription
+from mofa.octopus import OctopusQueues
+from mofa.proxyqueue import ProxyQueues
 
 # Hard-coded defaults
 _model_path = "../../tests/files/difflinker/geom_difflinker_given_anchors.ckpt"
@@ -30,7 +62,6 @@ def test_function(model_path: Path, n_atoms: int, template: Path, n_samples: int
     Returns:
         - Runtime (s)
     """
-    from mofa.generator import run_generator
     from mofa.model import LigandTemplate
     from time import perf_counter
 
@@ -48,6 +79,119 @@ def test_function(model_path: Path, n_atoms: int, template: Path, n_samples: int
 
     return run_time
 
+@dataclass
+class GeneratorConfig:
+    """Configuration for the generation tasks"""
+
+    generator_path: Path
+    """Path to the DiffLinker model"""
+    templates: list[LigandTemplate]
+    """The templates being generated"""
+    atom_counts: list[int]
+    """Number of atoms within a linker to generate"""
+    min_ligand_candidates: int
+    """Minimum number of candidates of each anchor needed before assembling MOFs"""
+
+    @cached_property
+    def anchor_types(self) -> set[str]:
+        return set(x.anchor_type for x in self.templates)
+
+class MOFAThinker(BaseThinker, AbstractContextManager):
+    """Thinker which schedules MOF generation and testing"""
+
+    generate_queue: deque[tuple[int, int]]
+    """Queue used to ensure we generate equal numbers of each type of ligand"""
+
+    def __init__(self,
+                 queues: ColmenaQueues,
+                 out_dir: Path,
+                 hpc_config: HPCConfig,
+                 generator_config: GeneratorConfig,
+                 node_template: NodeDescription):
+        """
+        Args:
+            queues: Queues used to communicate with task server
+            collection: MongoDB collection used for storing run results
+            hpc_config: Configuration for the HPC tasks
+            generator_config: Configuration for the ligand generator
+            node_template: Template used for MOF assembly
+        """
+        if hpc_config.num_workers < 2:
+            raise ValueError(f'There must be at least two workers. Supplied: {hpc_config}')
+        self.assemble_workers = max(1, hpc_config.num_lammps_workers // 256)  # Ensure we keep a steady stream of MOFs
+        super().__init__(queues, ResourceCounter(hpc_config.num_workers + self.assemble_workers, task_types=['generation', 'lammps', 'cp2k', 'assembly']))
+        self.generator_config = generator_config
+        self.node_template = node_template
+        self.out_dir = out_dir
+        self.hpc_config = hpc_config
+
+        self.generate_queue = deque()  # Starts with one of each task (ligand, size)
+        tasks = list(product(range(len(generator_config.templates)), generator_config.atom_counts))
+        shuffle(tasks)
+        self.generate_queue.extend(tasks)
+
+        # Lists used to avoid duplicates
+        self.seen: set[str] = set()
+
+        # Set aside one GPU for generation
+        self.rec.reallocate(None, 'generation', self.hpc_config.number_inf_workers)
+
+        # Output files
+        self._output_files: dict[str, Path | TextIO] = {}
+        self.generate_write_lock: Lock = Lock()  # Two threads write to the same generation output
+        for name in ['generation-results']:
+            self._output_files[name] = out_dir / f'{name}.json'
+
+    def __enter__(self):
+        """Open the output files"""
+        for name, path in self._output_files.items():
+            self._output_files[name] = open(path, 'w')
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        for obj in self._output_files.values():
+            obj.close()
+
+    @task_submitter(task_type='generation')
+    def submit_generation(self):
+        """Submit MOF generation tasks when resources are available"""
+
+        ligand_id, size = self.generate_queue.popleft()
+        ligand = self.generator_config.templates[ligand_id]
+        self.queues.send_inputs(
+            input_kwargs={'model': self.generator_config.generator_path, 'templates': [ligand], 'n_atoms': size},
+            topic='generation',
+            method='run_generator',
+            task_info={
+                'task': (ligand_id, size),
+                'model_version': self.model_iteration
+            }
+        )
+        self.generate_queue.append((ligand_id, size))  # Push this generation task back on the queue
+        self.logger.info(f'Requested more samples of type={ligand.anchor_type} size={size}')
+
+    @result_processor(topic='generation')
+    def store_generation(self, result: Result):
+        """Receive generated ligands, append to the generation queue """
+
+        # Lookup task information
+        ligand_id, size = result.task_info['task']
+        anchor_type = self.generator_config.templates[ligand_id].anchor_type
+
+        # The generation topic includes both the generator and process functions
+        self.logger.info(f'Generator task method={result.method} for anchor_type={anchor_type} size={size} finished')
+        if result.method == 'run_generator':  # The generate method has finished making ligands
+            # Start a new task
+            self.rec.release('generation')
+            with self.generate_write_lock:
+                print(result.json(exclude={'inputs', 'value'}), file=self._output_files['generation-results'], flush=True)
+        else:
+            # The message contains the ligands
+            self.logger.info(f'Pushing linkers to the processing queue. Backlog: {self.ligand_process_queue.qsize()}')
+            self.ligand_process_queue.put(result)
+
+        if not result.success:
+            self.logger.warning(f'Generation task failed: {result.failure_info.exception}')
+
 
 if __name__ == "__main__":
     # Get the length of the runs, etc
@@ -60,9 +204,60 @@ if __name__ == "__main__":
     parser.add_argument('--config', help='Which compute configuration to use', default='local')
     args = parser.parse_args()
 
+    run_dir = Path('run') / f'parallel-{args.compute_config}-{start_time.strftime("%d%b%y%H%M%S")}-{params_hash}'
+    run_dir.mkdir(parents=True)
+    
+    if args.queue_type == "redis":
+        store = Store(name='redis', connector=RedisConnector(hostname=args.redis_host, port=6379), metrics=True)
+        register_store(store)
+
+        queues = RedisQueues(
+            hostname=args.redis_host,
+            topics=['generation', 'lammps', 'cp2k', 'training', 'assembly'],
+            proxystore_name='redis',
+            proxystore_threshold=args.proxy_threshold
+        )
+
+    elif args.queue_type == "octopus":
+        store = Store(name='redis', connector=RedisConnector(hostname=args.redis_host, port=6379), metrics=True)
+        register_store(store)
+    
+        queues = OctopusQueues(topics=['generation', 'lammps', 'cp2k', 'training', 'assembly'])
+
+    elif args.queue_type == "proxystream":
+        store = Store("my-store", connector=EndpointConnector([os.environ["PROXYSTORE_ENDPOINT"]]))
+        register_store(store)
+    
+        queues = ProxyQueues(topics=['generation', 'lammps', 'cp2k', 'training', 'assembly'])
+
+    # Load the ligand descriptions
+    templates = []
+    for path in args.template_paths:
+        template = LigandTemplate.from_yaml(path)
+        templates.append(template)
+
+    # Make the generator settings and the function
+    generator = GeneratorConfig(
+        generator_path=args.generator_path,
+        atom_counts=args.molecule_sizes,
+        templates=templates,
+        min_ligand_candidates=args.minimum_ligand_pool
+    )
+
+    gen_func = partial(run_generator, model=args.model_path, templates=templates, n_atoms=args.num_atoms, n_samples=args.num_samples, device=args.device)
+    gen_func = make_decorator(batched)(args.gen_batch_size)(gen_func)  # Wraps gen_func in a decorator in one line
+    update_wrapper(gen_func, run_generator)
+    gen_method = DiffLinkerInference(
+        function=gen_func,
+        name='run_generator',
+        store_return_value=True,
+        streaming_queue=queues,
+        store=store
+    )
+
     # Select the correct configuraion
     if args.config == "local":
-        config = Config(executors=[HighThroughputExecutor(max_workers_per_node=1, cpu_affinity='block')])
+        config = Config(executors=[HighThroughputExecutor(max_workers_per_node=1, cpu_affinity='block')], run_dir=run_dir)
     elif args.config == "polaris":
         config = Config(retries=1, executors=[
             HighThroughputExecutor(
@@ -76,7 +271,8 @@ if __name__ == "__main__":
                     select_options="ngpus=4",
                     scheduler_options="#PBS -l filesystems=home:eagle",
                     worker_init="""
-source activate /lus/eagle/projects/MOFA/lward/mof-generation-at-scale/env
+                    module use /soft/modulefiles; module load conda;
+conda activate /lus/eagle/projects/Diaspora/valerie/conda_envs/mofa 
 cd $PBS_O_WORKDIR
 pwd
 which python
@@ -90,7 +286,7 @@ hostname
                     walltime="1:00:00",
                 )
             )
-        ])
+        ], run_dir=run_dir)
     elif args.config.startswith("aurora"):
         # Map processes to specific tiles or whole devices
         if args.config == "aurora":
@@ -142,10 +338,24 @@ hostname
                         cpus_per_node=208,
                     ),
                 ),
-            ]
+            ],
+            run_dir=run_dir
         )
     else:
         raise ValueError(f'Configuration not defined: {args.config}')
+
+    with (run_dir / 'compute-config.json').open('w') as fp:
+        json.dump(asdict(config), fp)
+
+
+    if args.launch_option in ['both', 'thinker']:
+        # Make the thinker
+        thinker = MOFAThinker(queues,
+                            hpc_config=hpc_config,
+                            generator_config=generator,
+                            node_template=node_template,
+                            out_dir=run_dir)
+
 
     # Prepare parsl
     with parsl.load(config):
