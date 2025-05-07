@@ -68,6 +68,11 @@ test = [
     'pytest-cov',
     'mongomock'
 ]
+docs = [
+    'sphinx',
+    'pydata-sphinx-theme',
+    'nbsphinx'
+]
 
 [project.scripts]
 monitor_utilization = "mofa.hpc.utilization:utilization_cli"
