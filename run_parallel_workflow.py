@@ -28,7 +28,8 @@ from mofa.generator import run_generator, train_generator
 from mofa.model import NodeDescription, LigandTemplate
 from mofa.selection.dft import DFTSelector
 from mofa.selection.md import MDSelector
-from mofa.simulation.cp2k import CP2KRunner, compute_partial_charges
+from mofa.simulation.dft.cp2k import CP2KRunner
+from mofa.simulation.dft import compute_partial_charges
 from mofa.simulation.mace import MACERunner
 from mofa.steering import GeneratorConfig, TrainingConfig, MOFAThinker, SimulationConfig
 from mofa.hpc.colmena import DiffLinkerInference

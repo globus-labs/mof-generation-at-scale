@@ -15,4 +15,5 @@ The user guide describes each components in detail.
    :caption: Contents:
 
    lifecycle
+   simulation
 

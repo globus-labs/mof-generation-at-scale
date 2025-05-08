@@ -7,7 +7,7 @@ and a series of properties which are gradually gathered during execution.
 
 
 .. contents:: Record Components
-    :depth: 1
+    :depth: 2
 
 MOF Definition
 --------------

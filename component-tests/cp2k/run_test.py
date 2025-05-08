@@ -15,8 +15,6 @@ from parsl.providers import PBSProProvider
 from parsl.launchers import SimpleLauncher
 
 from mofa.model import MOFRecord
-from mofa.scoring.geometry import LatticeParameterChange
-from mofa.simulation.cp2k import compute_partial_charges
 from mofa.utils.conversions import write_to_string
 
 
@@ -31,7 +29,7 @@ def test_function(strc: MOFRecord, cp2k_invocation: str, steps: int) -> tuple[fl
         - Runtime (s)
         - MD trajectory
     """
-    from mofa.simulation.cp2k import CP2KRunner
+    from mofa.simulation.dft.cp2k import CP2KRunner
     from time import perf_counter
     from pathlib import Path
 

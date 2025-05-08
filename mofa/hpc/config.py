@@ -12,8 +12,7 @@ from parsl import Config
 from parsl.launchers import WrappedLauncher, SimpleLauncher
 from parsl.providers import LocalProvider
 
-from mofa.simulation.raspa.graspa import gRASPARunner
-from mofa.simulation.raspa.raspa2 import RASPA2Runner
+from mofa.simulation.raspa.base import BaseRaspaRunner
 
 
 class HPCConfig(BaseModel):
@@ -47,10 +46,12 @@ class HPCConfig(BaseModel):
     """Command used to launch a non-MPI LAMMPS task"""
     lammps_env: dict[str, str] = Field(default_factory=dict)
     """Extra environment variables to include when running LAMMPS"""
-    raspa_version: Literal['raspa2', 'raspa3', 'graspa'] = Field(default='raspa2')
+    raspa_version: Literal['raspa2', 'raspa3', 'graspa', 'graspa_sycl'] = Field(default='raspa2')
     """Version of RASPA used on this system"""
     raspa_cmd: tuple[str] = Field(default=('simulate',))
     """Command used to launch gRASPA-sycl"""
+    raspa_delete_finished: bool = True
+    """Whether to delete RASPA run files after execution"""
 
     # Settings related to distributed training
     gpus_per_node: int = Field(default=1)
@@ -108,14 +109,19 @@ class HPCConfig(BaseModel):
         """Number of workers available for CP2K tasks"""
         raise NotImplementedError
 
-    def make_raspa_runner(self) -> RASPA2Runner | gRASPARunner:
+    def make_raspa_runner(self) -> BaseRaspaRunner:
         """Make the RASPA runner appropriate for this workflow"""
 
         run_dir = self.run_dir / 'raspa-runs'
         if self.raspa_version == 'raspa2':
-            return RASPA2Runner(raspa_command=self.raspa_cmd, run_dir=run_dir)
+            from mofa.simulation.raspa.raspa2 import RASPA2Runner
+            return RASPA2Runner(raspa_command=self.raspa_cmd, run_dir=run_dir, delete_finished=self.raspa_delete_finished)
         elif self.raspa_version == 'graspa':
-            return gRASPARunner(raspa_command=self.raspa_cmd, run_dir=run_dir)
+            from mofa.simulation.raspa.graspa import gRASPARunner
+            return gRASPARunner(raspa_command=self.raspa_cmd, run_dir=run_dir, delete_finished=self.raspa_delete_finished)
+        elif self.raspa_version == 'graspa_sycl':
+            from mofa.simulation.raspa.graspa_sycl import GRASPASyclRunner
+            return GRASPASyclRunner(raspa_command=self.raspa_cmd, run_dir=run_dir, delete_finished=self.raspa_delete_finished)
         else:
             raise NotImplementedError(f'No support for {self.raspa_version} yet.')
 
@@ -152,7 +158,8 @@ class LocalConfig(HPCConfig):
     helper_executors: tuple[str] = ['helper']
     raspa_executors: tuple[str] = ['gpu']
 
-    @computed_field()
+    @computed_field
+    @property
     def cp2k_cmd(self) -> str:
         return '/home/lward/Software/cp2k-2024.2/exe/local_cuda/cp2k_shell.ssmp'
 
@@ -434,7 +441,9 @@ hostname""".strip()
 
 
 class AuroraConfig(SingleJobHPCConfig):
-    """Configuration for running on Sunspot
+    """Configuration for running on Aurora
+
+    Employs the s
 
     Each GPU tasks uses a single tile"""
 

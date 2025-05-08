@@ -9,3 +9,4 @@ API documentation for each module
 
    assembly
    data
+   simulation
