@@ -53,9 +53,9 @@ def test_polaris(tmpdir):
         assert parsl_cfg.executors[-1].cpu_affinity.startswith('list:1:3:5:')
 
         # Make the cp2k call
-        cmd = config.cp2k_cmd
+        cmd = config.dft_cmd
         assert str(config.run_dir) in cmd
-
+        assert 'cp2k_shell' in config.make_dft_runner().dft_cmd.lower()
     finally:
         del os.environ['PBS_NODEFILE']
 
@@ -84,6 +84,9 @@ def test_aurora(tmpdir):
         assert len(config.hosts) == 20
         assert len(config.ai_hosts) == 2
         assert len(config.training_nodes)
+
+        # Test the runners
+        assert 'pwdft' in config.make_dft_runner().dft_cmd.lower()
     finally:
         del os.environ['PBS_NODEFILE']
 

@@ -12,7 +12,11 @@ from parsl import Config
 from parsl.launchers import WrappedLauncher, SimpleLauncher
 from parsl.providers import LocalProvider
 
+from mofa.simulation.dft.base import BaseDFTRunner
 from mofa.simulation.raspa.base import BaseRaspaRunner
+
+RASPAVersion = Literal['raspa2', 'raspa3', 'graspa', 'graspa_sycl']
+DFTVersion = Literal['cp2k', 'pwdft']
 
 
 class HPCConfig(BaseModel):
@@ -46,12 +50,13 @@ class HPCConfig(BaseModel):
     """Command used to launch a non-MPI LAMMPS task"""
     lammps_env: dict[str, str] = Field(default_factory=dict)
     """Extra environment variables to include when running LAMMPS"""
-    raspa_version: Literal['raspa2', 'raspa3', 'graspa', 'graspa_sycl'] = Field(default='raspa2')
+    raspa_version: RASPAVersion = Field(default='raspa2')
     """Version of RASPA used on this system"""
     raspa_cmd: tuple[str] = Field(default=('simulate',))
     """Command used to launch gRASPA-sycl"""
     raspa_delete_finished: bool = True
     """Whether to delete RASPA run files after execution"""
+    dft_version: DFTVersion = 'cp2k'
 
     # Settings related to distributed training
     gpus_per_node: int = Field(default=1)
@@ -66,7 +71,7 @@ class HPCConfig(BaseModel):
     """Maximum fraction of resources not used for AI that will be used for CP2K"""
     lammps_executors: Literal['all'] | list[str] = Field(default='all')
     """Which executors are available for simulation tasks"""
-    cp2k_executors: Literal['all'] | list[str] = Field(default='all')
+    dft_executors: Literal['all'] | list[str] = Field(default='all')
     """Which executors to use for CP2K tasks"""
     raspa_executors: Literal['all'] | list[str] = Field(default='all')
     """Which executors to use for RASPA tasks"""
@@ -78,7 +83,9 @@ class HPCConfig(BaseModel):
     """Which executors are available for processing tasks"""
 
     @computed_field()
-    def cp2k_cmd(self) -> str:
+    @property
+    def dft_cmd(self) -> str:
+        """Command to launch the DFT codes"""
         return 'cp2k_shell.psmp'
 
     @property
@@ -125,6 +132,19 @@ class HPCConfig(BaseModel):
         else:
             raise NotImplementedError(f'No support for {self.raspa_version} yet.')
 
+    def make_dft_runner(self) -> BaseDFTRunner:
+        """Make the runner to use for DFT computations"""
+
+        run_dir = self.run_dir / 'dft-runs'
+        if self.dft_version == 'cp2k':
+            from mofa.simulation.dft.cp2k import CP2KRunner
+            return CP2KRunner(run_dir=run_dir, dft_cmd=self.dft_cmd)
+        elif self.dft_version == 'pwdft':
+            from mofa.simulation.dft.pwdft import PWDFTRunner
+            return PWDFTRunner(run_dir=run_dir, dft_cmd=self.dft_cmd)
+        else:
+            raise NotImplementedError(f'No support for {self.run_dir} yet.')
+
     def launch_monitor_process(self, freq: int = 60) -> Popen:
         """Launch a monitor process on all resources
 
@@ -133,7 +153,7 @@ class HPCConfig(BaseModel):
         Returns:
             Process handle
         """
-        raise NotImplementedError
+        raise NotImplementedError()
 
     def make_parsl_config(self) -> Config:
         """Make a Parsl configuration
@@ -160,7 +180,7 @@ class LocalConfig(HPCConfig):
 
     @computed_field
     @property
-    def cp2k_cmd(self) -> str:
+    def dft_cmd(self) -> str:
         return '/home/lward/Software/cp2k-2024.2/exe/local_cuda/cp2k_shell.ssmp'
 
     @property
@@ -201,7 +221,7 @@ class LocalXYConfig(LocalConfig):
     lammps_cmd: tuple[str] = "/home/xyan11/software/lmp20230802up3/build-gpu/lmp -sf gpu -pk gpu 1".split()
 
     @computed_field()
-    def cp2k_cmd(self) -> str:
+    def dft_cmd(self) -> str:
         return "OMP_NUM_THREADS=1 mpiexec -np 8 /home/xyan11/software/cp2k-v2024.1/exe/local/cp2k_shell.psmp"
 
 
@@ -244,13 +264,13 @@ class SingleJobHPCConfig(HPCConfig):
     lammps_executors: tuple[str] = ['lammps']
     inference_executors: tuple[str] = ['inf']
     train_executors: tuple[str] = ['train']
-    cp2k_executors: tuple[str] = ['cp2k']
+    dft_executors: tuple[str] = ['cp2k']
     helper_executors: tuple[str] = ['helper']
     raspa_executors: tuple[str] = ['lammps']
 
     @computed_field
     @property
-    def cp2k_cmd(self) -> str:
+    def dft_cmd(self) -> str:
         # TODO (wardlt): Turn these into factory classes to ensure everything gets set on built
         return (f'mpiexec -n {self.nodes_per_cp2k * 4} --ppn 4 --cpu-bind depth --depth 8 -env OMP_NUM_THREADS=8 '
                 f'--hostfile {self.run_dir}/cp2k-hostfiles/local_hostfile.`printf %03d $PARSL_WORKER_RANK` '
@@ -441,11 +461,7 @@ hostname""".strip()
 
 
 class AuroraConfig(SingleJobHPCConfig):
-    """Configuration for running on Aurora
-
-    Employs the s
-
-    Each GPU tasks uses a single tile"""
+    """Configuration for running on Aurora"""
 
     torch_device: str = 'xpu'
     lammps_cmd: tuple[str] = (
@@ -456,6 +472,8 @@ class AuroraConfig(SingleJobHPCConfig):
     raspa_cmd: tuple[str] = (
         '/lus/flare/projects/MOFA/lward/gRASPA/graspa-sycl/bin/sycl.out'
     ).split()
+    raspa_version: RASPAVersion = 'graspa_sycl'
+    dft_version: RASPAVersion = 'pwdft'
     cpus_per_node: int = 96
     gpus_per_node: int = 12
     lammps_per_gpu: int = 1
@@ -480,13 +498,14 @@ export LD_LIBRARY_PATH=$FPATH/intel_extension_for_pytorch/lib:$LD_LIBRARY_PATH
         return self.ai_hosts[:self.num_training_nodes]
 
     @computed_field()
-    def cp2k_cmd(self) -> str:
+    @property
+    def dft_cmd(self) -> str:
         assert self.run_dir is not None, 'This must be run after the Parsl config is built'
         return (f'mpiexec -n {self.nodes_per_cp2k * self.gpus_per_node} --ppn {self.gpus_per_node}'
-                f' --cpu-bind depth --depth={104 // self.gpus_per_node} -env OMP_NUM_THREADS={104 // self.gpus_per_node} '
-                '--env OMP_PLACES=cores '
-                f'--hostfile {self.run_dir}/cp2k-hostfiles/local_hostfile.`printf %03d $PARSL_WORKER_RANK` '
-                '/lus/flare/projects/MOFA/lward/mof-generation-at-scale/bin/cp2k_shell')
+                '--cpu-bind list:1-7:8-15:16-23:24-31:32-39:40-47:53-59:60-67:68-75:76-83:84-91:92-99 '
+                '--mem-bind list:0:0:0:0:0:0:1:1:1:1:1:1 --env OMP_NUM_THREADS=1 '
+                '/lus/flare/projects/MOFA/lward/mof-generation-at-scale/bin/gpu_dev_compact.sh '
+                '/lus/flare/projects/MOFA/lward/PWDFT/build_sycl/pwdft')
 
     def make_parsl_config(self) -> Config:
         assert self.num_training_nodes == 1, 'Only supporting a single training node for now'

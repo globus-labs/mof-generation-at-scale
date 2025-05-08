@@ -489,7 +489,7 @@ _pwdft_options = {
 class PWDFTRunner(BaseDFTRunner):
     """Interface for running pre-defined PWDFT workflows"""
 
-    run_dir: str = Path("pwdft-runs")
+    run_dir: Path = Path("pwdft-runs")
     """Path in which to store PWDFT computation files"""
     dft_cmd: str = 'mpiexec -n 1 pwdft'
 

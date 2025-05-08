@@ -164,7 +164,7 @@ hostname
                     'host': node(),
                     'nodes': args.num_nodes,
                     'ranks-per-node': args.ranks_per_node,
-                    'cp2k_cmd': cp2k_cmd,
+                    'dft_cmd': cp2k_cmd,
                     'steps': args.steps,
                     'mof': future.mof.name,
                     'runtime': runtime,

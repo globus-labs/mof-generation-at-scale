@@ -202,7 +202,7 @@ if __name__ == "__main__":
 
     # Make the CP2K function
     cp2k_runner = CP2KRunner(
-        cp2k_invocation=hpc_config.cp2k_cmd,
+        cp2k_invocation=hpc_config.dft_cmd,
         run_dir=run_dir / 'cp2k-runs'
     )
     cp2k_fun = partial(cp2k_runner.run_optimization, steps=args.dft_opt_steps)  # Optimizes starting from assembled structure
@@ -255,7 +255,7 @@ if __name__ == "__main__":
             (train_func, {'executors': hpc_config.train_executors}),
             (md_fun, {'executors': hpc_config.lammps_executors}),
             (md_opt_fun, {'executors': hpc_config.lammps_executors}),
-            (cp2k_fun, {'executors': hpc_config.cp2k_executors}),
+            (cp2k_fun, {'executors': hpc_config.dft_executors}),
             (compute_partial_charges, {'executors': hpc_config.helper_executors}),
             (process_ligands, {'executors': hpc_config.helper_executors}),
             (raspa_fun, {'executors': hpc_config.raspa_executors}),
