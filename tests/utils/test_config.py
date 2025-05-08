@@ -4,13 +4,12 @@ from pathlib import Path
 
 from pytest import mark, raises
 
-from mofa.hpc.config import configs, SingleJobHPCConfig, AuroraConfig
+from mofa.hpc.config import LocalConfig, LocalXYConfig, SingleJobHPCConfig, AuroraConfig
 from mofa.utils.config import load_variable
 
 
-@mark.parametrize('name', ['local', 'localXY'])
-def test_local(tmpdir, name):
-    config = configs[name]()
+@mark.parametrize('config', [LocalConfig(), LocalXYConfig()])
+def test_local(tmpdir, config):
     assert config.torch_device == 'cuda'
     assert config.num_workers == 3
     config.run_dir = tmpdir
@@ -40,7 +39,7 @@ def test_polaris(tmpdir):
         assert len(config.lammps_hosts) == 1
 
         assert config.num_workers == 4 + 16 + 1
-        parsl_cfg = config.make_parsl_config(Path(tmpdir))
+        parsl_cfg = config.make_parsl_config()
         assert str(tmpdir) in parsl_cfg.run_dir
 
         # Make sure nodes are allocated appropriately
@@ -70,12 +69,13 @@ def test_aurora(tmpdir):
 
     try:
         config = AuroraConfig()
+        config.run_dir = Path(tmpdir)
         config.ai_fraction = 0.1
         config.dft_fraction = 0.25
-        config.make_parsl_config(Path(tmpdir))
+        config.make_parsl_config()
         assert config.nodes_per_cp2k == 1
 
-        assert 'flare' in config.graspa_cmd[0]
+        assert 'flare' in config.raspa_cmd[0]
 
         # Check that it has the correct GPU settings
         assert config.gpus_per_node == 12
@@ -101,18 +101,19 @@ def test_load_from_file():
         load_variable(config_path, 'not_there')
 
 
-def test_raspa_vs_graspa():
+def test_raspa_vs_graspa(tmpdir):
     config = SingleJobHPCConfig()
+    config.run_dir = Path(tmpdir)
 
     # Check the defaults
-    assert config.raspa_cmd is None
+    assert config.raspa_cmd is not None
     assert config.raspa_version == 'raspa2'
     assert 'simulate' in str(config.make_raspa_runner().raspa_command)
 
     # Check changing the path
-    config.raspa_cmd = '/not/a/path'
-    assert config.make_raspa_runner().raspa_command == '/not/a/path'
+    config.raspa_cmd = ('/not/a/path',)
+    assert config.make_raspa_runner().raspa_command == ('/not/a/path',)
 
     # Check changing to gRASPA
     config.raspa_version = 'graspa'
-    assert config.make_raspa_runner().graspa_command == '/not/a/path'
+    assert config.make_raspa_runner().raspa_command == ('/not/a/path',)

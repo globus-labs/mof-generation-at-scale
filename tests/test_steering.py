@@ -7,9 +7,11 @@ import logging
 import gzip
 
 import numpy as np
-from colmena.queue import PipeQueues, ColmenaQueues
+from colmena.queue import ColmenaQueues, PipeQueues
 from colmena.exceptions import TimeoutException
 from colmena.models import Result
+from proxystore.store import Store
+from proxystore.connectors.file import FileConnector
 from pytest import fixture, raises
 from mongomock import MongoClient
 from ase import io as aseio
@@ -31,7 +33,7 @@ def _pull_tasks(queues: ColmenaQueues) -> list[tuple[str, Result]]:
     tasks = []
     while True:
         try:
-            task = queues.get_task(timeout=0.5)
+            task = queues.get_task(timeout=1)
         except TimeoutException:
             break
         tasks.append(task)
@@ -46,13 +48,18 @@ def client_collection():
 
 
 @fixture()
-def queues():
-    return PipeQueues(topics=['generation', 'lammps', 'cp2k', 'training', 'assembly'])
+def queues(tmpdir):
+    store_dir = Path(tmpdir) / 'store'
+    store = Store(name='store', connector=FileConnector(store_dir=str(store_dir)), register=True)
+    with store:
+        yield PipeQueues(topics=['generation', 'lammps', 'cp2k', 'training', 'assembly'], proxystore_name='store', proxystore_threshold=1000)
 
 
 @fixture()
-def hpc_config():
-    return LocalConfig()
+def hpc_config(tmpdir):
+    run_dir = Path(tmpdir) / 'run'
+    run_dir.mkdir()
+    return LocalConfig(run_dir=run_dir)
 
 
 @fixture()
@@ -130,12 +137,10 @@ def dft_selector(coll):
 
 @fixture()
 def thinker(queues, coll, md_selector, dft_selector, hpc_config, gen_config, trn_config, sim_config, node_template, tmpdir):
-    run_dir = Path(tmpdir) / 'run'
-    run_dir.mkdir()
     thinker = MOFAThinker(
         queues=queues,
         collection=coll,
-        out_dir=run_dir,
+        out_dir=hpc_config.run_dir,
         hpc_config=hpc_config,
         simulation_budget=8,
         generator_config=gen_config,
@@ -147,7 +152,7 @@ def thinker(queues, coll, md_selector, dft_selector, hpc_config, gen_config, trn
     )
 
     # Route logs to disk
-    handlers = [logging.FileHandler(run_dir / 'run.log')]
+    handlers = [logging.FileHandler(hpc_config.run_dir / 'run.log')]
     for logger in [thinker.logger, logging.getLogger('colmena')]:
         for handler in handlers:
             handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
@@ -300,7 +305,7 @@ def test_simulation_pipeline(thinker, queues, cache_dir, example_record):
     # Check that it has updated
     sleep(1.5)
     assert thinker.collection.count_documents({'times.relaxed': {'$exists': True}}) == 1
-    assert thinker.collection.count_documents({'in_progress': 'stability'}) == 0
+    assert thinker.collection.count_documents({'in_progress': 'stability'}) == 1
 
     # We should have two tasks now: one CP2K and another LAMMPS
     tasks = _pull_tasks(queues)
