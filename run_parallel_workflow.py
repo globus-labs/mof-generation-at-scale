@@ -2,7 +2,6 @@
 from functools import partial, update_wrapper
 from subprocess import Popen
 from argparse import ArgumentParser
-from dataclasses import asdict
 from datetime import datetime
 from platform import node
 from pathlib import Path
@@ -127,13 +126,14 @@ if __name__ == "__main__":
         hpc_config = LocalConfig()
     else:
         hpc_config = load_variable(args.compute_config, 'hpc_config')
+    hpc_config.run_dir = run_dir
     hpc_config.ai_fraction = args.ai_fraction
     hpc_config.dft_fraction = args.dft_fraction
 
     # Make the Parsl configuration
-    config = hpc_config.make_parsl_config(run_dir)
+    config = hpc_config.make_parsl_config()
     with (run_dir / 'compute-config.json').open('w') as fp:
-        json.dump(asdict(hpc_config), fp)
+        print(hpc_config.model_dump_json(indent=2), file=fp)
 
     # Launch MongoDB as a subprocess
     mongo_dir = run_dir / 'db'
@@ -201,12 +201,9 @@ if __name__ == "__main__":
     )
 
     # Make the CP2K function
-    cp2k_runner = CP2KRunner(
-        cp2k_invocation=hpc_config.dft_cmd,
-        run_dir=run_dir / 'cp2k-runs'
-    )
-    cp2k_fun = partial(cp2k_runner.run_optimization, steps=args.dft_opt_steps)  # Optimizes starting from assembled structure
-    update_wrapper(cp2k_fun, cp2k_runner.run_optimization)
+    dft_runner = hpc_config.make_dft_runner()
+    cp2k_fun = partial(dft_runner.run_optimization, steps=args.dft_opt_steps)  # Optimizes starting from assembled structure
+    update_wrapper(cp2k_fun, dft_runner.run_optimization)
 
     dft_selector = DFTSelector(
         collection=mongo_coll,
@@ -268,7 +265,7 @@ if __name__ == "__main__":
     # Launch the utilization logging
     log_dir = run_dir / 'logs'
     log_dir.mkdir(parents=True)
-    util_proc = hpc_config.launch_monitor_process(log_dir.absolute())
+    util_proc = hpc_config.launch_monitor_process()
     if util_proc.poll() is not None:
         raise ValueError('Monitor process failed to run!')
     my_logger.info(f'Launched monitoring process. pid={util_proc.pid}')

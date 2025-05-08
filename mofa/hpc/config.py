@@ -90,7 +90,7 @@ class HPCConfig(BaseModel):
 
     @property
     def training_nodes(self) -> tuple[str]:
-        raise NotImplementedError()
+        return ('localhost',)
 
     @property
     def num_training_ranks(self):
