@@ -25,22 +25,32 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ]
 dependencies = [
-    "colmena>=0.7",
+    # General workflow
+    "colmena==0.7.*",
     "more-itertools",
     "parsl>=2023.04",
-    "ase>3.22",
     "tqdm",
+
+    # Chemistry related stuff
+    "ase>3.22",
+    "rdkit>2024",
+    "openbabel-wheel",
+    "pymatgen",
 
     # ML-related dependencies
     "pytorch-lightning",
     "wandb",
     "imageio",
+    "scikit-learn",
+    "mace-torch",
+    "torch-dftd",
 
     # Performance tracking
     "gpustat",
 
     # Data management
-    "pymongo>=4"
+    "pymongo>=4",
+    "pandas"
 ]
 
 [tool.setuptools.packages.find]

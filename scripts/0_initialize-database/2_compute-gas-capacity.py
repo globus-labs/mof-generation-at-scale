@@ -1,7 +1,8 @@
+from functools import partial
+
+from mofa.simulation.graspa_sycl import GRASPASyclRunner
 from mofa.utils.conversions import read_from_string
-from mofa.simulation.raspa import RASPARunner
 from concurrent.futures import as_completed
-from time import perf_counter
 from parsl import Config, HighThroughputExecutor, python_app, load
 from pathlib import Path
 from tqdm import tqdm
@@ -23,8 +24,16 @@ if __name__ == "__main__":
     with load(config):
 
         # Run what we have not
-        runner = RASPARunner()
-        run_app = python_app(runner.run_GCMC_single)
+        runner = GRASPASyclRunner(
+            graspa_command=('/home/lward/Software/gRASPA/graspa-sycl/bin/sycl.out',),
+            run_dir=Path('gcmc')
+        )
+        fun = partial(runner.run_gcmc,
+                      adsorbate='CO2',
+                      temperature=298,
+                      pressure=1e4,
+                      n_cycle=100000)
+        run_app = python_app(fun)
         futures = []
         for _, row in pd.read_json('charges.jsonl', lines=True).iterrows():
             if (row['mof'], row['steps']) in done:
@@ -34,16 +43,13 @@ if __name__ == "__main__":
                 continue
 
             # Load the structure and attach charges
-            atoms = read_from_string(row['strc'], 'vasp')
-            atoms.arrays['q'] = np.array(row['charges'])
-
-            future = run_app(atoms, row['mof'])
+            future = run_app(row['mof'], Path('cp2k-run-2') / f"{row['mof']}-optimize-pbe")
             future.row = row
             futures.append(future)
 
         for future in tqdm(as_completed(futures), total=len(futures)):
             try:
-                mean, std = future.result()
+                mean, std, _, _ = future.result()
                 with output_path.open('a') as fp:
                     print(json.dumps({
                         'mof': future.row['mof'],

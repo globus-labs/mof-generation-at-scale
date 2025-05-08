@@ -41,7 +41,6 @@ def test_load_model(load_denoising_model, load_size_gnn_model):
     assert load_size_gnn_model.__class__.__name__ == 'SizeClassifier'
 
 
-@mark.slow
 @mark.parametrize('finetune', [True, False])
 def test_training(file_dir, tmpdir, finetune):
     # Load some examples from disk

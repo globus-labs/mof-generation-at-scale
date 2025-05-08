@@ -24,7 +24,8 @@ def test_strain(example_record):
         scorer.score_mof(example_record)
 
     # Make a fake MD trajectory with no change
-    example_record.md_trajectory['uff'] = {'1000': [example_record.structure] * 2}
+    example_record.md_trajectory['uff'] = [(0, example_record.structure),
+                                           (1000, example_record.structure)]
     assert np.isclose(scorer.score_mof(example_record), 0)
 
     # Make sure it compute stresses correctly if the volume shears
@@ -32,7 +33,7 @@ def test_strain(example_record):
     final_atoms.set_cell(final_atoms.cell.lengths().tolist() + [80, 90, 90])
     sio = StringIO()
     write_vasp(sio, final_atoms)
-    example_record.md_trajectory['uff']['1000'][1] = sio.getvalue()
+    example_record.md_trajectory['uff'][1] = (1000, sio.getvalue())
 
     max_strain = scorer.score_mof(example_record)
     assert np.isclose(max_strain, 0.09647)  # Checked against https://www.cryst.ehu.es/cryst/strain.html

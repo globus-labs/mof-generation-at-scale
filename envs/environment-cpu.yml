@@ -37,4 +37,5 @@ dependencies:
     - git+https://gitlab.com/ase/ase.git
     - --extra-index-url https://download.pytorch.org/whl/cpu
     - torch==2.3.*
+    - mace-torch
     - -e ..[test]

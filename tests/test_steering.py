@@ -6,19 +6,24 @@ import warnings
 import logging
 import gzip
 
+import numpy as np
 from colmena.queue import PipeQueues, ColmenaQueues
 from colmena.exceptions import TimeoutException
 from colmena.models import Result
-from pytest import fixture
+from pytest import fixture, raises
 from mongomock import MongoClient
 from ase import io as aseio
 
+from mofa.finetune.difflinker import DiffLinkerCurriculum
+from mofa.selection.dft import DFTSelector
+from mofa.selection.md import MDSelector
 from mofa.simulation.lammps import LAMMPSRunner
 from mofa.assembly.validate import process_ligands
 from mofa.generator import run_generator
 from mofa.model import LigandTemplate, NodeDescription, MOFRecord
 from mofa.steering import MOFAThinker, GeneratorConfig, TrainingConfig, SimulationConfig
 from mofa.hpc.config import LocalConfig
+from mofa.db import initialize_database, create_records
 
 
 def _pull_tasks(queues: ColmenaQueues) -> list[tuple[str, Result]]:
@@ -31,6 +36,13 @@ def _pull_tasks(queues: ColmenaQueues) -> list[tuple[str, Result]]:
             break
         tasks.append(task)
     return tasks
+
+
+@fixture()
+def client_collection():
+    client = MongoClient()
+    coll = initialize_database(client)
+    return client, coll
 
 
 @fixture()
@@ -70,13 +82,15 @@ def gen_config(file_path, ligand_templates):
 
 
 @fixture()
-def trn_config():
+def trn_config(coll):
     return TrainingConfig(
         num_epochs=1,
-        minimum_train_size=4,
-        maximum_train_size=10,
-        best_fraction=0.5,
-        maximum_strain=0.5
+        curriculum=DiffLinkerCurriculum(
+            max_size=4,
+            max_strain=0.5,
+            strain_method='uff',
+            collection=coll
+        )
     )
 
 
@@ -92,24 +106,44 @@ def node_template(file_path):
 @fixture()
 def sim_config():
     return SimulationConfig(
-        md_length=(10000,)
+        md_level='uff',
+        md_length=10000
     )
 
 
 @fixture()
-def thinker(queues, hpc_config, gen_config, trn_config, sim_config, node_template, tmpdir):
+def md_selector(coll):
+    return MDSelector(
+        md_level='uff',
+        collection=coll,
+        maximum_steps=5000
+    )
+
+
+@fixture()
+def dft_selector(coll):
+    return DFTSelector(
+        md_level='uff',
+        collection=coll
+    )
+
+
+@fixture()
+def thinker(queues, coll, md_selector, dft_selector, hpc_config, gen_config, trn_config, sim_config, node_template, tmpdir):
     run_dir = Path(tmpdir) / 'run'
     run_dir.mkdir()
     thinker = MOFAThinker(
         queues=queues,
-        mongo_client=MongoClient(),
+        collection=coll,
         out_dir=run_dir,
         hpc_config=hpc_config,
         simulation_budget=8,
         generator_config=gen_config,
         trainer_config=trn_config,
         simulation_config=sim_config,
-        node_template=node_template,
+        md_selector=md_selector,
+        dft_selector=dft_selector,
+        node_template=node_template
     )
 
     # Route logs to disk
@@ -160,6 +194,7 @@ def make_gen_outputs(task: Result, cache_dir: Path):
     done_res.set_result(None, intermediate=False)
     done_res.serialize()
 
+    task.method = 'process_ligands'
     task.set_result(result, intermediate=True)
     task.serialize()
     return done_res, task
@@ -176,6 +211,7 @@ def make_lammps_output(task: Result, cache_dir: Path):
     if result_path.is_file():
         with gzip.open(result_path, 'rt') as fp:
             frames = aseio.read(fp, index=':', format='extxyz')
+        frames = [(length // 10 * i, frame) for i, frame in enumerate(frames)]
     else:
         lmp = LAMMPSRunner(
             lammps_command=["lmp_serial"],
@@ -185,11 +221,32 @@ def make_lammps_output(task: Result, cache_dir: Path):
         )
         frames = lmp.run_molecular_dynamics(mof=record, timesteps=length, report_frequency=length // 10)
         with gzip.open(result_path, 'wt') as fp:
-            aseio.write(fp, frames, format='extxyz')
+            aseio.write(fp, [f for _, f in frames], format='extxyz')
 
     # Make a message with the model
     done_res = task.model_copy(deep=True)
     done_res.set_result(frames)
+    done_res.serialize()
+
+    return done_res
+
+
+def make_cp2k_outputs(task: Result):
+    task.deserialize()
+
+    # Get the results
+    if task.method == 'run_optimization':
+        result = ('a', '/here/')
+    elif task.method == 'compute_partial_charges':
+        result = ('a',)
+    elif task.method == 'run_gcmc':
+        result = (1, 2, 0.1, 0.2)
+    else:
+        raise ValueError()
+
+    # Make a message with the output
+    done_res = task.model_copy(deep=True)
+    done_res.set_result(result)
     done_res.serialize()
 
     return done_res
@@ -210,40 +267,115 @@ def test_generator(thinker, queues, cache_dir):
     tasks = _pull_tasks(queues)
     assert len(tasks) == 0  # The ligands won't create new tasks
 
-    assert thinker.out_dir.joinpath('all_ligands.csv').exists()
-
     queues.send_result(done_result)
     tasks = _pull_tasks(queues)
     assert len(tasks) == 1  # Sending a completed task will trigger new updates
 
 
-def test_stability(thinker, queues, cache_dir, example_record):
+def test_simulation_pipeline(thinker, queues, cache_dir, example_record):
+    """Step through the entire simulation pipeline"""
     # Pull the generate task out of the queues (it is there on startup and irrelevant here)
     tasks = _pull_tasks(queues)
     assert len(tasks) == 1
 
+    # Ensure there are no MOFs ready for running
+    assert thinker.md_selector.count_available() == 0
+
     # Insert a MOF record into queue
-    thinker.stability_queue.append((example_record, thinker.sim_config.md_length[0]))
+    thinker.stability_queue.append(example_record)
     thinker.mofs_available.set()
+    sleep(0.5)
     tasks = _pull_tasks(queues)
     assert len(tasks) == 1
-    assert len(thinker.in_progress) == 1
+    assert thinker.collection.count_documents({'in_progress': 'stability'}) == 1
 
-    # Run LAMMPS
+    # Run initial relaxation
     _, task = tasks[0]
-    done_result = make_lammps_output(task, cache_dir / 'lammps')
+    assert task.method == 'run_optimization_ff'
+    task.deserialize()
+    task.set_result((task.args[0].atoms, None))
+    task.serialize()
+    queues.send_result(task)
+
+    # Check that it has updated
+    sleep(1.5)
+    assert thinker.collection.count_documents({'times.relaxed': {'$exists': True}}) == 1
+    assert thinker.collection.count_documents({'in_progress': 'stability'}) == 0
+
+    # We should have two tasks now: one CP2K and another LAMMPS
+    tasks = _pull_tasks(queues)
+    assert len(tasks) == 2
+
+    tasks_by_method = dict(
+        (task.method, task) for _, task in tasks
+    )
+    assert 'run_molecular_dynamics' in tasks_by_method
+
+    # Do the MD steps
+    done_result = make_lammps_output(tasks_by_method['run_molecular_dynamics'], cache_dir / 'lammps')
     assert done_result.complete
     queues.send_result(done_result)
-
-    sleep(2.)
+    sleep(0.5)
 
     # Check that the database has the content
-    assert len(thinker.in_progress) == 0
-    assert thinker.cp2k_ready.is_set()
+    assert thinker.collection.count_documents({'in_progress': 'stability'}) == 0
     assert thinker.collection.count_documents({}) == 1
+    assert thinker.cp2k_ready.is_set()
 
     # Check that the CP2K is getting started
+    assert 'run_optimization' in tasks_by_method
+
+    # Check that no other compounds are eligible
+    assert thinker.collection.count_documents({'in_progress': 'dft'}) == 1, \
+        thinker.collection.find_one({})
+    with raises(ValueError, match='criteria'):
+        thinker.dft_selector.select_next()
+
+    # "Run" the optimization
+    task = tasks_by_method['run_optimization']
+    result = make_cp2k_outputs(task)
+    queues.send_result(result)
+
     tasks = _pull_tasks(queues)
     assert len(tasks) == 1
     _, task = tasks[0]
-    assert task.method == 'run_optimization'
+    assert task.method == 'compute_partial_charges'
+
+    # "Run" the partial charges
+    result = make_cp2k_outputs(task)
+    queues.send_result(result)
+
+    tasks = _pull_tasks(queues)
+    assert len(tasks) == 1
+    _, task = tasks[0]
+    assert task.method == 'run_gcmc'
+
+    # "Run" the GCMC
+    result = make_cp2k_outputs(task)
+    queues.send_result(result)
+
+    tasks = _pull_tasks(queues)
+    assert len(tasks) == 0
+
+    assert thinker.collection.count_documents({'gas_storage.CO2': {'$exists': True}}) == 1
+
+
+def test_retrain(thinker, queues, coll, example_record):
+    """Make sure retraining can be triggered properly"""
+    # Pull the generate task out of the queues (it is there on startup and irrelevant here)
+    tasks = _pull_tasks(queues)
+    assert len(tasks) == 1
+
+    # Make a series of records with increasingly-larger strains
+    for strain in np.random.uniform(0., 0.2, 32):
+        example_record.structure_stability['uff'] = strain
+        create_records(coll, [example_record])
+    assert len(thinker.trainer_config.curriculum.get_training_set()) > 0
+
+    # Call retraining
+    thinker.start_train.set()
+    sleep(0.5)
+    tasks = _pull_tasks(queues)
+    assert len(tasks) == 1
+    _, task = tasks[0]
+    assert task.method == 'train_generator'

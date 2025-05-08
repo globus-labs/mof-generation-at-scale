@@ -2,6 +2,7 @@ import json
 import argparse
 from itertools import cycle
 from pathlib import Path
+from concurrent.futures import as_completed
 
 import gzip
 from platform import node
@@ -11,7 +12,7 @@ from parsl.config import Config
 from parsl.app.python import PythonApp
 from parsl.executors import HighThroughputExecutor
 from parsl.providers import PBSProProvider
-from parsl.launchers import SimpleLauncher
+from parsl.launchers import SimpleLauncher, MpiExecLauncher
 
 from mofa.model import MOFRecord
 
@@ -22,7 +23,7 @@ _config_path = "../../models/geom-300k/config-tf32-a100.yaml"
 _training_set = Path("mofs.json.gz")
 
 
-def test_function(model_path: Path, config_path: Path, training_set: list, num_epochs: int, device: str) -> float:
+def test_function(model_path: Path, config_path: Path, training_set: list, num_epochs: int, device: str, parallel: bool) -> float:
     """Run a LAMMPS simulation, report runtime and resultant traj
 
     Args:
@@ -38,6 +39,13 @@ def test_function(model_path: Path, config_path: Path, training_set: list, num_e
     from mofa.generator import train_generator
     from pathlib import Path
     from time import perf_counter
+    import os
+
+    # Determine the nodelist, if running in parallel
+    if parallel:
+        node_list = Path(os.environ['PBS_NODEFILE']).read_text().split("\n")
+    else:
+        node_list = ()
 
     # Run
     with TemporaryDirectory() as tmp:
@@ -49,6 +57,7 @@ def test_function(model_path: Path, config_path: Path, training_set: list, num_e
             examples=training_set,
             num_epochs=num_epochs,
             device=device,
+            node_list=node_list
         )
         run_time = perf_counter() - start_time
 
@@ -61,6 +70,7 @@ if __name__ == "__main__":
     parser.add_argument('--model-path', help='Version of DiffLinker to run', default=_model_path)
     parser.add_argument('--training-size', help='Number of entries to use from training set', type=int, default=128)
     parser.add_argument('--num-epochs', help='Number of training epochs', type=int, default=16)
+    parser.add_argument('--num-nodes', help='Number of nodes', type=int, default=1)
     parser.add_argument('--device', help='Device on which to run DiffLinker', default='cuda')
     parser.add_argument('--config', help='Which compute configuration to use', default='local')
     args = parser.parse_args()
@@ -78,7 +88,10 @@ if __name__ == "__main__":
     # Select the correct configuraion
     if args.config == "local":
         config = Config(executors=[HighThroughputExecutor(max_workers_per_node=1, cpu_affinity='block')])
+        parallel = False
+        ranks_per_node = 1
     elif args.config == "polaris":
+        ranks_per_node = 4
         config = Config(retries=1, executors=[
             HighThroughputExecutor(
                 max_workers_per_node=1,
@@ -90,10 +103,9 @@ if __name__ == "__main__":
                     select_options="ngpus=4",
                     scheduler_options="#PBS -l filesystems=home:eagle",
                     worker_init="""
-module load kokkos
-module load nvhpc/23.3
 module list
-source activate /lus/eagle/projects/ExaMol/mofa/mof-generation-at-scale/env-polaris
+source activate /lus/eagle/projects/MOFA/lward/mof-generation-at-scale/env
+
 
 cd $PBS_O_WORKDIR
 pwd
@@ -109,40 +121,39 @@ hostname
                 )
             )
         ])
-    elif args.config.startswith("sunspot"):
+    elif args.config.startswith("aurora"):
+        ranks_per_node = 12
+        parallel = True
         config = Config(
+            retries=2,
             executors=[
                 HighThroughputExecutor(
-                    label="sunspot_test",
+                    label="aurora_test",
                     prefetch_capacity=0,
-                    max_workers_per_node=1,
+                    max_workers_per_node=12,
+                    available_accelerators=12,
+                    cpu_affinity='block',
                     provider=PBSProProvider(
-                        account="CSC249ADCD08_CNDA",
-                        queue="workq",
+                        account="MOFA",
+                        queue="debug",
                         worker_init=f"""
-source activate /lus/gila/projects/CSC249ADCD08_CNDA/mof-generation-at-scale/env
-module reset
-module use /soft/modulefiles/
-module use /home/ftartagl/graphics-compute-runtime/modulefiles
-module load oneapi/release/2023.12.15.001
-module load intel_compute_runtime/release/775.20
-module load gcc/12.2.0
-module list
-
-python -c "import intel_extension_for_pytorch as ipex; print(ipex.xpu.device_count())"
-
+module load frameworks
+source /lus/flare/projects/MOFA/lward/mof-generation-at-scale/venv/bin/activate
+export ZE_FLAT_DEVICE_HIERARCHY=FLAT
 cd $PBS_O_WORKDIR
 pwd
 which python
 hostname
                         """,
-                        walltime="1:10:00",
-                        launcher=SimpleLauncher(),
-                        select_options="system=sunspot,place=scatter",
-                        nodes_per_block=1,
+                        walltime="1:00:00",
+                        launcher=MpiExecLauncher(
+                            bind_cmd="--cpu-bind", overrides="--depth=104 --ppn 1"
+                        ),
+                        scheduler_options="#PBS -l filesystems=home:flare",
+                        nodes_per_block=args.num_nodes,
                         min_blocks=0,
-                        max_blocks=1,  # Can increase more to have more parallel batch jobs
-                        cpus_per_node=208,
+                        max_blocks=1,
+                        cpus_per_node=104,
                     ),
                 ),
             ]
@@ -151,16 +162,22 @@ hostname
         raise ValueError(f'Configuration not defined: {args.config}')
 
     # Prepare parsl
-    parsl.load(config)
-    test_app = PythonApp(test_function)
+    with parsl.load(config):
+        test_app = PythonApp(test_function)
 
-    # Call the training function
-    runtime = test_app(_model_path, _config_path, training_set, num_epochs=args.num_epochs, device=args.device).result()
+        # Call the training function
+        futures = []
+        for rank in range(ranks_per_node * args.num_nodes):
+            futures.append(test_app(_model_path, _config_path, training_set, num_epochs=args.num_epochs, device=args.device, parallel=parallel))
 
-    # Save the result
-    with open('runtimes.json', 'a') as fp:
-        print(json.dumps({
-            **args.__dict__,
-            'runtime': runtime,
-            'host': node()
-        }), file=fp)
+        # Collect
+        for future in as_completed(futures):
+            runtime = future.result()
+
+        # Save the result
+        with open('runtimes.json', 'a') as fp:
+            print(json.dumps({
+                **args.__dict__,
+                'runtime': runtime,
+                'host': node()
+            }), file=fp)
