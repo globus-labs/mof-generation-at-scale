@@ -216,7 +216,7 @@ if __name__ == "__main__":
                         adsorbate='CO2',
                         temperature=298,
                         pressure=1e4,
-                        n_cycle=args.raspa_timesteps)
+                        cycles=args.raspa_timesteps)
     update_wrapper(raspa_fun, raspa_runner.run_gcmc)
 
     # Make the thinker
