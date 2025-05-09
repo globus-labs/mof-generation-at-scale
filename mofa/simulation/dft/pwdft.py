@@ -1,24 +1,19 @@
 """Run computations backed by PWDFT. Copied from Raymundo Hernandez and Alvaro Vazquez-Mayagoitia's implementation."""
-
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 import os
 
-import ase
-from ase.io import Trajectory
-from ase.optimize import LBFGS
 from ase import Atoms
 from ase.units import Hartree, Bohr
 from ase.calculators.singlepoint import SinglePointDFTCalculator
-from ase.calculators.calculator import FileIOCalculator, KPoints, kpts2kpts
+from ase.calculators.calculator import FileIOCalculator, KPoints, kpts2kpts, Calculator
 
-from mofa.model import MOFRecord
-from mofa.utils.conversions import read_from_string
+from mofa.simulation.dft.base import BaseDFTRunner
 import re
 import json
 import numpy as np
 from copy import deepcopy
-
 
 _special_kws = [
     "center",
@@ -282,7 +277,7 @@ def _get_kpts(atoms, **params):
 
 
 def write_pwdft_in(
-    fd, atoms, properties=None, echo=True, twod_hcurve=True, lmbfgs=True, **params
+        fd, atoms, properties=None, echo=True, twod_hcurve=True, lmbfgs=True, **params
 ):
     """Writes PWDFT input file.
 
@@ -450,12 +445,12 @@ class PWDFT(FileIOCalculator):
     default_parameters = dict()
 
     def __init__(
-        self,
-        restart=None,
-        ignore_bad_restart_file=FileIOCalculator._deprecated,
-        label="pwdft",
-        atoms=None,
-        **kwargs,
+            self,
+            restart=None,
+            ignore_bad_restart_file=FileIOCalculator._deprecated,
+            label="pwdft",
+            atoms=None,
+            **kwargs,
     ):
         """Construct PWDFT-Calculator object"""
 
@@ -490,117 +485,25 @@ _pwdft_options = {
 }
 
 
-def _load_structure(mof: MOFRecord, structure_source: tuple[str, int] | None):
-    """Read the appropriate input structure"""
-    if structure_source is None:
-        return mof.atoms
-    else:
-        traj, ind = structure_source
-        return read_from_string(mof.md_trajectory[traj][ind], "vasp")
-
-
-@dataclass
-class PWDFTRunner:
+@dataclass(kw_only=True)
+class PWDFTRunner(BaseDFTRunner):
     """Interface for running pre-defined PWDFT workflows"""
 
     run_dir: Path = Path("pwdft-runs")
     """Path in which to store PWDFT computation files"""
-    pwdft_cmd: str = "mpirun -n 1 pwdft"
-    """Path to the PWDFT executable"""
+    dft_cmd: str = 'mpiexec -n 1 pwdft'
 
-    def run_single_point(
-        self,
-        mof: MOFRecord,
-        level: str = "default",
-        structure_source: tuple[str, int] | None = None,
-    ) -> tuple[ase.Atoms, Path]:
-        """Perform a single-point computation at a certain level
-
-        Args:
-            mof: Structure to be run
-            level: Name of the level of computation to perform
-            structure_source: Name of the MD trajectory and frame ID from which to source the
-                input structure. Default is to use the as-assembled structure
-        Returns:
-            - Structure with computed properties
-            - Path to the run directory
-        """
-        atoms = _load_structure(mof, structure_source)
-        return self._run_pwdft(mof.name, atoms, "single", level)
-
-    def run_optimization(
-        self,
-        mof: MOFRecord,
-        level: str = "default",
-        structure_source: tuple[str, int] | None = None,
-        steps: int = 8,
-        fmax: float = 1e-2,
-    ) -> tuple[ase.Atoms, Path]:
-        """Perform a geometry optimization computation
-
-        Args:
-            mof: Structure to be run
-            level: Name of the level of computation to perform
-            structure_source: Name of the MD trajectory and frame ID from which to source the
-                input structure. Default is to use the as-assembled structure
-            steps: Maximum number of optimization steps
-            fmax: Convergence threshold for optimization
-        Returns:
-            - Relaxed structure
-            - Path to the run directory
-        """
-        atoms = _load_structure(mof, structure_source)
-        return self._run_pwdft(mof.name, atoms, "optimize", level, steps, fmax)
-
-    def _run_pwdft(
-        self,
-        name: str,
-        atoms: ase.Atoms,
-        action: str,
-        level: str,
-        steps: int = 8,
-        fmax: float = 1e-2,
-    ) -> tuple[ase.Atoms, Path]:
-        """Run PWDFT in a special directory
-
-        Args:
-            name: Name used for the start of the directory
-            atoms: Starting structure to use
-            action: Which action to perform (single, optimize)
-            level: Level of accuracy to use
-            steps: Number of steps to run
-            fmax: Convergence threshold for optimization
-        Returns:
-            - Structure with computed properties
-            - Absolute path to the run directory
-        """
+    @contextmanager
+    def _make_calc(self, level: str, out_dir: Path) -> Calculator:
         if level not in _pwdft_options:
             raise ValueError(f"No presets for {level}")
         options = _pwdft_options[level].copy()
 
-        options["command"] = self.pwdft_cmd + " < PREFIX.nwxi > PREFIX.nwxo"
+        options["command"] = self.dft_cmd + " < PREFIX.nwxi > PREFIX.nwxo"
 
-        out_dir = self.run_dir / f"{name}-{action}-{level}"
-        start_dir = Path().cwd()
-        out_dir.mkdir(parents=True, exist_ok=True)
-        os.chdir(out_dir)
-
+        start_dir = Path.cwd()
         try:
-            calc = PWDFT(label=name, **options)
-            atoms = atoms.copy()
-            atoms.calc = calc
-
-            if action == "single":
-                atoms.get_potential_energy()
-            elif action == "optimize":
-                with Trajectory("relax.traj", mode="w") as traj:
-                    dyn = LBFGS(atoms, logfile="relax.log", trajectory=traj)
-                    dyn.run(fmax=fmax, steps=steps)
-            else:
-                raise ValueError(f"Action not supported: {action}")
-
-            atoms.write("atoms.json")
+            os.chdir(out_dir)
+            yield PWDFT(label='mof', **options)
         finally:
             os.chdir(start_dir)
-
-        return atoms, out_dir.absolute()

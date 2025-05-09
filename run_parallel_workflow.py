@@ -2,7 +2,6 @@
 from functools import partial, update_wrapper
 from subprocess import Popen
 from argparse import ArgumentParser
-from dataclasses import asdict
 from datetime import datetime
 from platform import node
 from pathlib import Path
@@ -28,12 +27,12 @@ from mofa.generator import run_generator, train_generator
 from mofa.model import NodeDescription, LigandTemplate
 from mofa.selection.dft import DFTSelector
 from mofa.selection.md import MDSelector
-from mofa.simulation.cp2k import CP2KRunner, compute_partial_charges
+from mofa.simulation.dft import compute_partial_charges
 from mofa.simulation.mace import MACERunner
-from mofa.simulation.raspa.graspa_sycl import GRASPASyclRunner
 from mofa.steering import GeneratorConfig, TrainingConfig, MOFAThinker, SimulationConfig
 from mofa.hpc.colmena import DiffLinkerInference
-from mofa.hpc.config import configs as hpc_configs, HPCConfig
+from mofa.hpc.config import LocalConfig
+from mofa.utils.config import load_variable
 
 RDLogger.DisableLog('rdApp.*')
 ob.obErrorLog.SetOutputLevel(0)
@@ -80,7 +79,8 @@ if __name__ == "__main__":
 
     group = parser.add_argument_group(title='Compute Settings', description='Compute environment configuration')
     group.add_argument('--lammps-on-ramdisk', action='store_true', help='Write LAMMPS outputs to a RAM Disk')
-    group.add_argument('--compute-config', default='local', help='Configuration for the HPC system')
+    group.add_argument('--compute-config', default='local', help='Configuration for the HPC system. Use either "local" for single node, '
+                                                                 'or provide the path to a config file containing the config')
     group.add_argument('--ai-fraction', default=0.1, type=float, help='Fraction of workers devoted to AI tasks')
     group.add_argument('--dft-fraction', default=0.1, type=float, help='Fraction of workers devoted to DFT tasks')
     group.add_argument('--redis-host', default=node(), help='Host for the Redis server')
@@ -98,8 +98,9 @@ if __name__ == "__main__":
     # Make the run directory
     run_params = args.__dict__.copy()
     start_time = datetime.now()
+    config_name = Path(args.compute_config).with_suffix('').name
     params_hash = hashlib.sha256(json.dumps(run_params).encode()).hexdigest()[:6]
-    run_dir = Path('run') / f'parallel-{args.compute_config}-{start_time.strftime("%d%b%y%H%M%S")}-{params_hash}'
+    run_dir = Path('run') / f'parallel-{config_name}-{start_time.strftime("%d%b%y%H%M%S")}-{params_hash}'
     run_dir.mkdir(parents=True)
 
     # Open a proxystore with Redis
@@ -121,14 +122,18 @@ if __name__ == "__main__":
         templates.append(template)
 
     # Load the HPC configuration
-    hpc_config: HPCConfig = hpc_configs[args.compute_config]()
+    if args.compute_config == 'local':
+        hpc_config = LocalConfig()
+    else:
+        hpc_config = load_variable(args.compute_config, 'hpc_config')
+    hpc_config.run_dir = run_dir
     hpc_config.ai_fraction = args.ai_fraction
     hpc_config.dft_fraction = args.dft_fraction
 
     # Make the Parsl configuration
-    config = hpc_config.make_parsl_config(run_dir)
+    config = hpc_config.make_parsl_config()
     with (run_dir / 'compute-config.json').open('w') as fp:
-        json.dump(asdict(hpc_config), fp)
+        print(hpc_config.model_dump_json(indent=2), file=fp)
 
     # Launch MongoDB as a subprocess
     mongo_dir = run_dir / 'db'
@@ -196,12 +201,9 @@ if __name__ == "__main__":
     )
 
     # Make the CP2K function
-    cp2k_runner = CP2KRunner(
-        cp2k_invocation=hpc_config.cp2k_cmd,
-        run_dir=run_dir / 'cp2k-runs'
-    )
-    cp2k_fun = partial(cp2k_runner.run_optimization, steps=args.dft_opt_steps)  # Optimizes starting from assembled structure
-    update_wrapper(cp2k_fun, cp2k_runner.run_optimization)
+    dft_runner = hpc_config.make_dft_runner()
+    cp2k_fun = partial(dft_runner.run_optimization, steps=args.dft_opt_steps)  # Optimizes starting from assembled structure
+    update_wrapper(cp2k_fun, dft_runner.run_optimization)
 
     dft_selector = DFTSelector(
         collection=mongo_coll,
@@ -209,16 +211,12 @@ if __name__ == "__main__":
     )
 
     # Make the RASPA function
-    raspa_runner = GRASPASyclRunner(
-        raspa_command=hpc_config.graspa_cmd,
-        run_dir=Path('/tmp/' if args.lammps_on_ramdisk else run_dir) / 'raspa_run',
-        delete_finished=args.lammps_on_ramdisk
-    )
+    raspa_runner = hpc_config.make_raspa_runner()
     raspa_fun = partial(raspa_runner.run_gcmc,
                         adsorbate='CO2',
                         temperature=298,
                         pressure=1e4,
-                        n_cycle=args.raspa_timesteps)
+                        cycles=args.raspa_timesteps)
     update_wrapper(raspa_fun, raspa_runner.run_gcmc)
 
     # Make the thinker
@@ -254,7 +252,7 @@ if __name__ == "__main__":
             (train_func, {'executors': hpc_config.train_executors}),
             (md_fun, {'executors': hpc_config.lammps_executors}),
             (md_opt_fun, {'executors': hpc_config.lammps_executors}),
-            (cp2k_fun, {'executors': hpc_config.cp2k_executors}),
+            (cp2k_fun, {'executors': hpc_config.dft_executors}),
             (compute_partial_charges, {'executors': hpc_config.helper_executors}),
             (process_ligands, {'executors': hpc_config.helper_executors}),
             (raspa_fun, {'executors': hpc_config.raspa_executors}),
@@ -267,7 +265,7 @@ if __name__ == "__main__":
     # Launch the utilization logging
     log_dir = run_dir / 'logs'
     log_dir.mkdir(parents=True)
-    util_proc = hpc_config.launch_monitor_process(log_dir.absolute())
+    util_proc = hpc_config.launch_monitor_process()
     if util_proc.poll() is not None:
         raise ValueError('Monitor process failed to run!')
     my_logger.info(f'Launched monitoring process. pid={util_proc.pid}')

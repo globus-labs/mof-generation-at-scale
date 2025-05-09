@@ -389,7 +389,7 @@ class MOFAThinker(BaseThinker, AbstractContextManager):
         # Check if termination conditions are met
         if self.simulations_left == 0:
             self.done.set()
-            self.logger.info('Finished running LAMMPS simulations. Will start inishing all remaining work')
+            self.logger.info('Finished running LAMMPS simulations. Will start finishing all remaining work')
 
     @agent()
     def process_md_results(self):
