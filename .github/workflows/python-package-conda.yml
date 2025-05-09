@@ -28,25 +28,24 @@ jobs:
     - name: Install test dependencies
       run: |
         pip install -e .[test]
-    - name: Add quantum chemistry tools (Linux)
+    - name: Add simulation codes
       run: |
-           if [ "$RUNNER_OS" == "Linux" ]; then
-             # CP2K package has disappeared as of 21Jan25
-             # sudo apt update
-             # sudo apt install -y cp2k lammps
+           # CP2K package has disappeared as of 21Jan25
+           # sudo apt update
+           # sudo apt install -y cp2k lammps
 
-             # Link the cp2k.ssmp executable to the cp2k_shell needed for ASE
-             mkdir -p bin
-             cp2k_path=`which cp2k.ssmp`
-             export CP2K_DATA_DIR=`which cp2k.ssmp | xargs dirname`/../share/cp2k/data/
-             echo -e "#!/bin/bash\nCP2K_DATA_DIR=$CP2K_DATA_DIR `which cp2k.ssmp` --shell \$@" > bin/cp2k_shell
-             chmod u+x bin/cp2k_shell
-             cat `which cp2k_shell`
-             echo -n | ./bin/cp2k_shell --version
-           else
-             echo "$RUNNER_OS not supported"
-             exit 1
-           fi
+           # Link the cp2k.ssmp executable to the cp2k_shell needed for ASE
+           mkdir -p bin
+           cp2k_path=`which cp2k.ssmp`
+           export CP2K_DATA_DIR=`which cp2k.ssmp | xargs dirname`/../share/cp2k/data/
+           echo -e "#!/bin/bash\nCP2K_DATA_DIR=$CP2K_DATA_DIR `which cp2k.ssmp` --shell \$@" > bin/cp2k_shell
+           chmod u+x bin/cp2k_shell
+           cat `which cp2k_shell`
+           echo -n | ./bin/cp2k_shell --version
+
+           # Link the lammps executable in the bin
+           lammps_path=`which lmp_serial`
+           ln -sf $lammps_path ./bin/lmp_serial
     - name: Lint with flake8
       run: |
         pip install flake8
