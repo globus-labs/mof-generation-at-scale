@@ -27,7 +27,7 @@ class BaseRaspaRunner:
     def run_gcmc(
             self,
             name: str,
-            cp2k_dir: Path,
+            cp2k_dir: Path | str,
             adsorbate: str,
             cycles: int,
             temperature: float,
@@ -52,6 +52,7 @@ class BaseRaspaRunner:
         """
         out_dir = self.run_dir / f"{name}_{adsorbate}_{temperature}_{pressure:0e}"
         out_dir.mkdir(parents=True, exist_ok=True)
+        cp2k_dir = Path(cp2k_dir)
 
         try:
             # Write CIF file with charges

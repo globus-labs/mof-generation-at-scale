@@ -46,13 +46,13 @@ class HPCConfig(BaseModel):
     # How tasks run
     torch_device: str = Field(default='cpu')
     """Device used for DiffLinker training"""
-    lammps_cmd: tuple[str] = Field(default=('lmp_serial',))
+    lammps_cmd: tuple[str, ...] = Field(default=('lmp_serial',))
     """Command used to launch a non-MPI LAMMPS task"""
     lammps_env: dict[str, str] = Field(default_factory=dict)
     """Extra environment variables to include when running LAMMPS"""
     raspa_version: RASPAVersion = Field(default='raspa2')
     """Version of RASPA used on this system"""
-    raspa_cmd: tuple[str] = Field(default=('simulate',))
+    raspa_cmd: tuple[str, ...] = Field(default=('simulate',))
     """Command used to launch gRASPA-sycl"""
     raspa_delete_finished: bool = True
     """Whether to delete RASPA run files after execution"""
@@ -89,7 +89,7 @@ class HPCConfig(BaseModel):
         return 'cp2k_shell.psmp'
 
     @property
-    def training_nodes(self) -> tuple[str]:
+    def training_nodes(self) -> tuple[str, ...]:
         return ('localhost',)
 
     @property
@@ -169,8 +169,8 @@ class LocalConfig(HPCConfig):
 
     torch_device: str = 'cuda'
     lammps_env: dict[str, str] = {}
-    lammps_cmd: tuple[str] = ('/home/lward/Software/lammps-mace/build-mace/lmp',)
-    raspa_cmd: tuple[str] = ('/home/lward/Software/gRASPA/graspa-sycl/bin/sycl.out',)
+    lammps_cmd: tuple[str, ...] = ('/home/lward/Software/lammps-mace/build-mace/lmp',)
+    raspa_cmd: tuple[str, ...] = ('/home/lward/Software/gRASPA/graspa-sycl/bin/sycl.out',)
 
     lammps_executors: list[str] = ['gpu']
     inference_executors: list[str] = ['gpu']
@@ -218,7 +218,7 @@ class LocalConfig(HPCConfig):
 class LocalXYConfig(LocalConfig):
     """Configuration Xiaoli uses for testing purposes"""
 
-    lammps_cmd: tuple[str] = "/home/xyan11/software/lmp20230802up3/build-gpu/lmp -sf gpu -pk gpu 1".split()
+    lammps_cmd: tuple[str, ...] = "/home/xyan11/software/lmp20230802up3/build-gpu/lmp -sf gpu -pk gpu 1".split()
 
     @computed_field()
     def dft_cmd(self) -> str:
@@ -241,21 +241,21 @@ class SingleJobHPCConfig(HPCConfig):
     """
 
     torch_device: str = 'cuda'
-    lammps_cmd: tuple[str] = (
+    lammps_cmd: tuple[str, ...] = (
          '/lus/eagle/projects/MOFA/lward/lammps-mace/build-mace/lmp '
          '-k on g 1 -sf kk'
-    )
+    ).split()
 
     nodes_per_cp2k: int = Field(default=2, init=False)
     """Number of nodes per CP2K task"""
     lammps_per_gpu: int = Field(default=4, init=False)
     """Number of LAMMPS to run per GPU"""
 
-    ai_hosts: tuple[str] = Field(default_factory=list)
+    ai_hosts: tuple[str, ...] = Field(default_factory=list)
     """Hosts which will run AI tasks"""
-    lammps_hosts: tuple[str] = Field(default_factory=list)
+    lammps_hosts: tuple[str, ...] = Field(default_factory=list)
     """Hosts which will run LAMMPS tasks"""
-    cp2k_hosts: tuple[str] = Field(default_factory=list)
+    cp2k_hosts: tuple[str, ...] = Field(default_factory=list)
     """Hosts which will run CP2K tasks"""
 
     cpus_per_node: int = Field(default=32, init=False)
@@ -466,12 +466,12 @@ class AuroraConfig(SingleJobHPCConfig):
     """Configuration for running on Aurora"""
 
     torch_device: str = 'xpu'
-    lammps_cmd: tuple[str] = (
+    lammps_cmd: tuple[str, ...] = (
         "/lus/flare/projects/MOFA/lward/lammps-kokkos/src/lmp_macesunspotkokkos "
         "-k on g 1 -sf kk"
     ).split()
     lammps_env: dict[str, str] = {'OMP_NUM_THREADS': '1'}
-    raspa_cmd: tuple[str] = (
+    raspa_cmd: tuple[str, ...] = (
         '/lus/flare/projects/MOFA/lward/gRASPA/graspa-sycl/bin/sycl.out'
     ).split()
     raspa_version: RASPAVersion = 'graspa_sycl'
@@ -496,7 +496,7 @@ export LD_LIBRARY_PATH=$FPATH/intel_extension_for_pytorch/lib:$LD_LIBRARY_PATH
     """.strip()
 
     @property
-    def training_nodes(self) -> tuple[str]:
+    def training_nodes(self) -> tuple[str, ...]:
         return self.ai_hosts[:self.num_training_nodes]
 
     @computed_field()
