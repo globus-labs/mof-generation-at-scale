@@ -29,7 +29,7 @@ dependencies:
   - conda-forge::raspa2
 
   # Tools used for simulation
-  - lammps
+  - lammps=2024.08.29=*cpu*nompi*
   - cp2k
 
   - pip
