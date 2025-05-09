@@ -42,10 +42,6 @@ jobs:
            chmod u+x bin/cp2k_shell
            cat `which cp2k_shell`
            echo -n | ./bin/cp2k_shell --version
-
-           # Link the lammps executable in the bin
-           lammps_path=`which lmp_serial`
-           ln -sf $lammps_path ./bin/lmp_serial
     - name: Lint with flake8
       run: |
         pip install flake8
