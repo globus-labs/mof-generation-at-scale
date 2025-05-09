@@ -172,11 +172,11 @@ class LocalConfig(HPCConfig):
     lammps_cmd: tuple[str] = ('/home/lward/Software/lammps-mace/build-mace/lmp',)
     raspa_cmd: tuple[str] = ('/home/lward/Software/gRASPA/graspa-sycl/bin/sycl.out',)
 
-    lammps_executors: tuple[str] = ['gpu']
-    inference_executors: tuple[str] = ['gpu']
-    train_executors: tuple[str] = ['gpu']
-    helper_executors: tuple[str] = ['helper']
-    raspa_executors: tuple[str] = ['gpu']
+    lammps_executors: list[str] = ['gpu']
+    inference_executors: list[str] = ['gpu']
+    train_executors: list[str] = ['gpu']
+    helper_executors: list[str] = ['helper']
+    raspa_executors: list[str] = ['gpu']
 
     @computed_field
     @property
@@ -241,8 +241,10 @@ class SingleJobHPCConfig(HPCConfig):
     """
 
     torch_device: str = 'cuda'
-    lammps_cmd: tuple[str] = ('/lus/eagle/projects/MOFA/lward/lammps-29Aug2024/build-gpu-nompi-mixed/lmp '
-                              '-sf gpu -pk gpu 1').split()
+    lammps_cmd: tuple[str] = (
+         '/lus/eagle/projects/MOFA/lward/lammps-mace/build-mace/lmp '
+         '-k on g 1 -sf kk'
+    )
 
     nodes_per_cp2k: int = Field(default=2, init=False)
     """Number of nodes per CP2K task"""
@@ -261,19 +263,19 @@ class SingleJobHPCConfig(HPCConfig):
     gpus_per_node: int = Field(default=4, init=False)
     """Number of GPUs per compute node"""
 
-    lammps_executors: tuple[str] = ['lammps']
-    inference_executors: tuple[str] = ['inf']
-    train_executors: tuple[str] = ['train']
-    dft_executors: tuple[str] = ['cp2k']
-    helper_executors: tuple[str] = ['helper']
-    raspa_executors: tuple[str] = ['lammps']
+    lammps_executors: list[str] = ['lammps']
+    inference_executors: list[str] = ['inf']
+    train_executors: list[str] = ['train']
+    dft_executors: list[str] = ['cp2k']
+    helper_executors: list[str] = ['helper']
+    raspa_executors: list[str] = ['lammps']
 
     @computed_field
     @property
     def dft_cmd(self) -> str:
         # TODO (wardlt): Turn these into factory classes to ensure everything gets set on built
         return (f'mpiexec -n {self.nodes_per_cp2k * 4} --ppn 4 --cpu-bind depth --depth 8 -env OMP_NUM_THREADS=8 '
-                f'--hostfile {self.run_dir}/cp2k-hostfiles/local_hostfile.`printf %03d $PARSL_WORKER_RANK` '
+                f'--hostfile {self.run_dir.absolute()}/cp2k-hostfiles/local_hostfile.`printf %03d $PARSL_WORKER_RANK` '
                 '/lus/eagle/projects/MOFA/lward/cp2k-2025.1/set_affinity_gpu_polaris.sh '
                 '/lus/eagle/projects/MOFA/lward/cp2k-2025.1/exe/local_cuda/cp2k_shell.psmp')
 

@@ -27,7 +27,6 @@ from mofa.generator import run_generator, train_generator
 from mofa.model import NodeDescription, LigandTemplate
 from mofa.selection.dft import DFTSelector
 from mofa.selection.md import MDSelector
-from mofa.simulation.dft.cp2k import CP2KRunner
 from mofa.simulation.dft import compute_partial_charges
 from mofa.simulation.mace import MACERunner
 from mofa.steering import GeneratorConfig, TrainingConfig, MOFAThinker, SimulationConfig
@@ -99,8 +98,9 @@ if __name__ == "__main__":
     # Make the run directory
     run_params = args.__dict__.copy()
     start_time = datetime.now()
+    config_name = Path(args.compute_config).with_suffix('').name
     params_hash = hashlib.sha256(json.dumps(run_params).encode()).hexdigest()[:6]
-    run_dir = Path('run') / f'parallel-{args.compute_config}-{start_time.strftime("%d%b%y%H%M%S")}-{params_hash}'
+    run_dir = Path('run') / f'parallel-{config_name}-{start_time.strftime("%d%b%y%H%M%S")}-{params_hash}'
     run_dir.mkdir(parents=True)
 
     # Open a proxystore with Redis

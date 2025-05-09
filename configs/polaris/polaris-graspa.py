@@ -1,15 +1,15 @@
 """Version which runs gRASPA instead"""
 from dataclasses import dataclass
-from mofa.hpc.config import SingleJobHPCConfig
+from mofa.hpc.config import SingleJobHPCConfig, RASPAVersion
 
 
-@dataclass
 class Config(SingleJobHPCConfig):
     """Polaris, but running gRASPA on compute nodes"""
 
-    raspa_version = 'graspa'
-    raspa_cmd = "/lus/eagle/projects/MOFA/lward/gRASPA/src_clean/nvc_main.x"
-    raspa_executors = ['lammps']
+    raspa_version: RASPAVersion = 'graspa'
+    raspa_cmd: str = "/lus/eagle/projects/MOFA/lward/gRASPA/src_clean/nvc_main.x"
+    raspa_executors: list[str] = ['lammps']
 
 
 hpc_config = Config()
+

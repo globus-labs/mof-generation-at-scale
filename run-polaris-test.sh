@@ -1,5 +1,5 @@
 #!/bin/bash -le
-#PBS -l select=6:system=polaris
+#PBS -l select=8:system=polaris
 #PBS -l walltime=0:60:00
 #PBS -l filesystems=home:grand:eagle
 #PBS -q debug-scaling
@@ -28,25 +28,21 @@ echo launched redis on $redis_pid
 # Run
 python run_parallel_workflow.py \
       --node-path input-files/zn-paddle-pillar/node.json \
-      --ligand-templates input-files/zn-paddle-pillar/template_*_prompt.yml \
       --generator-path models/geom-300k/geom_difflinker_epoch=997_new.ckpt \
       --generator-config-path models/geom-300k/config-tf32-a100.yaml \
-      --maximum-train-size 8192 \
-      --maximum-strain 0.5 \
-      --retrain-freq 1 \
-      --num-epochs 128 \
-      --num-samples 1024 \
-      --gen-batch-size 128 \
-      --simulation-budget 32768 \
-      --md-timesteps 1000000 \
-      --md-snapshots 10 \
-      --raspa-timesteps 10000 \
-      --lammps-on-ramdisk \
+      --ligand-templates input-files/zn-paddle-pillar/template_*_prompt.yml \
+      --ai-fraction 0.25 \
+      --retrain-freq 2 \
+      --num-epochs 4 \
+      --num-samples 128 \
+      --gen-batch-size 64 \
+      --simulation-budget 0 \
+      --compute-config ./configs/polaris/polaris-graspa.py \
+      --mace-model-path ./input-files/mace/mace-mp0_medium-lammps.pt \
+      --md-timesteps 1000 \
+      --proxy-threshold 1000 \
       --dft-opt-steps 2 \
-      --dft-fraction 0.25 \
-      --ai-fraction 0.4 \
-      --proxy-threshold 100000 \
-      --compute-config polaris
+      --lammps-on-ramdisk
 echo Python done
 
 # Shutdown services
