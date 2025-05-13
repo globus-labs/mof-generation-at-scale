@@ -57,7 +57,7 @@ def train_generator(
         # TODO (wardlt): I'm not sure what's required here
         #  Is it different than https://docs.alcf.anl.gov/aurora/data-science/frameworks/pytorch/
         os.environ['MASTER_ADDR'] = node_list[0]
-        os.environ['MASTER_PORT'] = '75143'
+        os.environ['MASTER_PORT'] = '65143'
     else:
         rank_info = None
 
