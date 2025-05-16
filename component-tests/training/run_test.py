@@ -13,6 +13,7 @@ from parsl.app.python import PythonApp
 from parsl.executors import HighThroughputExecutor
 from parsl.providers import PBSProProvider
 from parsl.launchers import SimpleLauncher, MpiExecLauncher
+from parsl.executors.high_throughput.mpi_resource_management import get_nodes_in_batchjob, Scheduler
 
 from mofa.model import MOFRecord
 
@@ -23,7 +24,7 @@ _config_path = "../../models/geom-300k/config-tf32-a100.yaml"
 _training_set = Path("mofs.json.gz")
 
 
-def test_function(model_path: Path, config_path: Path, training_set: list, num_epochs: int, device: str, parallel: bool) -> float:
+def test_function(model_path: Path, config_path: Path, training_set: list, num_epochs: int, device: str, node_list: list[str] | None) -> float:
     """Run a LAMMPS simulation, report runtime and resultant traj
 
     Args:
@@ -32,6 +33,7 @@ def test_function(model_path: Path, config_path: Path, training_set: list, num_e
         training_set: List of MOFs to use for training
         num_epochs: Number of training epochs to run
         device: Device on which to run generation
+        node_list: List of nodes over which to run training
     Returns:
         - Runtime (s)
     """
@@ -40,12 +42,6 @@ def test_function(model_path: Path, config_path: Path, training_set: list, num_e
     from pathlib import Path
     from time import perf_counter
     import os
-
-    # Determine the nodelist, if running in parallel
-    if parallel:
-        node_list = Path(os.environ['PBS_NODEFILE']).read_text().split("\n")
-    else:
-        node_list = ()
 
     # Run
     with TemporaryDirectory() as tmp:
@@ -57,7 +53,8 @@ def test_function(model_path: Path, config_path: Path, training_set: list, num_e
             examples=training_set,
             num_epochs=num_epochs,
             device=device,
-            node_list=node_list
+            node_list=node_list,
+            strategy='ddp' if node_list is not None else None
         )
         run_time = perf_counter() - start_time
 
@@ -90,71 +87,28 @@ if __name__ == "__main__":
         config = Config(executors=[HighThroughputExecutor(max_workers_per_node=1, cpu_affinity='block')])
         parallel = False
         ranks_per_node = 1
+        hosts = None
     elif args.config == "polaris":
         ranks_per_node = 4
-        config = Config(retries=1, executors=[
+        # Connect to nodes using their 
+        hosts = list(get_nodes_in_batchjob(Scheduler.PBS))
+        config = Config(executors=[
             HighThroughputExecutor(
-                max_workers_per_node=1,
-                cpu_affinity='block-reverse',
-                provider=PBSProProvider(
-                    launcher=SimpleLauncher(),
-                    account='ExaMol',
-                    queue='debug',
-                    select_options="ngpus=4",
-                    scheduler_options="#PBS -l filesystems=home:eagle",
-                    worker_init="""
-module list
-source activate /lus/eagle/projects/MOFA/lward/mof-generation-at-scale/env
-
-
-cd $PBS_O_WORKDIR
-pwd
-which python
-hostname
-                    """,
-                    nodes_per_block=1,
-                    init_blocks=1,
-                    min_blocks=0,
-                    max_blocks=1,
-                    cpus_per_node=32,
-                    walltime="1:00:00",
-                )
+                max_workers_per_node=ranks_per_node,
+                cpu_affinity='block-reverse'
             )
         ])
     elif args.config.startswith("aurora"):
         ranks_per_node = 12
-        parallel = True
+        hosts = list(get_nodes_in_batchjob(Scheduler.PBS))
         config = Config(
-            retries=2,
             executors=[
                 HighThroughputExecutor(
                     label="aurora_test",
                     prefetch_capacity=0,
                     max_workers_per_node=12,
                     available_accelerators=12,
-                    cpu_affinity='block',
-                    provider=PBSProProvider(
-                        account="MOFA",
-                        queue="debug",
-                        worker_init=f"""
-module load frameworks
-source /lus/flare/projects/MOFA/lward/mof-generation-at-scale/venv/bin/activate
-export ZE_FLAT_DEVICE_HIERARCHY=FLAT
-cd $PBS_O_WORKDIR
-pwd
-which python
-hostname
-                        """,
-                        walltime="1:00:00",
-                        launcher=MpiExecLauncher(
-                            bind_cmd="--cpu-bind", overrides="--depth=104 --ppn 1"
-                        ),
-                        scheduler_options="#PBS -l filesystems=home:flare",
-                        nodes_per_block=args.num_nodes,
-                        min_blocks=0,
-                        max_blocks=1,
-                        cpus_per_node=104,
-                    ),
+                    cpu_affinity='block'
                 ),
             ]
         )
@@ -168,7 +122,10 @@ hostname
         # Call the training function
         futures = []
         for rank in range(ranks_per_node * args.num_nodes):
-            futures.append(test_app(_model_path, _config_path, training_set, num_epochs=args.num_epochs, device=args.device, parallel=parallel))
+            futures.append(test_app(_model_path, _config_path, training_set, 
+                                    num_epochs=args.num_epochs, 
+                                    device=args.device,
+                                    node_list=hosts))
 
         # Collect
         for future in as_completed(futures):
@@ -179,5 +136,6 @@ hostname
             print(json.dumps({
                 **args.__dict__,
                 'runtime': runtime,
-                'host': node()
+                'host': node(),
+                'hosts': hosts
             }), file=fp)

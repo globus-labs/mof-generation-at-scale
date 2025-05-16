@@ -150,7 +150,7 @@ def main(
             if args.strategy == 'ddp':
                 rank, size, ranks_per_node = rank_info
                 strategy = DDPStrategy(cluster_environment=PBSClusterEnvironment(*rank_info),
-                                       process_group_backend='ccl' if args.strategy == 'xpu' else 'nccl')
+                                       process_group_backend='ccl' if args.device == 'xpu' else 'nccl')
             else:
                 size = ranks_per_node = 1
                 strategy = SingleDeviceStrategy(device=args.device)

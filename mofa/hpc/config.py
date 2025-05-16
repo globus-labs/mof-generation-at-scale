@@ -279,6 +279,10 @@ class SingleJobHPCConfig(HPCConfig):
                 '/lus/eagle/projects/MOFA/lward/cp2k-2025.1/set_affinity_gpu_polaris.sh '
                 '/lus/eagle/projects/MOFA/lward/cp2k-2025.1/exe/local_cuda/cp2k_shell.psmp')
 
+    @property
+    def training_nodes(self) -> tuple[str, ...]:
+        return self.ai_hosts[:self.num_training_nodes]
+
     @cached_property
     def hosts(self):
         """Lists of hosts on which this computation is running"""
@@ -364,7 +368,8 @@ hostname""".strip()
             ),
             HighThroughputExecutor(
                 label='train',
-                max_workers_per_node=1,
+                max_workers_per_node=4,
+                cpu_affinity='block-reverse',
                 provider=LocalProvider(
                     launcher=WrappedLauncher(
                         f"mpiexec -n 1 --ppn 1 --host {self.ai_hosts[0]} --depth=64 --cpu-bind depth"
@@ -494,10 +499,6 @@ FPATH=/opt/aurora/24.180.3/frameworks/aurora_nre_models_frameworks-2024.2.1_u1/l
 export LD_LIBRARY_PATH=$FPATH/torch/lib:$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=$FPATH/intel_extension_for_pytorch/lib:$LD_LIBRARY_PATH
     """.strip()
-
-    @property
-    def training_nodes(self) -> tuple[str, ...]:
-        return self.ai_hosts[:self.num_training_nodes]
 
     @computed_field()
     @property
