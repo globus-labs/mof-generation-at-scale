@@ -38,7 +38,7 @@ python run_parallel_workflow.py \
       --num-samples 128 \
       --gen-batch-size 64 \
       --simulation-budget 0 \
-      --compute-config aurora \
+      --compute-config ./configs/aurora/aurora-pwdft.py \
       --mace-model-path ./input-files/mace/mace-mp0_medium-lammps.pt \
       --md-timesteps 1000 \
       --proxy-threshold 1000 \
