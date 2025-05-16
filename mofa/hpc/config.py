@@ -278,6 +278,7 @@ class SingleJobHPCConfig(HPCConfig):
                 f'--hostfile {self.run_dir.absolute()}/cp2k-hostfiles/local_hostfile.`printf %03d $PARSL_WORKER_RANK` '
                 '/lus/eagle/projects/MOFA/lward/cp2k-2025.1/set_affinity_gpu_polaris.sh '
                 '/lus/eagle/projects/MOFA/lward/cp2k-2025.1/exe/local_cuda/cp2k_shell.psmp')
+
     @property
     def training_nodes(self) -> tuple[str, ...]:
         return self.ai_hosts[:self.num_training_nodes]
