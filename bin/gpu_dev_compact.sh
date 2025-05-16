@@ -25,6 +25,8 @@ fi
 # Get the RankID from different launcher
 if [[ -v MPI_LOCALRANKID ]]; then
   _MPI_RANKID=$MPI_LOCALRANKID 
+elif [[ -v PMIX_RANK ]]; then
+  _MPI_RANKID=$PMIX_RANK
 elif [[ -v PALS_LOCAL_RANKID ]]; then
   _MPI_RANKID=$PALS_LOCAL_RANKID
 else

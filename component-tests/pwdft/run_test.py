@@ -67,9 +67,7 @@ if __name__ == "__main__":
                      '--cpu-bind list:1-7:8-15:16-23:24-31:32-39:40-47:53-59:60-67:68-75:76-83:84-91:92-99 '
                      '--mem-bind list:0:0:0:0:0:0:1:1:1:1:1:1 --env OMP_NUM_THREADS=1 '
                      '/lus/flare/projects/MOFA/lward/mof-generation-at-scale/bin/gpu_dev_compact.sh '
-                     '/flare/catalyst/world_shared/avazquez/soft/PWDFT-alvaro/build_sycl/pwdft')
-#                     '/flare/catalyst/world_shared/avazquez/soft/PWDFT-alvaro/build/pwdft')
-                     #'/lus/flare/projects/MOFA/lward/PWDFT/build_sycl/pwdft')
+                     '/lus/flare/projects/MOFA/lward/PWDFT/build_sycl/pwdft')
         config = Config(
             retries=2,
             executors=[
@@ -79,13 +77,11 @@ if __name__ == "__main__":
                     max_workers_per_node=1,
                     provider=PBSProProvider(
                         account="MOFA",
-                        queue="debug",
+                        queue="debug-scaling",
                         worker_init="""
 module load frameworks
 source /lus/flare/projects/MOFA/lward/mof-generation-at-scale/venv/bin/activate
 cd $PBS_O_WORKDIR
-export ZE_FLAT_DEVICE_HIERARCHY=FLAT
-export NWPW_LIBRARY=/lus/flare/projects/MOFA/lward/PWDFT/libraryps
 
 pwd
 which python
