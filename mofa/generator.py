@@ -1,4 +1,4 @@
-"""Functions pertaining to training and running the generative model"""
+"""Functions pertaining to training and running DiffLinker"""
 import gzip
 import json
 import os
@@ -21,8 +21,8 @@ try:
 except ImportError:
     pass
 
-from mofa.model import LigandDescription, LigandTemplate, MOFRecord
-from mofa.utils.difflinker_sample_and_analyze import main_run
+from mofa.model import LigandTemplate, MOFRecord
+from mofa.utils.difflinker_sample_and_analyze import main_run, DiffLinkerOutput
 from mofa.difflinker_train import get_args, main
 
 
@@ -113,7 +113,7 @@ def run_generator(
         n_samples: int = 1,
         n_steps: int = None,
         device: str = 'cpu'
-) -> Iterator[LigandDescription]:
+) -> Iterator[DiffLinkerOutput]:
     """Produce a set of new linkers given a model
 
     Args:
