@@ -58,6 +58,7 @@ def train_generator(
         #  Is it different than https://docs.alcf.anl.gov/aurora/data-science/frameworks/pytorch/
         os.environ['MASTER_ADDR'] = node_list[0]
         os.environ['MASTER_PORT'] = '65143'
+        strategy = 'ddp'
     else:
         rank_info = None
 
