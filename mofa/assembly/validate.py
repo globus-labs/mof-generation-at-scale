@@ -73,6 +73,8 @@ def process_ligands(ligands: list[DiffLinkerOutput]) -> tuple[list[LigandDescrip
     for template, symbols, coords in ligands:
         # Generate the description from the template
         ligand = template.create_description(symbols, coords)
-
-        valid_ligands.append(ligand)
+        ligand, record = check_ligand(ligand)
+        if record['valid']:
+            valid_ligands.append(ligand)
+        all_records.append(record)
     return valid_ligands, all_records
