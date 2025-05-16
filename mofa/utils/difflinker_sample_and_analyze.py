@@ -1,18 +1,19 @@
+"""Functions which generate new ligands with DiffLinker"""
 from functools import lru_cache
 from typing import Iterator
-import os
-
 
 import torch
 import numpy as np
 from rdkit import Chem
 
-from mofa.model import LigandTemplate, LigandDescription
+from mofa.model import LigandTemplate
 from mofa.utils.src import const
 from mofa.utils.src.datasets import collate_with_fragment_edges, get_dataloader, get_one_hot
 from mofa.utils.src.lightning import DDPM
 from mofa.utils.src.linker_size_lightning import SizeClassifier
-from mofa.utils.src.visualizer import save_xyz_file, visualize_chain
+
+DiffLinkerOutput = tuple[LigandTemplate, list[str], np.ndarray]
+"""Output from a DiffLinker inference: the template used as a prompt, chemical symbols of selected types, coordinates of atoms"""
 
 
 def read_molecules(path):
@@ -27,25 +28,6 @@ def read_molecules(path):
     raise Exception('Unknown file extension')
 
 
-def generate_animation(ddpm, chain_batch, node_mask, n_mol):
-    batch_size = chain_batch.size(1)  # Batch size
-    batch_indices = torch.arange(batch_size)
-    for bi, mi in zip(batch_indices):
-        chain = chain_batch[:, bi, :, :]  # (FLD)
-        name = f'mol_{n_mol}_{mi}'
-        # name = f'mol_{n_mol}'
-        chain_output = os.path.join(ddpm.samples_dir, name)
-        os.makedirs(chain_output, exist_ok=True)
-
-        one_hot = chain[:, :, 3:-1] if ddpm.include_charges else chain[:, :, 3:]  # FLD
-        positions = chain[:, :, :3]  # FL3
-        chain_node_mask = torch.cat([node_mask[bi].unsqueeze(0) for _ in range(ddpm.FRAMES)], dim=0)  # FL
-        names = [f'{name}_{j}' for j in range(ddpm.FRAMES)]
-
-        save_xyz_file(chain_output, one_hot, positions, chain_node_mask, names=names, is_geom=ddpm.is_geom)
-        visualize_chain(chain_output, wandb=None, mode=name, is_geom=ddpm.is_geom)  # set wandb None for now!
-
-
 @lru_cache(maxsize=1)  # Keep only one model in memory
 def load_model(path, device) -> DDPM:
     """Load the DDPM model from disk"""
@@ -58,7 +40,7 @@ def main_run(templates: list[LigandTemplate],
              n_samples,
              n_steps,
              linker_size,
-             device: str = 'cpu') -> Iterator[LigandDescription]:
+             device: str = 'cpu') -> Iterator[DiffLinkerOutput]:
     """Run the linker generation"""
     if linker_size.isdigit():
         linker_size = int(linker_size)
@@ -144,4 +126,4 @@ def main_run(templates: list[LigandTemplate],
                 atom_types = [idx2atom[i] for i in batch_idx_selections[i, :]]
 
                 # Make the output
-                yield template.create_description(atom_types, batch_coordinates[i, :, :])
+                yield template, atom_types, batch_coordinates[i, :, :]

@@ -3,13 +3,14 @@ from rdkit import Chem
 
 from mofa.model import LigandDescription
 from mofa.utils.xyz import xyz_to_mol
+from mofa.utils.difflinker_sample_and_analyze import DiffLinkerOutput
 
 
-def process_ligands(ligands: list[LigandDescription]) -> tuple[list[LigandDescription], list[dict]]:
+def process_ligands(ligands: list[DiffLinkerOutput]) -> tuple[list[LigandDescription], list[dict]]:
     """Assess whether a ligand is valid and prepare it for the next step
 
     Args:
-        ligands: Ligands to be processed
+        ligands: Ligands to be analyzed
     Returns:
         - List of the ligands which pass validation
         - Records describing the ligands suitable for serialization into CSV file
@@ -18,7 +19,9 @@ def process_ligands(ligands: list[LigandDescription]) -> tuple[list[LigandDescri
     all_records = []
     valid_ligands = []
 
-    for ligand in ligands:
+    for template, symbols, coords in ligands:
+        # Generate the description from the template
+        ligand = template.create_description(symbols, coords)
 
         # Store the ligand information for debugging purposes
         record = {"anchor_type": ligand.anchor_type,
