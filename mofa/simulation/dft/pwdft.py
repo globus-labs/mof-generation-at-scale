@@ -501,6 +501,11 @@ class PWDFTRunner(BaseDFTRunner):
 
         options["command"] = self.dft_cmd + " < PREFIX.nwxi > PREFIX.nwxo"
 
+        # Make the perm directory
+        #  TODO (wardlt): For some reason PWDFT cannot make directories?
+        out_dir.joinpath('perm').mkdir(parents=True, exist_ok=True)
+        os.chdir(out_dir)
+
         start_dir = Path.cwd()
         try:
             os.chdir(out_dir)
