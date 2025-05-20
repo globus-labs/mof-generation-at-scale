@@ -295,10 +295,16 @@ class SingleJobHPCConfig(HPCConfig):
             hosts = hosts[1:]  # The service is running on Host 0
 
         # Determine the number of nodes to use for AI
-        num_ai_hosts = max(self.num_training_nodes, min(int(self.ai_fraction * len(hosts)), len(hosts) - self.nodes_per_cp2k - 1))
+        num_ai_hosts = max(
+            self.num_training_nodes + 1, # At least 1 inference node and all training requested
+            min(
+               int(self.ai_fraction * len(hosts)),  # Up to the target AI-fraction
+               len(hosts) - self.nodes_per_cp2k - 1  # But leaving enough for 1 (each) of lammps, dft
+            )
+        )
         self.ai_hosts = hosts[:num_ai_hosts]
-        if num_ai_hosts < self.num_training_nodes:
-            raise ValueError(f'We need at least {self.num_training_nodes} AI workers. Increase node count or ai_fraction')
+        if len(hosts) - len(self.ai_hosts) < self.nodes_per_cp2k + 1:
+            raise ValueError(f'Too few nodes ({len(hosts)}) to satisfy requested partitions')
 
         # Determine the number of hosts to use for simulation
         sim_hosts = hosts[num_ai_hosts:]
