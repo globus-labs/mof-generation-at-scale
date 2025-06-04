@@ -505,7 +505,6 @@ pwd
 which python
 hostname"""
 
-
     @computed_field()
     @property
     def dft_cmd(self) -> str:
