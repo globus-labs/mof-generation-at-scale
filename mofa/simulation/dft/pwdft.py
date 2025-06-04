@@ -504,9 +504,8 @@ class PWDFTRunner(BaseDFTRunner):
         # Make the perm directory
         #  TODO (wardlt): For some reason PWDFT cannot make directories?
         out_dir.joinpath('perm').mkdir(parents=True, exist_ok=True)
-        os.chdir(out_dir)
 
-        start_dir = Path.cwd()
+        start_dir = Path.cwd().absolute()
         try:
             os.chdir(out_dir)
             yield PWDFT(label='mof', **options)
