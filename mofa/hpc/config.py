@@ -135,7 +135,7 @@ class HPCConfig(BaseModel):
     def make_dft_runner(self) -> BaseDFTRunner:
         """Make the runner to use for DFT computations"""
 
-        run_dir = self.run_dir / 'dft-runs'
+        run_dir = self.run_dir.absolute() / 'dft-runs'
         if self.dft_version == 'cp2k':
             from mofa.simulation.dft.cp2k import CP2KRunner
             return CP2KRunner(run_dir=run_dir, dft_cmd=self.dft_cmd)
@@ -486,25 +486,31 @@ class AuroraConfig(SingleJobHPCConfig):
     lammps_per_gpu: int = 1
     max_helper_nodes: int = 256
     nodes_per_cp2k: int = 1
-
     worker_init: str = """
 # General environment variables
 module load frameworks
 source /lus/flare/projects/MOFA/lward/mof-generation-at-scale/venv/bin/activate
-conda deactivate
 export ZE_FLAT_DEVICE_HIERARCHY=FLAT
 
 # Needed for LAMMPS
-FPATH=/opt/aurora/24.180.3/frameworks/aurora_nre_models_frameworks-2024.2.1_u1/lib/python3.10/site-packages
+FPATH=$CONDA_PREFIX/lib/python3.10/site-packages
 export LD_LIBRARY_PATH=$FPATH/torch/lib:$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=$FPATH/intel_extension_for_pytorch/lib:$LD_LIBRARY_PATH
-    """.strip()
+
+# Put RASPA2 on the path
+export PATH=$PATH:`realpath conda-env/bin/`
+
+cd $PBS_O_WORKDIR
+pwd
+which python
+hostname"""
+
 
     @computed_field()
     @property
     def dft_cmd(self) -> str:
         assert self.run_dir is not None, 'This must be run after the Parsl config is built'
-        return (f'mpiexec -n {self.nodes_per_cp2k * self.gpus_per_node} --ppn {self.gpus_per_node}'
+        return (f'mpiexec -n {self.nodes_per_cp2k * self.gpus_per_node} --ppn {self.gpus_per_node} '
                 '--cpu-bind list:1-7:8-15:16-23:24-31:32-39:40-47:53-59:60-67:68-75:76-83:84-91:92-99 '
                 '--mem-bind list:0:0:0:0:0:0:1:1:1:1:1:1 --env OMP_NUM_THREADS=1 '
                 '/lus/flare/projects/MOFA/lward/mof-generation-at-scale/bin/gpu_dev_compact.sh '
@@ -522,25 +528,6 @@ export LD_LIBRARY_PATH=$FPATH/intel_extension_for_pytorch/lib:$LD_LIBRARY_PATH
         # Determine which cores to use for AI tasks
         sim_cores, helper_cores = self._assign_cores()
 
-        worker_init = """
-# General environment variables
-module load frameworks
-source /lus/flare/projects/MOFA/lward/mof-generation-at-scale/venv/bin/activate
-export ZE_FLAT_DEVICE_HIERARCHY=FLAT
-
-# Needed for LAMMPS
-FPATH=/opt/aurora/24.180.3/frameworks/aurora_nre_models_frameworks-2024.2.1_u1/lib/python3.10/site-packages
-export LD_LIBRARY_PATH=$FPATH/torch/lib:$LD_LIBRARY_PATH
-export LD_LIBRARY_PATH=$FPATH/intel_extension_for_pytorch/lib:$LD_LIBRARY_PATH
-
-# Put RASPA2 on the path
-export PATH=$PATH:`realpath conda-env/bin/`
-
-cd $PBS_O_WORKDIR
-pwd
-which python
-hostname"""
-
         return Config(
             executors=[
                 HighThroughputExecutor(
@@ -553,7 +540,7 @@ hostname"""
                             f"mpiexec --no-abort-on-failure -n {len(self.ai_hosts) - self.num_training_nodes} "
                             f"--ppn 1 --hostfile {ai_nodefile} --depth=104 --cpu-bind depth"
                         ),
-                        worker_init=worker_init,
+                        worker_init=self.worker_init,
                         min_blocks=1,
                         max_blocks=1
                     )
@@ -567,7 +554,7 @@ hostname"""
                         launcher=WrappedLauncher(
                             f"mpiexec -n 1 --ppn 1 --host {self.ai_hosts[0]} --depth=104 --cpu-bind depth"
                         ),
-                        worker_init=worker_init,
+                        worker_init=self.worker_init,
                         min_blocks=1,
                         max_blocks=1
                     )
@@ -579,7 +566,7 @@ hostname"""
                     prefetch_capacity=0,
                     max_workers_per_node=12,
                     provider=LocalProvider(
-                        worker_init=worker_init,
+                        worker_init=self.worker_init,
                         launcher=WrappedLauncher(
                             f"mpiexec --no-abort-on-failure -n {len(self.lammps_hosts)} --ppn 1 "
                             f"--hostfile {lammps_nodefile} --depth=104 --cpu-bind depth"
@@ -606,7 +593,7 @@ hostname"""
                         launcher=WrappedLauncher(
                             f"./envs/aurora/parallel.sh {helper_nodefile}"
                         ),
-                        worker_init=worker_init,
+                        worker_init=self.worker_init,
                         min_blocks=1,
                         max_blocks=1
                     )
