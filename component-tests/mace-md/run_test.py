@@ -127,7 +127,7 @@ hostname
                 HighThroughputExecutor(
                     label="aurora_test",
                     available_accelerators=accel_count,
-                    cpu_affinity='list:' + ":".join(assigned_cores),  # Assigns cpus in sequent
+                    cpu_affinity='list:' + ":".join(assigned_cores),
                     prefetch_capacity=0,
                     max_workers_per_node=accel_count,
                     cores_per_worker=208 // accel_count,
@@ -141,7 +141,7 @@ source /lus/flare/projects/MOFA/lward/mof-generation-at-scale/venv/bin/activate
 export ZE_FLAT_DEVICE_HIERARCHY={'FLAT' if accel_count == 12 else 'COMPOSITE'}
 
 # Needed for LAMMPS
-FPATH=/opt/aurora/24.180.3/frameworks/aurora_nre_models_frameworks-2024.2.1_u1/lib/python3.10/site-packages
+FPATH=$CONDA_PREFIX/lib/python3.10/site-packages
 export LD_LIBRARY_PATH=$FPATH/torch/lib:$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=$FPATH/intel_extension_for_pytorch/lib:$LD_LIBRARY_PATH
 

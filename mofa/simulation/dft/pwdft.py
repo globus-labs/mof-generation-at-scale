@@ -2,6 +2,7 @@
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
+from shutil import move
 import os
 
 from ase import Atoms
@@ -501,9 +502,16 @@ class PWDFTRunner(BaseDFTRunner):
 
         options["command"] = self.dft_cmd + " < PREFIX.nwxi > PREFIX.nwxo"
 
-        start_dir = Path.cwd()
+        # Make the perm directory
+        #  TODO (wardlt): For some reason PWDFT cannot make directories?
+        out_dir.joinpath('perm').mkdir(parents=True, exist_ok=True)
+
+        start_dir = Path.cwd().absolute()
         try:
             os.chdir(out_dir)
             yield PWDFT(label='mof', **options)
         finally:
+            # Move the valence cube file(s) from perm to root directory
+            for file in out_dir.joinpath('perm').glob('*.cube'):
+                move(file, out_dir)
             os.chdir(start_dir)

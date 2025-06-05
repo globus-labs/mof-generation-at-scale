@@ -1,5 +1,5 @@
 #!/bin/bash -le
-#PBS -l select=512
+#PBS -l select=1024
 #PBS -l walltime=3:00:00
 #PBS -l filesystems=home:flare
 #PBS -q prod
@@ -44,7 +44,7 @@ python run_parallel_workflow.py \
       --ai-fraction 0.05 \
       --dft-fraction 0.6 \
       --simulation-budget -1 \
-      --compute-config aurora \
+      --compute-config ./configs/aurora/aurora-pwdft.py \
       --mace-model-path ./input-files/mace/mace-mp0_medium-lammps.pt \
       --md-timesteps 3000 \
       --proxy-threshold 100000 \

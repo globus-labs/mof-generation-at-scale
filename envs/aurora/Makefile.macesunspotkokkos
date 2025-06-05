@@ -8,7 +8,7 @@ SHELL = /bin/sh
 
 #CC =		mpicxx
 #CCFLAGS =	-g -O3 -DNDEBUG
-CC =		icpx -g
+CC =		icpx
 OPTFLAGS =      -xHost -O2 
 #OPTFLAGS =      -xHost -O2 -ffast-math -freciprocal-math
 CCFLAGS =	-qopenmp-simd -qopenmp -ansi-alias \
@@ -47,8 +47,8 @@ LMP_INC =	-DLAMMPS_GZIP
 # PATH = path for MPI library
 # LIB = name of MPI library
 
-MPI_INC =       -I../STUBS 
-MPI_PATH =      -L../STUBS
+MPI_INC =       -I../STUBS
+MPI_PATH = 	-L../STUBS
 MPI_LIB =	-lmpi_stubs
 
 # FFT library
@@ -73,13 +73,8 @@ JPG_INC =
 JPG_PATH =
 JPG_LIB =
 
-#/torch/include/torch/csrc/api/include/torch/torch.h
-#             /soft/datascience/aurora_models_frameworks-2023.1/lib/python3.9/site-packages/torch/include/torch/csrc/api/include/torch/torch.h
-#TORCH_PATH = /soft/datascience/aurora_nre_models_frameworks-2024.0/lib/python3.9/site-packages
-#TORCH_PATH = /soft/datascience/aurora_nre_models_frameworks-2024.1_preview_u2/lib/python3.9/site-packages
-#TORCH_PATH = /lus/gila/projects/catalyst/world_readable/avazquez/frameworks/aurora_fw_2024.2.1_u1_test_mkl/aurora_nre_models_frameworks-2024.2.1_u1/lib/python3.10/site-packages
-TORCH_PATH = /opt/aurora/24.180.3/frameworks/aurora_nre_models_frameworks-2024.2.1_u1/lib/python3.10/site-packages
-#TORCH_PATH = /soft/datascience/aurora_models_frameworks-2023.1/lib/python3.9/site-packages
+#TORCH_PATH = /opt/aurora/24.180.3/frameworks/aurora_nre_models_frameworks-2024.2.1_u1/lib/python3.10/site-packages
+TORCH_PATH = /opt/aurora/24.347.0/frameworks/aurora_nre_models_frameworks-2025.0.0/lib/python3.10/site-packages
 TORCH_INC = -I$(TORCH_PATH)/torch/include/torch/csrc/api/include  -I$(TORCH_PATH)/torch/include
 TORCH_LIB = -L$(TORCH_PATH)/torch/lib -L$(TORCH_PATH)/intel_extension_for_pytorch/lib -lbackend_with_compiler  -ljitbackend_test -lintel-ext-pt-gpu -ltorch_cpu -ltorch -lc10
 

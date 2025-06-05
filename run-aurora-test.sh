@@ -35,15 +35,14 @@ python run_parallel_workflow.py \
       --ai-fraction 0.2 \
       --retrain-freq 2 \
       --num-epochs 4 \
-      --num-samples 128 \
-      --gen-batch-size 64 \
-      --simulation-budget 0 \
-      --compute-config aurora \
+      --num-samples 8192 \
+      --gen-batch-size 1024 \
+      --simulation-budget -1 \
+      --compute-config ./configs/aurora/aurora-pwdft.py \
       --mace-model-path ./input-files/mace/mace-mp0_medium-lammps.pt \
       --md-timesteps 1000 \
       --proxy-threshold 1000 \
-      --dft-opt-steps 2 \
-      --lammps-on-ramdisk
+      --dft-opt-steps 2
 
 echo Python done
 

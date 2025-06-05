@@ -130,7 +130,7 @@ def main(
     #  we'd want to use this codebase for experimenting with DiffLinker as well as using it production
 
     # Create a new directory and start logging
-    log_directory = run_directory / 'logs'
+    log_directory = run_directory / 'logs' / 'lightning_logs'
     checkpoints_dir = run_directory / 'chkpt'
     for path in [log_directory, checkpoints_dir]:
         path.mkdir(exist_ok=True, parents=True)

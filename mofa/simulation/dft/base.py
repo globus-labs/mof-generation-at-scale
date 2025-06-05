@@ -5,7 +5,6 @@ from pathlib import Path
 
 import ase
 from ase.calculators.calculator import Calculator
-from ase.filters import UnitCellFilter
 from ase.io import Trajectory
 from ase.optimize import LBFGS
 
@@ -123,9 +122,8 @@ class BaseDFTRunner:
             if action == 'single':
                 atoms.get_potential_energy()
             elif action == 'optimize':
-                ecf = UnitCellFilter(atoms, hydrostatic_strain=False)
                 with Trajectory(out_dir / 'relax.traj', mode='w') as traj:
-                    dyn = LBFGS(ecf,
+                    dyn = LBFGS(atoms,
                                 logfile=out_dir / 'relax.log',
                                 trajectory=traj)
                     dyn.run(fmax=fmax, steps=steps)

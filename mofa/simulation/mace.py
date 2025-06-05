@@ -189,7 +189,6 @@ class MACERunner(MDInterface):
         out_dir = self.run_dir / f"{name}-{action}-{level}"
         start_dir = Path().cwd()
         out_dir.mkdir(parents=True, exist_ok=True)
-        os.chdir(out_dir)
 
         # Load the model and move it to the device
         calc = load_model(self.device, level)
@@ -197,6 +196,7 @@ class MACERunner(MDInterface):
             model.to(self.device)
 
         try:
+            os.chdir(out_dir)
             # Initialize MACE calculator
             atoms = atoms.copy()
             atoms.calc = calc
