@@ -3,6 +3,7 @@ import gzip
 
 from pytest import fixture, mark
 
+from mofa.assembly.validate import process_ligands
 from mofa.model import LigandTemplate, MOFRecord
 from mofa.utils.src.lightning import DDPM
 from mofa.utils.src.linker_size_lightning import SizeClassifier
@@ -66,7 +67,6 @@ def test_training(file_dir, tmpdir, finetune):
 @mark.parametrize('filename', ['geom_difflinker.ckpt', 'geom_difflinker_given_anchors.ckpt'])
 @mark.parametrize('n_atoms', [8])
 @mark.parametrize('n_samples', [1, 3])
-@mark.slow
 def test_sampling_num_atoms(n_atoms, example_template, n_samples, file_dir, filename, tmp_path):
     # prompts = "1,5" if "prompts" in filename else None ####Give 1st and 5th atom of FRAGMENT-only molecule
     # (i.e., we can keep track of atom indices in fragment SDF/XYZ etc files)
@@ -80,6 +80,15 @@ def test_sampling_num_atoms(n_atoms, example_template, n_samples, file_dir, file
 
     # Make sure we created molecules of the correct size
     assert len(samples) == n_samples
-    anchor_count = sum(len(a) for a in example_template.prompts)
-    for sample in samples:
-        assert len(sample.atoms) > anchor_count + n_atoms  # There will be more atoms once H's are added
+    anchor_count = sum(sum(i > 1 for i in a.get_atomic_numbers()) for a in example_template.prompts)
+    expected_count = anchor_count + n_atoms
+    for template, elems, coords in samples:
+        assert len(elems) == expected_count
+        assert coords.shape == (expected_count, 3)
+
+    ligand = template.create_description(elems, coords)
+    assert len(ligand.atoms) > expected_count  # Includes H's
+
+    # Make sure they process correctly
+    valid, total = process_ligands(samples)
+    assert len(total) == len(samples)
