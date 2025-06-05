@@ -275,7 +275,7 @@ class SingleJobHPCConfig(HPCConfig):
     def dft_cmd(self) -> str:
         # TODO (wardlt): Turn these into factory classes to ensure everything gets set on built
         return (f'mpiexec -n {self.nodes_per_cp2k * 4} --ppn 4 --cpu-bind depth --depth 8 -env OMP_NUM_THREADS=8 '
-                f'--hostfile {self.run_dir.absolute()}/cp2k-hostfiles/local_hostfile.`printf %03d $PARSL_WORKER_RANK` '
+                f'--hostfile {self.run_dir.absolute()}/cp2k-hostfiles/local_hostfile.`printf %04d $PARSL_WORKER_RANK` '
                 '/lus/eagle/projects/MOFA/lward/cp2k-2025.1/set_affinity_gpu_polaris.sh '
                 '/lus/eagle/projects/MOFA/lward/cp2k-2025.1/exe/local_cuda/cp2k_shell.psmp')
 
@@ -463,7 +463,7 @@ hostname""".strip()
         nodefile_path = run_dir / 'cp2k-hostfiles'
         nodefile_path.mkdir(parents=True)
         for i, nodes in enumerate(batched(self.cp2k_hosts, self.nodes_per_cp2k)):
-            (nodefile_path / f'local_hostfile.{i:03d}').write_text("\n".join(nodes))
+            (nodefile_path / f'local_hostfile.{i:04d}').write_text("\n".join(nodes))
         return ai_nodefile, lammps_nodefile
 
 
@@ -512,6 +512,7 @@ hostname"""
         return (f'mpiexec -n {self.nodes_per_cp2k * self.gpus_per_node} --ppn {self.gpus_per_node} '
                 '--cpu-bind list:1-7:8-15:16-23:24-31:32-39:40-47:53-59:60-67:68-75:76-83:84-91:92-99 '
                 '--mem-bind list:0:0:0:0:0:0:1:1:1:1:1:1 --env OMP_NUM_THREADS=1 '
+                f'--hostfile {self.run_dir.absolute()}/cp2k-hostfiles/local_hostfile.`printf %04d $PARSL_WORKER_RANK` '
                 '/lus/flare/projects/MOFA/lward/mof-generation-at-scale/bin/gpu_dev_compact.sh '
                 '/lus/flare/projects/MOFA/lward/PWDFT/build_sycl/pwdft')
 
@@ -547,7 +548,6 @@ hostname"""
                 HighThroughputExecutor(
                     label='train',
                     max_workers_per_node=12,
-                    available_accelerators=12,
                     cpu_affinity="block",
                     provider=LocalProvider(
                         launcher=WrappedLauncher(
