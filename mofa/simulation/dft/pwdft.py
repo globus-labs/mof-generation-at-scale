@@ -2,6 +2,7 @@
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
+from shutil import move
 import os
 
 from ase import Atoms
@@ -510,4 +511,7 @@ class PWDFTRunner(BaseDFTRunner):
             os.chdir(out_dir)
             yield PWDFT(label='mof', **options)
         finally:
+            # Move the valence cube file(s) from perm to root directory
+            for file in out_dir.joinpath('perm').glob('*.cube'):
+                move(file, out_dir)
             os.chdir(start_dir)
