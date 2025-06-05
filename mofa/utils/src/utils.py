@@ -97,8 +97,8 @@ def assert_partial_mean_zero_with_mask(x, node_mask, center_of_mass_mask, eps=1e
 
 
 def assert_correctly_masked(variable, node_mask):
-    assert (variable * (1 - node_mask)).abs().max().item() < 1e-4, \
-        'Variables not masked properly.'
+    max_mask = (variable * (1 - node_mask)).abs().max().item()
+    assert max_mask < 1e-4, f'Variables not masked properly: {max_mask}'
 
 
 def check_mask_correct(variables, node_mask):
