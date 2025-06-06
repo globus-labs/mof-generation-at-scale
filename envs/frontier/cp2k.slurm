@@ -1,25 +1,50 @@
 #!/bin/bash
 #SBATCH -A mat291
-#SBATCH -J test-cp2k
+#SBATCH -J cp2k-scaling
 #SBATCH -t 02:00:00
 #SBATCH -p batch
-#SBATCH -N 1
+#SBATCH -N 64
 #SBATCH --gpus-per-node 8
 #SBATCH --ntasks-per-gpu 1
 #SBATCH --mem-per-gpu 64G
 #SBATCH --gpu-bind closest
 
+module reset
 module load PrgEnv-gnu/8.5.0
 module load craype-accel-amd-gfx90a
 module load rocm/6.0.0
 module load openblas
 module load cmake
-module load boost/1.79.0
+module load cray-mpich/8.1.31
 
-source /lustre/orion/mat291/scratch/xyan11/software/cp2k-v2025.1/tools/toolchain/install/setup
+export CRAYMPICH=/opt/cray/pe/mpich/8.1.31/ofi/cray/17.0
+export LD_LIBRARY_PATH=$CRAYMPICH/lib:$CRAYMPICH/lib-abi-mpich:$LD_LIBRARY_PATH:/ccs/home/xyan11/libsymlink
+export LD_RUN_PATH=$CRAYMPICH/lib:$CRAYMPICH/lib-abi-mpich:$LD_RUN_PATH:/ccs/home/xyan11/libsymlink
+export LIBRARY_PATH=$CRAYMPICH/lib:$CRAYMPICH/lib-abi-mpich:$LD_LIBRARY_PATH:/ccs/home/xyan11/libsymlink
+export CPATH=$CRAYMPICH/include:$CPATH
+
+
+LOG_FILE="gpu_usage.log"
+monitor_gpu() {
+    echo "===== GPU Monitoring Started at $(date) =====" >> "$LOG_FILE"
+    while true; do
+        echo "===== GPU Utilization at $(date) =====" >> "$LOG_FILE"
+        rocm-smi --showuse --showtemp --showclock >> "$LOG_FILE" 2>&1
+        echo "" >> "$LOG_FILE"
+        sleep 5
+    done
+}
+monitor_gpu &
+MONITOR_PID=$!
+
+source /lustre/orion/mat291/scratch/xyan11/software/cp2k-v2025.1-20250520/tools/toolchain/install/setup
+CP2KEXE=/lustre/orion/mat291/scratch/xyan11/software/cp2k-v2025.1-20250520/exe/local_hip/cp2k.psmp
 
 ulimit -s unlimited
-cd $SLURM_SUBMIT_DIR
-
 export OMP_NUM_THREADS=7
-srun -N 1 -n 8 --gpus-per-node 8 --gpu-bind=closest /lustre/orion/mat291/scratch/xyan11/software/cp2k-v2025.1/exe/local_hip/cp2k.psmp -i cp2k.inp
+echo "entering `pwd` ..."
+srun -N $SLURM_NNODES -n $((SLURM_GPUS_PER_NODE * SLURM_NNODES)) --gpus-per-node $SLURM_GPUS_PER_NODE --gpu-bind=closest $CP2KEXE -i cp2k.inp
+
+kill $MONITOR_PID
+wait $MONITOR_PID 2>/dev/null
+echo "===== GPU Monitoring Stopped at $(date) =====" >> "$LOG_FILE"
