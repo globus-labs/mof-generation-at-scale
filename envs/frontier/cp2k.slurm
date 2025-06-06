@@ -23,7 +23,7 @@ export LD_RUN_PATH=$CRAYMPICH/lib:$CRAYMPICH/lib-abi-mpich:$LD_RUN_PATH:/ccs/hom
 export LIBRARY_PATH=$CRAYMPICH/lib:$CRAYMPICH/lib-abi-mpich:$LD_LIBRARY_PATH:/ccs/home/xyan11/libsymlink
 export CPATH=$CRAYMPICH/include:$CPATH
 
-
+# only monitors GPUs on the head node, need further dev for all nodes GPU monitoring.
 LOG_FILE="gpu_usage.log"
 monitor_gpu() {
     echo "===== GPU Monitoring Started at $(date) =====" >> "$LOG_FILE"
