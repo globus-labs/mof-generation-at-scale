@@ -35,6 +35,29 @@ and how often to save a structure.
 The runner will determine the starting point based on the latest-available timestep in the record,
 run molecular dynamics with LAMMPS, then return snapshots at the requesed intervals.
 
+Preparing a MACE Potential
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+MOFA employs `LAMMPS's ML-IAP package <https://mace-docs.readthedocs.io/en/latest/guide/lammps_mliap.html>`_
+to interface with MACE models.
+
+Use the ``mace_create_lammps_model`` script provided with ``mace-torch`` to convert
+the PyTorch checkpoint into a form compatible with the ML-IAP module.
+For example, convert the MACE-MP0 medium module by
+
+.. code-block:: bash
+
+   #! /bin/bash
+
+   if [ ! -e mace-mp0_medium ]; then
+     wget https://github.com/ACEsuit/mace-mp/releases/download/mace_mp_0/2023-12-03-mace-128-L1_epoch-199.model -O mace-mp0_medium
+   fi
+   mace_create_lammps_model mace-mp0_medium --format mliap --dtype float32
+
+
+Use the generated "lammps-mliap.pt" file when configuring the :class:`~mofa.simulation.mace.MACERunner`.
+
+
 DFT Runners
 -----------
 
