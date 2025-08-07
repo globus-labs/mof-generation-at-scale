@@ -1,0 +1,19 @@
+# Environment for a system with a CUDA workstation
+#   - Installs all Python dependencies via PyPI
+#   - Uses LAMMPS, CP2K, and gRASPA built locally
+name: mofa
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python==3.12.*
+
+  # CPU-only simulation codes, which we won't bother to 
+  #  compile ourselves
+  - conda-forge::chargemol
+  - conda-forge::raspa2
+
+  - pip
+  - pip:
+    - torch==2.7.*
+    - -e ..[test,docs,cueq]

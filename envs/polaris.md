@@ -73,15 +73,13 @@ mpiexec -n 16 --ppn 8 --cpu-bind depth --depth 4 -env OMP_NUM_THREADS=4 \
 ## Building LAMMPS on Polaris
 
 We need a copy of LAMMPS that uses GPUs and not MPI,
-and one that includes the still-experimental ML-MACE module.
+and is built with the [ML-IAP module](https://mace-docs.readthedocs.io/en/latest/guide/lammps_mliap.html).
 
-First clone our fork of the MACE teams's fork of LAMMPS:
+Download any recent version of LAMMPS. We cloned the main branch of the LAMMPS repository.
 
 ```
-git clone -b mace-no-mpi https://github.com/WardLT/lammps-mace.git
+git clone git@github.com:lammps/lammps.git
 ```
-
-Then download libtorch ([link](https://download.pytorch.org/libtorch/cu126/libtorch-win-shared-with-deps-2.7.0%2Bcu126.zip)) and extract it nearby.
 
 Compile LAMMPS using the following build script (editing paths to libtorch appropriately):
 
@@ -91,16 +89,28 @@ module reset
 module use /soft/modulefiles
 module load spack-pe-base cmake
 module load gcc
-module load cudatoolkit-standalone/12.6
-module load kokkos
+module load cudatoolkit-standalone/12.8
+module load cray-python
 module list
 
-mkdir -p build-mace
-cd build-mace
+# Install python deps
+which python
+if [ ! -e venv ]; then
+  python -m venv ./venv
+fi
+source venv/bin/activate
+pip install -r requirements.txt
+which python
+
+
+mkdir -p build-mliap
+cd build-mliap
+
+export LDFLAGS="-Wl,--allow-multiple-definition"
 cmake \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_CUDA_COMPILER=nvcc \
-    -DCMAKE_C_COMPILER=nvc++ \
+    -DCMAKE_C_COMPILEr=NVC++ \
     -DCMAKE_CXX_COMPILER=nvc++ \
     -DCMAKE_CXX_STANDARD=14 \
     -DCMAKE_INSTALL_PREFIX=$(pwd) \
@@ -112,20 +122,26 @@ cmake \
     -DCMAKE_CXX_COMPILER=$(pwd)/../lib/kokkos/bin/nvcc_wrapper \
     -DKokkos_ARCH_ZEN3=ON \
     -DKokkos_ARCH_AMPERE80=ON \
-    -DCMAKE_PREFIX_PATH=$(pwd)/../../libtorch \
-    -DPKG_ML-MACE=ON \
+    -D PKG_ML-IAP=ON \
+    -D PKG_ML-SNAP=ON \
+    -D MLIAP_ENABLE_PYTHON=ON \
+    -D PKG_PYTHON=ON \
     ../cmake
+
 make -j 8
 make install
-
+make install-python
 ```
 
-Load the CUDA module and set the path to libtorch before running
+The build script installs a Python virtual environment that may have different dependencies than the MOFA environment.
+Thus, create a shell script which activates the LAMMPS environment before launching the executable
 
 ```bash
-module load cudatoolkit-standalone/12.6
-
-FPATH=/lus/eagle/projects/MOFA/lward/libtorch/lib
-export LD_LIBRARY_PATH=$FPATH:$LD_LIBRARY_PATH
+#! /bin/bash
+module use /soft/modulefiles
+module load cudatoolkit-standalone/12.8
+home=/lus/eagle/projects/MOFA/lward/lammps-main/build-mliap
+source $home/../venv/bin/activate
+$home/lmp $@
 ```
 

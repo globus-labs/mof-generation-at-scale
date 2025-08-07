@@ -56,14 +56,13 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Select the correct configuration
-    model_path = Path('../../input-files/mace/mace-mp0_medium-lammps.pt').absolute()
+    model_path = Path('../../input-files/mace/mace-mp0_medium-mliap_lammps.pt').absolute()
     if args.config == "local":
         config = Config(executors=[HighThroughputExecutor(max_workers_per_node=1, cpu_affinity='block')])
         lammps_cmd = "/home/lward/Software/lammps-mace/build-mace/lmp -k on g 1 -sf kk".split()
     elif args.config == "polaris":
         lammps_cmd = (
-            ' /lus/eagle/projects/MOFA/lward/lammps-mace/build-mace/lmp '
-            "-k on g 1 -sf kk"
+            '/lus/eagle/projects/MOFA/lward/lammps-main/lmp.sh -k on g 1 -sf kk -pk kokkos newton on neigh half'
         ).split()
         lammps_env = {'OMP_NUM_THREADS': '1'}
         config = Config(retries=4, executors=[
@@ -80,10 +79,6 @@ if __name__ == "__main__":
                     worker_init="""
 module list
 source activate /lus/eagle/projects/MOFA/lward/mof-generation-at-scale/env
-module load cudatoolkit-standalone/12.6
-
-FPATH=/lus/eagle/projects/MOFA/lward/libtorch/lib
-export LD_LIBRARY_PATH=$FPATH:$LD_LIBRARY_PATH
 
 cd $PBS_O_WORKDIR
 pwd

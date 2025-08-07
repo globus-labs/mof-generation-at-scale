@@ -13,3 +13,11 @@ DFT (``m.simulation.dft``)
    :members:
    :undoc-members:
    :show-inheritance:
+
+MACE (``m.simulation.mace``)
+----------------------------
+
+.. automodule:: mofa.simulation.mace
+   :members:
+   :undoc-members:
+   :show-inheritance:

@@ -42,7 +42,7 @@ dependencies = [
     "wandb",
     "imageio",
     "scikit-learn",
-    "mace-torch",
+    "mace-torch==0.3.13",
     "torch-dftd",
 
     # Performance tracking
@@ -73,6 +73,11 @@ docs = [
     'pydata-sphinx-theme',
     'nbsphinx'
 ]
+cueq = [
+    'cuequivariance==0.4.0',
+    'cuequivariance-torch==0.4.0',
+    'cuequivariance-ops-torch-cu12==0.4.0',
+]  # Faster MACE
 
 [project.scripts]
 monitor_utilization = "mofa.hpc.utilization:utilization_cli"
