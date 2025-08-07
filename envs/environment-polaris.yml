@@ -23,4 +23,4 @@ dependencies:
 
     # Other stuff
     - tqdm
-    - -e ..[test]
+    - -e ..[test,cueq]
