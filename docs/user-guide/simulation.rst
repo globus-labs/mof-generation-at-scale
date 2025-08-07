@@ -18,6 +18,23 @@ The functions available are determined by the type of runner.
 .. contents:: Available Runners
     :depth: 2
 
+MD Runners
+----------
+
+MOFA uses constant-pressure, constant-temperature (NPT) molecular dyanmics 
+to evaluate whether MOFs are dynamically stable.
+We assume that MOFs which change in volume signficiantly over timescales accessible to MD (<<1 ms)
+are unlikely to be stable in real-world conditions.
+
+The primary tool for running molecular dynamics is the :class:`~mofa.simulation.mace.MACERunner`,
+which uses LAMMPS to run molecular dynamics with forces from an
+`MACE interatomic potential <https://mace-docs.readthedocs.io/en/latest>`_.
+
+The input to the function is a :class:`~mofa.models.MOFRecord` object, how many timesteps to run,
+and how often to save a structure.
+The runner will determine the starting point based on the latest-available timestep in the record,
+run molecular dynamics with LAMMPS, then return snapshots at the requesed intervals.
+
 DFT Runners
 -----------
 
@@ -34,4 +51,4 @@ The output of the functions are an ASE Atoms object holding the energies and for
 and a path to the output directory.
 The output directory contains at least a file named ``valence.cube`` holding the
 charge density of the system, which are used to compute partial charges
-with :class:`~mofa.simulation.dft.compute_partial_charges`.
+with :meth:`~mofa.simulation.dft.compute_partial_charges`.
