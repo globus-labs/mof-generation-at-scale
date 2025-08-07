@@ -8,10 +8,8 @@ import os
 from subprocess import run
 
 import ase
-from ase import units, io
+from ase import io
 from ase.io.lammpsrun import read_lammps_dump_text
-from ase.md.nptberendsen import Inhomogeneous_NPTBerendsen
-from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
 from mace.calculators import mace_mp
 from ase.filters import UnitCellFilter
 from ase.io import Trajectory
@@ -40,9 +38,7 @@ boundary        p p p
 box             tilt large
 read_data       data.lmp
 
-
-pair_style mace no_domain_decomposition
-pair_coeff * * $model_path $elements
+$pair_style
 
 # simulation
 
@@ -68,6 +64,17 @@ run                 $timesteps
 undump              trajectAll
 write_restart       relaxing.*.restart
 """)
+
+_pair_style_templates = {
+    'ml-mace': Template('''
+pair_style mace no_domain_decomposition
+pair_coeff * * $model_path $elements
+'''),
+    'ml-iap': Template('''
+pair_style mliap unified $model_path 0
+pair_coeff * * $elements
+''')
+}
 
 
 @lru_cache(1)
@@ -101,7 +108,10 @@ def _load_structure(mof: MOFRecord, structure_source: tuple[str, int] | None):
 
 @dataclass
 class MACERunner(MDInterface):
-    """Interface for running pre-defined MACE workflows"""
+    """Interface for running pre-defined MACE workflows
+
+    Employs ASE for geometry relaxations and LAMMPS for NPT MD.
+    """
 
     lammps_cmd: list[str] | None = None
     """Command used to invoke MACE"""
@@ -109,13 +119,18 @@ class MACERunner(MDInterface):
     """Path to the LAMMPS-compatible model file. Ignored if using ASE"""
     run_dir: Path = Path("mace-runs")
     """Path in which to store MACE computation files"""
-    traj_name = 'mace_mp'
+    traj_name: str = 'mace_mp'
     md_supercell: int = 2
     """How large of a supercell to use for the MD calculation"""
     device: str = 'cpu'
     """Which device to use for the calculations"""
     delete_finished: bool = False
     """Whether to clear completed files from disk"""
+    lammps_pkg: str = 'ml-iap'
+    """Which LAMMPS pair_style package to use for running MACE.
+
+    Note: You will need to save the model in the appropriate format with
+    ``mace_create_lammps_model``"""
 
     def run_single_point(
             self,
@@ -209,17 +224,6 @@ class MACERunner(MDInterface):
                 with Trajectory("relax.traj", mode="w") as traj:
                     dyn = LBFGS(ecf, logfile="relax.log", trajectory=traj)
                     dyn.run(fmax=fmax, steps=steps)
-            elif action == "md":
-                MaxwellBoltzmannDistribution(temperature_K=300, atoms=atoms)
-                with Trajectory("md.traj", mode="w") as traj:
-                    dyn = Inhomogeneous_NPTBerendsen(atoms,
-                                                     # TODO (wardlt): Tweak these. Assumign a 10GPa bulk modulus as a low estimate
-                                                     #  from https://pubs.rsc.org/en/content/articlehtml/2019/sc/c9sc04249k
-                                                     timestep=0.5 * units.fs, temperature_K=300,
-                                                     taut=500 * units.fs, pressure_au=0,
-                                                     taup=1000 * units.fs, compressibility_au=4.57e-5 / units.bar,
-                                                     trajectory=traj, logfile='npt.log', loginterval=loginterval)
-                    dyn.run(steps=steps)
             else:
                 raise ValueError(f"Action not supported: {action}")
 
@@ -254,12 +258,19 @@ class MACERunner(MDInterface):
 
         # Write the input file
         elements = sorted(set(atoms.get_chemical_symbols()))
-        inp_file = template_input.substitute(
+        if self.lammps_pkg not in _pair_style_templates:
+            raise NotImplementedError(f'Pair style {self.lammps_module} not yet supported')
+        pair_style = _pair_style_templates[self.lammps_pkg].substitute(
             elements=" ".join(elements),
             model_path=str(self.model_path),
+        )
+
+        inp_file = template_input.substitute(
             write_freq=write_freq,
             min_steps=min_steps,
-            timesteps=timesteps
+            timesteps=timesteps,
+            pair_style=pair_style,
+            elements=" ".join(elements)
         )
         inp_path = out_dir / 'in.lammps'
         inp_path.write_text(inp_file)
@@ -302,44 +313,15 @@ class MACERunner(MDInterface):
             continuation = False
 
         # Run the MD trajectory
-        if self.lammps_cmd is not None:
-            output = self.run_md_with_lammps(
-                name=mof.name,
-                atoms=atoms,
-                timesteps=timesteps - start_frame,
-                min_steps=0 if continuation else 100,
-                write_freq=report_frequency
-            )
-            if continuation:
-                output.pop(0)
+        output = self.run_md_with_lammps(
+            name=mof.name,
+            atoms=atoms,
+            timesteps=timesteps - start_frame,
+            min_steps=0 if continuation else 100,
+            write_freq=report_frequency
+        )
+        if continuation:
+            output.pop(0)  # The first frame is the last from the previous run
 
-            # Increment the outputs by the start time
-            return [(i + start_frame, atoms) for i, atoms in output]
-        else:
-            orig_df = self.delete_finished
-            out_dir = None
-            try:
-                self.delete_finished = False
-                out_atoms, out_dir = self._run_mace(
-                    name=mof.name,
-                    level='default',
-                    action='md',
-                    atoms=atoms,
-                    steps=timesteps - start_frame,
-                    loginterval=report_frequency,
-                )
-
-                # Read in the trajectory file
-                output = []
-                for i, atoms in enumerate(io.iread(out_dir / 'md.traj')):
-                    if continuation and i == 0:
-                        continue
-                    timestep = start_frame + report_frequency * i
-                    output.append((timestep, atoms))
-                if output[-1][0] != timesteps:
-                    output.append((timesteps, out_atoms))
-                return output
-            finally:
-                self.delete_finished = orig_df
-                if self.delete_finished and out_dir is not None:
-                    shutil.rmtree(out_dir)
+        # Increment the outputs by the start time
+        return [(i + start_frame, atoms) for i, atoms in output]

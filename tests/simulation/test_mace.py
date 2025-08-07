@@ -9,6 +9,10 @@ from mofa.utils.conversions import write_to_string
 
 IN_GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
 
+lmp_path = Path('/home/lward/Software/lammps/lmp.sh')
+_has_lammps = lmp_path.exists()
+_my_path = Path(__file__).parent
+
 
 @mark.parametrize("cif_name", ["hMOF-0"])
 def test_mace_single(cif_name, cif_dir, tmpdir):
@@ -62,17 +66,18 @@ def test_mace_options(level, cif_dir):
     assert not mace_path.exists()
 
 
+@mark.skipif(IN_GITHUB_ACTIONS, reason="Too expensive for CI")
+@mark.skipif(not _has_lammps, reason="LAMMPS not found")
 def test_mace_md(cif_dir):
     test_file = cif_dir / "hMOF-0.cif"
     record = MOFRecord.from_file(test_file)
 
     # Initial run
-    lammps_path = Path("qnviq")
-    model_path = Path('../../input-files/mace/mace-mp0_medium-lammps.pt').absolute()
+    model_path = (_my_path / '../../input-files/mace/mace-mp0_medium-mliap_lammps.pt').absolute()
     runner = MACERunner(
-        lammps_cmd=f"{lammps_path} -k on g 1 -sf kk".split() if lammps_path.exists() else None,
+        lammps_cmd=f"{lmp_path} -k on g 1 -sf kk -pk kokkos newton on neigh half".split(),
         model_path=model_path,
-        delete_finished=True
+        delete_finished=False
     )
     output = runner.run_molecular_dynamics(
         mof=record,
