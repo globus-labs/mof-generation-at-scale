@@ -58,16 +58,19 @@ if __name__ == "__main__":
     parser.add_argument('--timesteps', help='Number of timesteps to run', default=1000, type=int)
     parser.add_argument('--config', help='Which compute configuration to use', default='local')
     parser.add_argument('--num-to-run', help='How many from the subset to run', default=16, type=int)
-    parser.add_argument('--ff', help='Which forcefield to use', default='uff')
+    parser.add_argument('--ff', help='Which forcefield to use', default='mace')
     parser.add_argument('--continue-runs', help='Continue previously-run trajectories', action='store_true')
+    parser.add_argument('--model-name', help='Name of the MACE model to use', default='mace-mp0_medium-mliap_lammps.pt')
+    parser.add_argument('--random-seed', help='Random seed to use in initializing velocities', default=1, type=int)
     args = parser.parse_args()
 
     # Select the correct configuraion
     if args.config == "local":
-        lammps_cmd = "/home/lward/Software/lammps-mace/build-mace/lmp -k on g 1 -sf kk".split()
+        lammps_cmd = "/home/lward/Software/lammps-main/lmp.sh -k on g 1 -sf kk -pk kokkos newton on neigh half".split()
         lammps_env = {}
         device = 'cuda'
-        config = Config(executors=[HighThroughputExecutor(max_workers_per_node=1)])
+        mps_level = 4
+        config = Config(executors=[HighThroughputExecutor(max_workers_per_node=mps_level)])
     elif args.config == "polaris":
         lammps_cmd = ('/lus/eagle/projects/ExaMol/mofa/lammps-2Aug2023/build-kokkos-nompi/lmp '
                       '-k on g 1 -sf kk').split()
@@ -162,10 +165,11 @@ hostname
     if args.ff == 'uff':
         runner = LAMMPSRunner(lammps_command=lammps_cmd, lmp_sims_root_path=str(run_dir), lammps_environ=lammps_env)
     elif args.ff == 'mace':
-        model_path = Path('../../input-files/mace/mace-mp0_medium-lammps.pt').absolute()
+        model_path = Path(f'../../input-files/mace/{args.model_name}').absolute()
         runner = MACERunner(lammps_cmd=lammps_cmd,
                             model_path=model_path,
                             run_dir=run_dir,
+                            random_seed=args.random_seed,
                             device=device)
     else:
         raise ValueError(f'No such forcefield: {args.ff}')
@@ -185,11 +189,12 @@ hostname
         # Load previous results
         out_strains = Path(f'{args.ff}-strains.jsonl')
         if out_strains.is_file():
-            prev_run = pd.read_json(out_strains, lines=True)[['mof', 'timesteps', 'structure']]
-            print(f'Found {len(prev_run)} previous runs with forcfield {args.ff}')
+            prev_run = pd.read_json(out_strains, lines=True)[['mof', 'model_name', 'random_seed', 'timesteps', 'structure']]
+            prev_run.query('model_name == @args.model_name and random_seed == @args.random_seed', inplace=True)
+            print(f'Found {len(prev_run)} previous runs with forcfield={args.ff}, model_name={args.model_name}, random_seed={args.random_seed}')
 
             latest_run = prev_run.sort_values('timesteps', ascending=True).drop_duplicates('mof', keep='last')
-            latest_run = dict((n, (t, s)) for n, t, s in latest_run.values)
+            latest_run = dict((n, (t, s)) for n, _, _, t, s in latest_run.values)
 
             all_runs = prev_run.groupby('mof')['timesteps'].apply(set).to_dict()
         else:
@@ -237,6 +242,8 @@ hostname
                 print(json.dumps({
                     'host': node(),
                     'lammps_cmd': lammps_cmd,
+                    'model_name': args.model_name,
+                    'random_seed': args.random_seed,
                     'timesteps': args.timesteps,
                     'mof': mof.name,
                     'runtime': runtime,
