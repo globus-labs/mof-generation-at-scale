@@ -28,6 +28,7 @@ def test_function(
         mof: MOFRecord,
         timesteps: int,
         runner: MDInterface,
+        write_freq: int = 10000,
 ) -> tuple[float, list[tuple[int, Atoms]]]:
     """Run a LAMMPS simulation, report runtime and resultant traj
 
@@ -46,7 +47,7 @@ def test_function(
 
     # Run
     start_time = perf_counter()
-    output = runner.run_molecular_dynamics(mof, timesteps, timesteps // 5)
+    output = runner.run_molecular_dynamics(mof, timesteps, write_freq)
     run_time = perf_counter() - start_time
 
     return run_time, output
@@ -62,9 +63,10 @@ if __name__ == "__main__":
     parser.add_argument('--continue-runs', help='Continue previously-run trajectories', action='store_true')
     parser.add_argument('--model-name', help='Name of the MACE model to use', default='mace-mp0_medium-mliap_lammps.pt')
     parser.add_argument('--random-seed', help='Random seed to use in initializing velocities', default=1, type=int)
+    parser.add_argument('--write-freq', help='How often to write structures to disk', default=10000, type=int)
     args = parser.parse_args()
 
-    # Select the correct configuraion
+    # Select the correct configuration
     if args.config == "local":
         lammps_cmd = "/home/lward/Software/lammps-main/lmp.sh -k on g 1 -sf kk -pk kokkos newton on neigh half".split()
         lammps_env = {}
@@ -178,7 +180,6 @@ hostname
     with parsl.load(config):
         test_app = PythonApp(test_function)
 
-
         # Gather MOFs from an example set
         example_set = pd.read_csv('raw-data/ZnNCO_hMOF_cat0_valid_ads_angle_clean.csv').sample(args.num_to_run, random_state=1)
         example_set['name'] = example_set['cifname'].apply(lambda x: x[:-4])
@@ -191,7 +192,7 @@ hostname
         if out_strains.is_file():
             prev_run = pd.read_json(out_strains, lines=True)[['mof', 'model_name', 'random_seed', 'timesteps', 'structure']]
             prev_run.query('model_name == @args.model_name and random_seed == @args.random_seed', inplace=True)
-            print(f'Found {len(prev_run)} previous runs with forcfield={args.ff}, model_name={args.model_name}, random_seed={args.random_seed}')
+            print(f'Found {len(prev_run)} previous runs with forcefield={args.ff}, model_name={args.model_name}, random_seed={args.random_seed}')
 
             latest_run = prev_run.sort_values('timesteps', ascending=True).drop_duplicates('mof', keep='last')
             latest_run = dict((n, (t, s)) for n, _, _, t, s in latest_run.values)
@@ -217,7 +218,7 @@ hostname
                     num_ran -= timesteps
             elif args.continue_runs:
                 continue  # Skip if not already run
-            future = test_app(mof, args.timesteps, runner)
+            future = test_app(mof, args.timesteps, runner, args.write_freq)
             future.mof = mof
             future.num_ran = num_ran
             futures.append(future)
@@ -230,25 +231,17 @@ hostname
                 continue
             runtime, traj = future.result()
 
-            # Get the strain
-            # TODO (wardlt): Simplify how we compute strain
-            traj_vasp = [(s, write_to_string(t, 'vasp')) for (s, t) in traj]
-            mof = future.mof
-            mof.md_trajectory[runner.traj_name] = traj_vasp
-            strain = scorer.score_mof(mof)
-
             # Store the result
             with open(out_strains, 'a') as fp:
-                print(json.dumps({
-                    'host': node(),
-                    'lammps_cmd': lammps_cmd,
-                    'model_name': args.model_name,
-                    'random_seed': args.random_seed,
-                    'timesteps': args.timesteps,
-                    'mof': mof.name,
-                    'runtime': runtime,
-                    'steps_ran': future.num_ran,
-                    'strain': strain,
-                    'structure': traj_vasp[-1][-1]
-                }), file=fp)
-
+                for s, t in traj:
+                    print(json.dumps({
+                        'host': node(),
+                        'lammps_cmd': lammps_cmd,
+                        'model_name': args.model_name,
+                        'random_seed': args.random_seed,
+                        'timesteps': s,
+                        'mof': mof.name,
+                        'runtime': runtime,
+                        'steps_ran': future.num_ran,
+                        'structure': write_to_string(s, 'vasp'),
+                    }), file=fp)
