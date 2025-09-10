@@ -53,7 +53,7 @@ thermo_modify       flush yes
 minimize            0. 1.0e-2 $min_steps 10000
 reset_timestep      0
 
-velocity            all create 300.0 12345
+velocity            all create 300.0 $seed
 
 thermo              $${Nevery}
 
@@ -131,6 +131,8 @@ class MACERunner(MDInterface):
 
     Note: You will need to save the model in the appropriate format with
     ``mace_create_lammps_model``"""
+    random_seed: int = 12345
+    """Random seed to use when initializing velocities"""
 
     def run_single_point(
             self,
@@ -270,7 +272,8 @@ class MACERunner(MDInterface):
             min_steps=min_steps,
             timesteps=timesteps,
             pair_style=pair_style,
-            elements=" ".join(elements)
+            elements=" ".join(elements),
+            seed=self.random_seed
         )
         inp_path = out_dir / 'in.lammps'
         inp_path.write_text(inp_file)
