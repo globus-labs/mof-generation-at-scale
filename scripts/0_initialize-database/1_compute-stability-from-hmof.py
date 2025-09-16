@@ -5,15 +5,17 @@ from platform import node
 import argparse
 import json
 import gzip
+import os
 
 import pandas as pd
 from tqdm import tqdm
 from ase import Atoms
+from more_itertools import batched
 import parsl
 from parsl.config import Config
 from parsl.app.python import PythonApp
 from parsl.executors import HighThroughputExecutor
-from parsl.providers import PBSProProvider
+from parsl.providers import PBSProProvider, LocalProvider
 from parsl.launchers import MpiExecLauncher
 
 from mofa.model import MOFRecord
@@ -64,6 +66,7 @@ if __name__ == "__main__":
     parser.add_argument('--model-name', help='Name of the MACE model to use', default='mace-mp0_medium-mliap_lammps.pt')
     parser.add_argument('--random-seed', help='Random seed to use in initializing velocities', default=1, type=int)
     parser.add_argument('--write-freq', help='How often to write structures to disk', default=10000, type=int)
+    parser.add_argument('--dry-run', action='store_true', help='Count but down start computations')
     args = parser.parse_args()
 
     # Select the correct configuration
@@ -73,6 +76,29 @@ if __name__ == "__main__":
         device = 'cuda'
         mps_level = 4
         config = Config(executors=[HighThroughputExecutor(max_workers_per_node=mps_level)])
+    elif args.config == "dfw":
+        # Submit so Parsl runs on the compute node. Memory use on the login node is v limited
+        lammps_cmd = ('/lustre/fs1/portfolios/coreai/users/lward/lammps/lmp.sh '
+                '-k on g 1 -sf kk -pk kokkos newton on neigh half').split()
+        device = 'cuda'
+
+        # Determine available cores
+        cores = sorted(os.sched_getaffinity(0))
+        mps_level = 3
+        num_workers = 8 * mps_level
+        affinity = "list:" + ":".join(','.join(map(str, b)) for b, _ in zip(batched(cores, len(cores) // num_workers), range(num_workers)))
+
+        config = Config(retries=4, executors=[
+            HighThroughputExecutor(
+                max_workers_per_node=num_workers,
+                cpu_affinity=affinity,
+                available_accelerators=num_workers,
+                provider=LocalProvider(
+#                    launcher=SrunLauncher(),
+                    nodes_per_block=1,
+                )
+            )
+        ])
     elif args.config == "polaris":
         lammps_cmd = ('/lus/eagle/projects/ExaMol/mofa/lammps-2Aug2023/build-kokkos-nompi/lmp '
                       '-k on g 1 -sf kk').split()
@@ -161,7 +187,7 @@ hostname
         raise ValueError(f'Configuration not defined: {args.config}')
 
     # Prepare the runner
-    run_dir = Path(f'{args.ff}-run-{args.timesteps}')
+    run_dir = Path(f'{args.ff}-run-{args.timesteps}-{args.random_seed}')
     run_dir.mkdir(exist_ok=True, parents=True)
 
     if args.ff == 'uff':
@@ -218,10 +244,17 @@ hostname
                     num_ran -= timesteps
             elif args.continue_runs:
                 continue  # Skip if not already run
+            elif args.dry_run:
+                futures.append(None)
+                continue
             future = test_app(mof, args.timesteps, runner, args.write_freq)
             future.mof = mof
             future.num_ran = num_ran
             futures.append(future)
+
+        if args.dry_run:
+            print(f'Found {len(futures)} pending calculations')
+            exit()
 
         # Store results
         scorer = LatticeParameterChange(md_level=runner.traj_name)
@@ -233,6 +266,7 @@ hostname
 
             # Store the result
             with open(out_strains, 'a') as fp:
+                mof = future.mof
                 for s, t in traj:
                     print(json.dumps({
                         'host': node(),
@@ -243,5 +277,5 @@ hostname
                         'mof': mof.name,
                         'runtime': runtime,
                         'steps_ran': future.num_ran,
-                        'structure': write_to_string(s, 'vasp'),
+                        'structure': write_to_string(t, 'vasp'),
                     }), file=fp)
