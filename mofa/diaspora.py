@@ -111,8 +111,18 @@ class DiasporaQueues(ColmenaQueues):
         # If you find the Driver placeholder, attempt to reconnect
         if self.driver == 'connected':
             self.driver = None
-            self.opened_topics = {}
             self.connect()
+            
+            for queue, vals in self.opened_topics.items():
+                if 'topic' in vals:
+                    if vals['topic'] == "connected":
+                        vals['topic'] = self.driver.open_topic(queue)
+                        
+                    if 'producer' in vals and vals['producer'] == "connected":
+                        vals['producer'] = vals['topic'].producer(f'producer-{queue}')
+                    if 'consumer' in vals and vals['consumer'] == "connected":
+                        vals['consumer'] = vals['topic'].consumer(f'consumer-{queue}')
+                    
 
     def __getstate__(self):
         state = super().__getstate__()
@@ -120,6 +130,10 @@ class DiasporaQueues(ColmenaQueues):
         # If connected, remove the unpicklable Driver and put a placeholder instead
         if self.is_connected:
             state['driver'] = 'connected'
+            for queue, vals in self.opened_topics.items():
+                for k in vals.keys():
+                    vals[k] = 'connected'
+                    
         return state
 
     def connect(self):
@@ -138,22 +152,22 @@ class DiasporaQueues(ColmenaQueues):
         
         if queue in self.opened_topics:
             if requester in  self.opened_topics[queue]:
-                rq = self.opened_topics[queue][requester]
-                self.opened_topics = {}
+                return self.opened_topics[queue][requester]
+                #self.opened_topics = {}
 
             if requester == "producer":
                 self.opened_topics[queue][requester] = self.opened_topics[queue]["topic"].producer(f"producer-{queue}")
             else:
                 self.opened_topics[queue][requester] = self.opened_topics[queue]["topic"].consumer(f"consumer-{queue}")
             rq = self.opened_topics[queue][requester]
-            self.opened_topics = {}
+            #self.opened_topics = {}
             return rq
 
         if not self.driver.topic_exists(queue):
             self.driver.create_topic(name=queue)
 
         topic = self.driver.open_topic(queue)
-        # self.opened_topics[queue] = { "topic": topic }
+        self.opened_topics[queue] = { "topic": topic }
         # print(f"***{self.opened_topics}***")
 
         if requester == "producer":
@@ -164,7 +178,7 @@ class DiasporaQueues(ColmenaQueues):
             rq = topic.consumer(f"consumer-{queue}")
         
         # rq = self.opened_topics[queue][requester]
-        self.opened_topics = {}
+        self.opened_topics[queue][requester] = rq
         return rq
         
 
@@ -203,7 +217,7 @@ class DiasporaQueues(ColmenaQueues):
     def _send_request(self, message: str, topic: str):
         queue = f"{self.prefix}_requests"
         event = {"message": message, "topic": topic}
-        print(f"**REQ {event}**")
+        # print(f"**REQ {event}**")
         self._send_message(event, queue)
         
         
@@ -211,7 +225,7 @@ class DiasporaQueues(ColmenaQueues):
     def _get_request(self, timeout: float = None) -> Tuple[str, str]:
         queue = f'{self.prefix}_requests'
         event = self._get_message(queue, timeout).metadata
-        print(f"**EVENT REQ {event}**")
+        # print(f"**EVENT REQ {event}**")
         topic = event["topic"]
         request = event["message"] #json.loads(event["message"])
 
@@ -222,14 +236,14 @@ class DiasporaQueues(ColmenaQueues):
     def _send_result(self, message: str, topic: str):
         queue = f'{self.prefix}_{topic}_result'
         event = { "message": message }
-        print(f"**RES {event}**")
+        # print(f"**RES {event}**")
         self._send_message(event, queue)
 
     @_error_if_unconnected
     def _get_result(self, topic: str, timeout: int = None) -> str:
         queue = f'{self.prefix}_{topic}_result'
         event = self._get_message(queue, timeout).metadata
-        print(f"**EVENT result {event}**")
+        # print(f"**EVENT result {event}**")
         return event["message"]
 
     @property
