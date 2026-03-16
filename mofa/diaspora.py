@@ -138,26 +138,34 @@ class DiasporaQueues(ColmenaQueues):
         
         if queue in self.opened_topics:
             if requester in  self.opened_topics[queue]:
-                return self.opened_topics[queue][requester]
+                rq = self.opened_topics[queue][requester]
+                self.opened_topics = {}
 
             if requester == "producer":
                 self.opened_topics[queue][requester] = self.opened_topics[queue]["topic"].producer(f"producer-{queue}")
             else:
                 self.opened_topics[queue][requester] = self.opened_topics[queue]["topic"].consumer(f"consumer-{queue}")
-            return self.opened_topics[queue][requester]
+            rq = self.opened_topics[queue][requester]
+            self.opened_topics = {}
+            return rq
 
         if not self.driver.topic_exists(queue):
             self.driver.create_topic(name=queue)
 
         topic = self.driver.open_topic(queue)
-        self.opened_topics[queue] = { "topic": topic }
+        # self.opened_topics[queue] = { "topic": topic }
+        # print(f"***{self.opened_topics}***")
 
         if requester == "producer":
-            self.opened_topics[queue][requester] = topic.producer(f"producer-{queue}")
+            # self.opened_topics[queue][requester]
+            rq = topic.producer(f"producer-{queue}")
         else:
-            self.opened_topics[queue][requester] = topic.consumer(f"consumer-{queue}")
+            # self.opened_topics[queue][requester] = 
+            rq = topic.consumer(f"consumer-{queue}")
         
-        return self.opened_topics[queue][requester]
+        # rq = self.opened_topics[queue][requester]
+        self.opened_topics = {}
+        return rq
         
 
     def _send_message(self, message, queue):
@@ -195,15 +203,17 @@ class DiasporaQueues(ColmenaQueues):
     def _send_request(self, message: str, topic: str):
         queue = f"{self.prefix}_requests"
         event = {"message": message, "topic": topic}
+        print(f"**REQ {event}**")
         self._send_message(event, queue)
         
         
     @_error_if_unconnected
     def _get_request(self, timeout: float = None) -> Tuple[str, str]:
         queue = f'{self.prefix}_requests'
-        event = self._get_message(queue, timeout)
-        topic = event.metadata["topic"]
-        request = event.metadata["message"]
+        event = self._get_message(queue, timeout).metadata
+        print(f"**EVENT REQ {event}**")
+        topic = event["topic"]
+        request = event["message"] #json.loads(event["message"])
 
         return topic, request
 
@@ -211,13 +221,16 @@ class DiasporaQueues(ColmenaQueues):
     @_error_if_unconnected
     def _send_result(self, message: str, topic: str):
         queue = f'{self.prefix}_{topic}_result'
-        event = {"message": message, "topic": topic}
+        event = { "message": message }
+        print(f"**RES {event}**")
         self._send_message(event, queue)
 
     @_error_if_unconnected
     def _get_result(self, topic: str, timeout: int = None) -> str:
         queue = f'{self.prefix}_{topic}_result'
-        return self._get_message(queue, timeout).metadata
+        event = self._get_message(queue, timeout).metadata
+        print(f"**EVENT result {event}**")
+        return event["message"]
 
     @property
     def is_connected(self):
@@ -240,18 +253,6 @@ if __name__ == "__main__":
     queues = DiasporaQueues(topics=topics, stream_engine="octopus")
     logger.info("Initialized OctopusQueues with topics: %s\n", queues.topics)
 
-    # # Establish all necessary Kafka connections.
-    # for topic in queues.topics:
-    #     queues.connect_result_consumer(topic)
-
-    # # # Test serialization using pickle.
-    # queues_dumped = pickle.dumps(queues)
-    # logger.info("Serialized queues: %s", queues_dumped)
-    # queues_loaded = pickle.loads(queues_dumped)
-    # logger.info("Deserialized request producer: %s", queues_loaded.request_producer)
-    # logger.info("Deserialized request consumer: %s", queues_loaded.request_consumer)
-    # logger.info("Deserialized result consumers: %s\n", queues_loaded.result_consumers)
-
     # Example tests for sending and receiving messages.
     queues._send_request("123456", "generation")
     logger.info("Request sent. Waiting for request...\n")
@@ -261,19 +262,3 @@ if __name__ == "__main__":
     logger.info("Result sent. Waiting for result...\n")
     result_message = queues._get_result("generation", timeout=1)
     logger.info("Received result for topic 'generation': %s\n", result_message)
-
-    # Uncomment the following connectivity tests as needed:
-    # from diaspora_event_sdk.sdk.kafka_client import MSKTokenProvider
-    # tp = MSKTokenProvider()
-    # print(tp.token())
-
-    # producer = KafkaProducer(value_serializer=value_serializer)
-    # future = producer.send(
-    #     topic="__connection_test",
-    #     value={"message": "Synchronous message from Diaspora SDK"},
-    # )
-    # record_metadata = future.get(timeout=10)
-    # print(record_metadata)
-
-    # from diaspora_event_sdk import block_until_ready
-    # block_until_ready()
