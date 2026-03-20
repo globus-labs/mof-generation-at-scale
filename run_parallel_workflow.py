@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """An example of the workflow which runs all aspects of MOF generation in parallel"""
 from functools import partial, update_wrapper
 from subprocess import Popen
@@ -10,6 +11,8 @@ import hashlib
 import json
 import sys
 
+from colmena.queue.redis import RedisQueues
+
 from proxystore.connectors.redis import RedisConnector
 from proxystore.store import Store, register_store
 from pymongo import MongoClient
@@ -17,7 +20,6 @@ from rdkit import RDLogger
 from openbabel import openbabel as ob
 from more_itertools import batched, make_decorator
 from colmena.task_server.parsl import ParslTaskServer
-from colmena.queue.redis import RedisQueues
 
 from mofa.db import initialize_database
 from mofa.assembly.assemble import assemble_many
@@ -33,6 +35,7 @@ from mofa.steering import GeneratorConfig, TrainingConfig, MOFAThinker, Simulati
 from mofa.hpc.colmena import DiffLinkerInference
 from mofa.hpc.config import LocalConfig
 from mofa.utils.config import load_variable
+from mofa.diaspora import DiasporaQueues
 
 RDLogger.DisableLog('rdApp.*')
 ob.obErrorLog.SetOutputLevel(0)
@@ -108,12 +111,17 @@ if __name__ == "__main__":
     register_store(store)
 
     # Configure to a use Redis queue, which allows streaming results form other nodes
-    queues = RedisQueues(
-        hostname=args.redis_host,
+    queues = DiasporaQueues(
         topics=['generation', 'lammps', 'cp2k', 'training', 'assembly'],
-        proxystore_name='redis',
-        proxystore_threshold=args.proxy_threshold
+        stream_engine = "files"
     )
+
+    # queues = RedisQueues(
+    #     hostname=args.redis_host,
+    #     topics=['generation', 'lammps', 'cp2k', 'training', 'assembly'],
+    #     proxystore_name='redis',
+    #     proxystore_threshold=args.proxy_threshold,
+    # )
 
     # Load the ligand descriptions
     templates = []

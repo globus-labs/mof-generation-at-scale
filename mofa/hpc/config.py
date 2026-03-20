@@ -167,16 +167,16 @@ class HPCConfig(BaseModel):
 class LocalConfig(HPCConfig):
     """Configuration used for testing purposes. Runs all non-helper tasks on a single worker"""
 
-    torch_device: str = 'cuda'
+    torch_device: str = 'cpu'
     lammps_env: dict[str, str] = {}
-    lammps_cmd: tuple[str, ...] = ('/home/lward/Software/lammps-mace/build-mace/lmp',)
-    raspa_cmd: tuple[str, ...] = ('/home/lward/Software/gRASPA/graspa-sycl/bin/sycl.out',)
+    lammps_cmd: tuple[str, ...] = {}
+    raspa_cmd: tuple[str, ...] = {}
 
-    lammps_executors: list[str] = ['gpu']
-    inference_executors: list[str] = ['gpu']
-    train_executors: list[str] = ['gpu']
+    lammps_executors: list[str] = ['sim']
+    inference_executors: list[str] = ['ai']
+    train_executors: list[str] = ['ai']
     helper_executors: list[str] = ['helper']
-    raspa_executors: list[str] = ['gpu']
+    raspa_executors: list[str] = ['ai']
 
     @computed_field
     @property
@@ -209,7 +209,9 @@ class LocalConfig(HPCConfig):
         return Config(
             executors=[
                 HighThroughputExecutor(label='helper', max_workers_per_node=1),
-                HighThroughputExecutor(label='gpu', max_workers_per_node=1, available_accelerators=1)
+                HighThroughputExecutor(label='ai', max_workers_per_node=1),
+                HighThroughputExecutor(label='sim', max_workers_per_node=1),
+                
             ],
             run_dir=str(self.run_dir / 'runinfo')
         )

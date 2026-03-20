@@ -113,15 +113,6 @@ class DiasporaQueues(ColmenaQueues):
             self.driver = None
             self.connect()
             
-            for queue, vals in self.opened_topics.items():
-                if 'topic' in vals:
-                    if vals['topic'] == "connected":
-                        vals['topic'] = self.driver.open_topic(queue)
-                        
-                    if 'producer' in vals and vals['producer'] == "connected":
-                        vals['producer'] = vals['topic'].producer(f'producer-{queue}')
-                    if 'consumer' in vals and vals['consumer'] == "connected":
-                        vals['consumer'] = vals['topic'].consumer(f'consumer-{queue}')
                     
 
     def __getstate__(self):
@@ -130,9 +121,9 @@ class DiasporaQueues(ColmenaQueues):
         # If connected, remove the unpicklable Driver and put a placeholder instead
         if self.is_connected:
             state['driver'] = 'connected'
-            for queue, vals in self.opened_topics.items():
-                for k in vals.keys():
-                    vals[k] = 'connected'
+            for queue in self.opened_topics.keys():
+                for k in self.opened_topics[queue].keys():
+                    self.open_topic[queue][k] = 'connected'
                     
         return state
 
@@ -140,6 +131,16 @@ class DiasporaQueues(ColmenaQueues):
         """Connect to the Diaspora Stream driver."""
         if not self.driver:
             self.driver = Driver(backend=self.stream_engine, options=self.driver_config)
+
+            for queue in self.opened_topics.keys():
+                if 'topic' in self.opened_topics[queue]:
+                    if self.opened_topics[queue]['topic'] == "connected":
+                        self.opened_topics[queue]['topic'] = self.driver.open_topic(queue)
+                        
+                    if 'producer' in self.opened_topics[queue] and self.opened_topics[queue]['producer'] == "connected":
+                        self.opened_topics[queue]['producer'] = self.opened_topics[queue]['topic'].producer(f'producer-{queue}')
+                    if 'consumer' in self.opened_topics[queue] and self.opened_topics[queue]['consumer'] == "connected":
+                        self.opened_topics[queue]['consumer'] = self.opened_topics[queue]['topic'].consumer(f'consumer-{queue}')
     
     def disconnect(self):
         """Disconnect from the server.
@@ -147,6 +148,7 @@ class DiasporaQueues(ColmenaQueues):
         Useful if sending the connection object to another process.
         """
         self.driver = None
+        self.opened_topics = {}
 
     def get_or_create_queue(self, queue, requester: Literal["producer", "consumer"]):
         
