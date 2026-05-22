@@ -1,0 +1,40 @@
+# Diaspora Stream variant of the Polaris env (mofka + diaspora backends).
+#
+# Mochi prebuilt binaries require glibc >= 2.32. Polaris ships glibc 2.38
+# (verified on polaris-login-04), so this env runs natively without a
+# container — unlike Midway3 RHEL 8.4 (glibc 2.28) which needs apptainer.
+#
+# The file:// channel URL below is hard-coded to /home/haochenpan/mochi-conda-packages.
+# Edit it if you extract the mochi-hpc tarball elsewhere — conda does not
+# expand env vars in channel URLs.
+name: mofa
+channels:
+  - file:///home/haochenpan/mochi-conda-packages
+  - conda-forge
+  - defaults
+dependencies:
+  - python==3.12.*
+  - openssl>3
+
+  # Mochi-HPC packages (from local file:// channel)
+  - mofka
+  - diaspora-stream-api
+  - diaspora-stream-octopus
+
+  # Workflow services. mongodb-server is omitted: the conda-forge build
+  # pins old openssl/icu that conflicts with mochi-margo's libuuid/libxml2.
+  # Use an external mongod or skip db features. pymongo (client) ships via
+  # pip from pyproject.toml.
+  - redis-server==7.*
+
+  # Tools to work with crystalline and molecular data. openbabel is omitted
+  # for the same openssl/icu reason; openbabel-wheel ships via pip.
+  - conda-forge::chargemol
+  - conda-forge::raspa2
+
+  - pip
+  - pip:
+    - torch==2.7.*
+    - diaspora-event-sdk
+    - tqdm
+    - -e ..[test]
