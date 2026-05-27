@@ -9,9 +9,8 @@ from pathlib import Path
 import logging
 import hashlib
 import json
+import secrets
 import sys
-
-from colmena.queue.redis import RedisQueues
 
 from proxystore.connectors.redis import RedisConnector
 from proxystore.store import Store, register_store
@@ -88,6 +87,12 @@ if __name__ == "__main__":
     group.add_argument('--dft-fraction', default=0.1, type=float, help='Fraction of workers devoted to DFT tasks')
     group.add_argument('--redis-host', default=node(), help='Host for the Redis server')
     group.add_argument('--proxy-threshold', default=10000, type=int, help='Size threshold to use proxystore for data (bytes)')
+    group.add_argument('--stream-engine', default='files', choices=['files', 'mofka', 'octopus'],
+                       help='DiasporaQueues backend. "files" needs no setup; "mofka" needs --mofka-group-file '
+                            'pointing at a bedrock daemon (see envs/chameleon-stream.md §4); "octopus" needs '
+                            'cached Globus tokens (see envs/chameleon-stream.md §5).')
+    group.add_argument('--mofka-group-file', default=None,
+                       help='Path to mofka.flock.json — required when --stream-engine=mofka.')
 
     group = parser.add_argument_group(title='Selector Settings', description='Control how simulation tasks are selected')
     group.add_argument('--md-new-fraction', default=0.5, help='How frequently to start MD on a new MOF')
@@ -110,18 +115,24 @@ if __name__ == "__main__":
     store = Store(name='redis', connector=RedisConnector(hostname=args.redis_host, port=6379), metrics=True)
     register_store(store)
 
-    # Configure to a use Redis queue, which allows streaming results form other nodes
+    # Configure the streaming queues. The backend is chosen by --stream-engine;
+    # mofka also needs a path to the bedrock daemon's flock file. The prefix
+    # is randomized per run so re-running the workflow doesn't fight a partial
+    # state of any prior run's octopus topics; the 11-char layout
+    # (`mofa_` + 6 hex) keeps `{prefix}_generation_result` under the
+    # 32-char validate_name cap (see mofa/diaspora.py:319-320).
+    stream_conf = {"region": "us-east-1", "auto_offset_reset": "earliest", "root_path": "stream"}
+    if args.stream_engine == 'mofka':
+        if not args.mofka_group_file:
+            parser.error('--mofka-group-file is required when --stream-engine=mofka')
+        stream_conf['group_file'] = args.mofka_group_file
+    queues_prefix = 'mofa_' + secrets.token_hex(3)
     queues = DiasporaQueues(
         topics=['generation', 'lammps', 'cp2k', 'training', 'assembly'],
-        stream_engine = "files"
+        prefix=queues_prefix,
+        stream_engine=args.stream_engine,
+        stream_conf=stream_conf,
     )
-
-    # queues = RedisQueues(
-    #     hostname=args.redis_host,
-    #     topics=['generation', 'lammps', 'cp2k', 'training', 'assembly'],
-    #     proxystore_name='redis',
-    #     proxystore_threshold=args.proxy_threshold,
-    # )
 
     # Load the ligand descriptions
     templates = []
@@ -191,6 +202,7 @@ if __name__ == "__main__":
 
     # Make the LAMMPS function
     lmp_runner = MACERunner(lammps_cmd=hpc_config.lammps_cmd,
+                            lammps_pkg=hpc_config.lammps_pkg,
                             model_path=Path(args.mace_model_path).absolute(),
                             run_dir=Path('/dev/shm/lmp_run' if args.lammps_on_ramdisk else run_dir / 'lmp_run'),
                             delete_finished=args.lammps_on_ramdisk)
