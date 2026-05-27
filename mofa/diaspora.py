@@ -49,7 +49,7 @@ class DiasporaQueues(ColmenaQueues):
         keep_inputs: bool = True,
         proxystore_name: Optional[Union[str, Dict[str, str]]] = None,
         proxystore_threshold: Optional[Union[int, Dict[str, int]]] = None,
-        stream_engine: Literal["file", "mofka", "kafka", "octopus"] = "file",
+        stream_engine: Literal["files", "mofka", "kafka", "octopus"] = "files",
         stream_conf: Dict[str, str] = { "region": "us-east-1", "auto_offset_reset": "earliest", "root_path": "stream"}
     ):
         self.stream_engine = stream_engine
