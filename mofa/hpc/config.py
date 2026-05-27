@@ -1,4 +1,5 @@
 """Configuring a particular HPC resource"""
+import os
 from functools import cached_property
 from subprocess import Popen
 from typing import Literal
@@ -50,6 +51,12 @@ class HPCConfig(BaseModel):
     """Command used to launch a non-MPI LAMMPS task"""
     lammps_env: dict[str, str] = Field(default_factory=dict)
     """Extra environment variables to include when running LAMMPS"""
+    lammps_pkg: Literal['ml-iap', 'ml-mace'] = Field(default='ml-iap')
+    """LAMMPS pair_style package the MACE model is converted for.
+
+    Set to ``'ml-mace'`` when the LAMMPS build has ``pair_style mace`` and
+    the model was produced with ``mace_create_lammps_model --format libtorch``.
+    """
     raspa_version: RASPAVersion = Field(default='raspa2')
     """Version of RASPA used on this system"""
     raspa_cmd: tuple[str, ...] = Field(default=('simulate',))
@@ -169,8 +176,8 @@ class LocalConfig(HPCConfig):
 
     torch_device: str = 'cpu'
     lammps_env: dict[str, str] = {}
-    lammps_cmd: tuple[str, ...] = {}
-    raspa_cmd: tuple[str, ...] = {}
+    lammps_cmd: tuple[str, ...] = ()
+    raspa_cmd: tuple[str, ...] = ()
 
     lammps_executors: list[str] = ['sim']
     inference_executors: list[str] = ['ai']
@@ -225,6 +232,30 @@ class LocalXYConfig(LocalConfig):
     @computed_field()
     def dft_cmd(self) -> str:
         return "OMP_NUM_THREADS=1 mpiexec -np 8 /home/xyan11/software/cp2k-v2024.1/exe/local/cp2k_shell.psmp"
+
+
+class CloudVMConfig(LocalConfig):
+    """CPU-only single-host configuration for cloud VMs / non-HPC linux hosts.
+
+    Picks LAMMPS and CP2K up from the active conda env via $PATH by default,
+    overridable with MOFA_LAMMPS_BIN / MOFA_CP2K_BIN env vars. Used by
+    ``configs/cloud-vm.py``; see [docs/adr/0001-mofka-bedrock-transport.md] and
+    [envs/chameleon-stream.md] §9 for the surrounding runbook.
+    """
+
+    lammps_cmd: tuple[str, ...] = (os.environ.get('MOFA_LAMMPS_BIN', 'lmp'),)
+    # ACEsuit/lammps fork (pair_style mace) paired with a libtorch-format
+    # MACE checkpoint. conda-forge LAMMPS lacks pair_style mace; users with
+    # only that build set MOFA_LAMMPS_BIN at the conda lmp and ml-iap.
+    lammps_pkg: Literal['ml-iap', 'ml-mace'] = 'ml-mace'
+
+    @computed_field
+    @property
+    def dft_cmd(self) -> str:
+        # conda-forge's cp2k ships `cp2k.ssmp` (single binary) — shell mode
+        # is `--shell`, not a separate `cp2k_shell.ssmp` executable. ASE's
+        # Cp2k(command=...) shlex.splits, so the two-word form works.
+        return os.environ.get('MOFA_CP2K_BIN', 'cp2k.ssmp --shell')
 
 
 class SingleJobHPCConfig(HPCConfig):
