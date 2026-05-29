@@ -1,40 +1,47 @@
 #!/usr/bin/env python
 """An example of the workflow which runs all aspects of MOF generation in parallel"""
-from functools import partial, update_wrapper
-from subprocess import Popen
-from argparse import ArgumentParser
-from datetime import datetime
-from platform import node
-from pathlib import Path
-import logging
 import hashlib
 import json
+import logging
 import secrets
 import sys
+import time
+import uuid
+from argparse import ArgumentParser
+from datetime import datetime
+from functools import partial, update_wrapper
+from pathlib import Path
+from platform import node
+from subprocess import Popen
 
+from colmena.task_server.parsl import ParslTaskServer
+from more_itertools import batched, make_decorator
+from openbabel import openbabel as ob
 from proxystore.connectors.redis import RedisConnector
 from proxystore.store import Store, register_store
 from pymongo import MongoClient
 from rdkit import RDLogger
-from openbabel import openbabel as ob
-from more_itertools import batched, make_decorator
-from colmena.task_server.parsl import ParslTaskServer
 
-from mofa.db import initialize_database
 from mofa.assembly.assemble import assemble_many
 from mofa.assembly.validate import process_ligands
+from mofa.db import initialize_database
+from mofa.diaspora import DiasporaQueues
 from mofa.finetune.difflinker import DiffLinkerCurriculum
 from mofa.generator import run_generator, train_generator
-from mofa.model import NodeDescription, LigandTemplate
+from mofa.hpc.colmena import DiffLinkerInference
+from mofa.hpc.config import LocalConfig
+from mofa.model import LigandTemplate, NodeDescription
 from mofa.selection.dft import DFTSelector
 from mofa.selection.md import MDSelector
 from mofa.simulation.dft import compute_partial_charges
 from mofa.simulation.mace import MACERunner
-from mofa.steering import GeneratorConfig, TrainingConfig, MOFAThinker, SimulationConfig
-from mofa.hpc.colmena import DiffLinkerInference
-from mofa.hpc.config import LocalConfig
+from mofa.steering import (
+    GeneratorConfig,
+    MOFAThinker,
+    SimulationConfig,
+    TrainingConfig,
+)
 from mofa.utils.config import load_variable
-from mofa.diaspora import DiasporaQueues
 
 RDLogger.DisableLog('rdApp.*')
 ob.obErrorLog.SetOutputLevel(0)
@@ -93,11 +100,25 @@ if __name__ == "__main__":
                             'cached Globus tokens (see envs/chameleon-stream.md §5).')
     group.add_argument('--mofka-group-file', default=None,
                        help='Path to mofka.flock.json — required when --stream-engine=mofka.')
+    # group.add_argument('--benchmark', action='store_true', help='Turn on benchmarking')
+    group.add_argument('--benchmark_file', default=f'trace-{uuid.uuid4()}.log', help='Benchmark file to save benchmark data to.')
 
     group = parser.add_argument_group(title='Selector Settings', description='Control how simulation tasks are selected')
     group.add_argument('--md-new-fraction', default=0.5, help='How frequently to start MD on a new MOF')
 
     args = parser.parse_args()
+
+    # # Turn on benchmarking
+    # if args.benchmark:
+    #     file_handler = logging.FileHandler(args.benchmark_file)
+    #     formatter = logging.Formatter('%(message)s')
+    #     file_handler.setFormatter(formatter)
+        
+    #     memory_handler = logging.MemoryHandler(capacity=100000, target=file_handler)
+    #     benchmark_logger = logging.getLogger('diaspora_queue')
+    #     benchmark_logger.setLevel(logging.DEBUG)  # Must capture DEBUG to buffer them
+    #     benchmark_logger.addHandler(memory_handler)
+    #     app_start = time.perf_counter 
 
     # Load the example MOF
     # TODO (wardlt): Use Pydantic for JSON I/O
@@ -132,6 +153,7 @@ if __name__ == "__main__":
         prefix=queues_prefix,
         stream_engine=args.stream_engine,
         stream_conf=stream_conf,
+        benchmark_file=args.benchmark_file, 
     )
 
     # Load the ligand descriptions

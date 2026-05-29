@@ -55,14 +55,17 @@ librdkafka's broker threads ("Unable to create broker thread"):
     OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 <command above>
 """
 
+import json
 import logging
 import os
 import queue as _queue
+import sys
 import threading
 import time
-from typing import Collection, Dict, Optional, Tuple, Union, Literal, Any
+import uuid
+from typing import Any, Collection, Dict, Literal, Optional, Tuple, Union
 
-from colmena.exceptions import TimeoutException, KillSignalException
+from colmena.exceptions import KillSignalException, TimeoutException
 from colmena.models import SerializationMethod
 from colmena.queue.base import ColmenaQueues
 from diaspora_stream.api import Driver
@@ -208,9 +211,21 @@ class DiasporaQueues(ColmenaQueues):
         proxystore_name: Optional[Union[str, Dict[str, str]]] = None,
         proxystore_threshold: Optional[Union[int, Dict[str, int]]] = None,
         stream_engine: Literal["files", "mofka", "kafka", "octopus"] = "files",
-        stream_conf: Dict[str, str] = { "region": "us-east-1", "auto_offset_reset": "earliest", "root_path": "stream"}
+        stream_conf: Dict[str, str] = { "region": "us-east-1", "auto_offset_reset": "earliest", "root_path": "stream"},
+        benchmark_file: str | None = None 
     ):
         self.stream_engine = stream_engine
+
+        if benchmark_file is None:
+            benchmark_file = f'trace-{uuid.uuid4()}.log'
+        file_handler = logging.FileHandler(benchmark_file)
+        formatter = logging.Formatter('%(message)s')
+        file_handler.setFormatter(formatter)
+        
+        memory_handler = logging.MemoryHandler(capacity=1000, target=file_handler)
+        self.benchmark_logger = logging.getLogger('diaspora_queue')
+        self.benchmark_logger.setLevel(logging.DEBUG)  # Must capture DEBUG to buffer them
+        self.benchmark_logger.addHandler(memory_handler)
 
         if self.stream_engine == "octopus":
             from diaspora_event_sdk import Client as GlobusClient
@@ -279,6 +294,17 @@ class DiasporaQueues(ColmenaQueues):
 
     # ------------------------------------------------------------------ helpers
 
+    def log_benchmark(self, taskname: str, start: int, end: int, queue: str | None = None, msg_len: int = 0) -> None:
+        self.benchmark_logger(json.dumps({
+            'task_name': taskname,
+            'queue': queue,
+            'msg_size': msg_len,
+            'start_ns': start,
+            'end_ns': end, 
+            'duration_ns': end-start
+        }))
+
+
     def _expected_queue_names(self):
         """The full set of {prefix}_… queue names ColmenaQueues will route
         through this object. Pre-creating them up front lets the mofka
@@ -329,45 +355,63 @@ class DiasporaQueues(ColmenaQueues):
         """For mofka, start the dispatcher thread (owns the Driver and
         pre-creates every expected topic). For files/octopus, open a Driver
         on the calling thread; topic creation is lazy."""
+        start = time.perf_counter_ns()
         if self.stream_engine == "mofka":
             with self._connect_lock:
                 if self._dispatcher is not None and self._dispatcher.alive:
+                    end = time.perf_counter_ns()
+                    self.benchmark_logger("connect", start, end)
                     return
                 self._dispatcher = _MofkaDispatcher(
                     queue_names=self._expected_queue_names(),
                     group_file=self._mofka_group_file,
                     partition_rank=self._mofka_partition_rank,
                 )
+            end = time.perf_counter_ns()
+            self.benchmark_logger("connect", start, end)
             return
 
         if not self.driver:
             self.driver = Driver(backend=self.stream_engine, options=self.driver_config)
+        end = time.perf_counter_ns()
+        self.benchmark_logger("connect", start, end)
 
     def disconnect(self):
         """Disconnect from the server.
 
         Useful if sending the connection object to another process.
         """
+        start = time.perf_counter_ns()
         if self._dispatcher is not None:
             self._dispatcher.stop()
             self._dispatcher = None
         self.driver = None
         self.opened_topics = {}
+        end = time.perf_counter_ns()
+        
+        self.benchmark_logger("disconnect", start, end)
+
 
     # ------------------------------------------------------------------ non-mofka topic helpers
 
     def get_or_create_queue(self, queue, requester: Literal["producer", "consumer"]):
         """Used by the file/octopus paths. Mofka does not call this — its
         producers/consumers are owned by the dispatcher thread."""
+
+        start = time.perf_counter_ns()
         with self._driver_lock:
             if queue in self.opened_topics:
                 if requester in self.opened_topics[queue]:
+                    end = time.perf_counter_ns()
+                    self.benchmark_logger("GET_TOPIC", start, end, queue=queue)
                     return self.opened_topics[queue][requester]
 
                 if requester == "producer":
                     self.opened_topics[queue][requester] = self.opened_topics[queue]["topic"].producer(f"producer-{queue}")
                 else:
                     self.opened_topics[queue][requester] = self.opened_topics[queue]["topic"].consumer(f"consumer-{queue}")
+                end = time.perf_counter_ns()
+                self.benchmark_logger("GET_TOPIC", start, end, queue=queue)
                 return self.opened_topics[queue][requester]
 
             if not self.driver.topic_exists(queue):
@@ -388,11 +432,14 @@ class DiasporaQueues(ColmenaQueues):
             else:
                 rq = topic.consumer(f"consumer-{queue}")
             self.opened_topics[queue][requester] = rq
+            end = time.perf_counter_ns()
+            self.benchmark_logger("CREATE_TOPIC", start, end, queue=queue)
             return rq
 
     # ------------------------------------------------------------------ send/recv
 
     def _send_message(self, message, queue):
+        start = time.perf_counter_ns()
         if not self.is_connected:
             self.connect()
 
@@ -401,12 +448,20 @@ class DiasporaQueues(ColmenaQueues):
             return
 
         producer = self.get_or_create_queue(queue, "producer")
+        start_push = time.perf_counter_ns()
         producer.push(message).wait(timeout_ms=10000)
         # files/octopus need flush() for persistence; the mofka path skips it
         # (see module docstring).
+
+        start_flush = time.perf_counter_ns()
         producer.flush().wait(timeout_ms=10000)
+        end = time.perf_counter_ns()
+        self.benchmark_logger("PUSH", start_push, start_flush, queue=queue, msg_len = sys.getsizeof(message) )
+        self.benchmark_logger("FLUSH", start_flush, end, queue=queue, msg_len = sys.getsizeof(message) )
+        self.benchmark_logger("SEND_MSG", start, end, queue=queue, msg_len = sys.getsizeof(message) )
 
     def _get_message(self, queue, timeout: float = None):
+        start = time.perf_counter_ns()
         if not self.is_connected:
             self.connect()
         # timeout=None means "block forever" — colmena's BaseTaskServer treats
@@ -422,16 +477,25 @@ class DiasporaQueues(ColmenaQueues):
             future = consumer.pull()
 
             def poll():
+                start_poll = time.perf_counter_ns()
                 event = future.wait(timeout_ms=per_poll_ms)
+                end_wait = time.perf_counter_ns()
+                self.benchmark_logger("EVENT_WAIT", start_poll, end_wait, queue=queue, msg_len = sys.getsizeof(event) )
                 if event is None:
                     return None
+                start_ack = time.perf_counter_ns()
                 event.acknowledge()
+                end_ack = time.perf_counter_ns()
+                self.benchmark_logger("EVENT_ACK", start_ack, end_ack, queue=queue, msg_len = sys.getsizeof(event.metadata) )
+                self.benchmark_logger("POLL", start_poll, end_ack, queue=queue, msg_len = sys.getsizeof(event.metadata) )
                 return event.metadata
 
         start = time.time()
         while True:
             md = poll()
             if md is not None:
+                end = time.perf_counter_ns()
+                self.benchmark_logger("GET_MSG", start, end, queue=queue, msg_len = sys.getsizeof(md) )
                 return md
             if budget is not None and time.time() - start > budget:
                 raise TimeoutException(
@@ -469,6 +533,7 @@ class DiasporaQueues(ColmenaQueues):
             return self._dispatcher is not None and self._dispatcher.alive
         return self.driver is not None
 
+    
 
 if __name__ == "__main__":
     import argparse
