@@ -1,0 +1,55 @@
+# Diaspora Stream env for MOFA (mofka + diaspora backends).
+#
+# Primary target: Chameleon Cloud Ubuntu 24.04 (glibc 2.39). Also runs on a
+# Polaris login node (glibc 2.38); the mochi prebuilt binaries need only
+# glibc >= 2.32, so neither host needs a container — unlike Midway3 RHEL
+# 8.4 (glibc 2.28) which needs apptainer.
+#
+# The file:// channel URL below is hardcoded to /home/cc/mochi-conda-packages
+# (the default user on Chameleon). On Polaris or any host with a different
+# username, either symlink that path or sed-edit the URL — conda does not
+# expand env vars in channel URLs.
+name: mofa
+channels:
+  - file:///home/cc/mochi-conda-packages
+  - conda-forge
+  - defaults
+dependencies:
+  - python==3.12.*
+  - openssl>3
+
+  # Mochi-HPC packages (from local file:// channel)
+  - mofka
+  - diaspora-stream-api
+  - diaspora-stream-octopus
+
+  # Workflow services. mongodb-server is omitted: the conda-forge build
+  # pins old openssl/icu that conflicts with mochi-margo's libuuid/libxml2.
+  # Install mongod from apt instead (see chameleon-stream.md §9). pymongo
+  # (client) ships via pip from pyproject.toml.
+  - redis-server==7.*
+
+  # Tools to work with crystalline and molecular data. openbabel is omitted
+  # for the same openssl/icu reason; openbabel-wheel ships via pip.
+  - conda-forge::chargemol
+  - conda-forge::raspa2
+
+  # Simulation binaries. lammps's *cpu*nompi* build ships pair_style mliap,
+  # which is enough for the queue smoke tests, but CloudVMConfig defaults
+  # to pair_style mace (consumes mace-mp0_medium-lammps.pt) which needs a
+  # source-built ACEsuit/lammps — see chameleon-stream.md §9 "LAMMPS source
+  # build". Polaris GPU/Kokkos LAMMPS users likewise override
+  # MOFA_LAMMPS_BIN. cp2k must be the serial+OpenMP `*nompi*` build: it ships
+  # `cp2k.ssmp` (MOFA invokes `cp2k.ssmp --shell`), whereas the unpinned
+  # default now resolves to the MPI builds (cp2k 2026.1 only ships
+  # `mpi_mpich`/`mpi_openmpi`, i.e. cp2k.psmp/popt, no cp2k.ssmp). The `*nompi*`
+  # pin lands on cp2k 2024.2 — the newest serial build on conda-forge.
+  - conda-forge::lammps=2024.08.29=*cpu*nompi*
+  - conda-forge::cp2k=*=*nompi*
+
+  - pip
+  - pip:
+    - torch==2.7.*
+    - diaspora-event-sdk
+    - tqdm
+    - -e ..[test]

@@ -22,13 +22,18 @@ class DiffLinkerInference(PythonGeneratorMethod):
     def __setstate__(self, state):
         self.__dict__.update(state)
 
-        # Make sure the store is registered
-        self.store = Store.from_config(state['store'])
-        register_store(self.store, exist_ok=True)
+        # Reconstruct the proxystore only if one was configured. The store is
+        # optional — ProxyStore is disabled by default (see run_parallel_workflow.py).
+        store_config = state.get('store')
+        if store_config is not None:
+            self.store = Store.from_config(store_config)
+            register_store(self.store, exist_ok=True)
+        else:
+            self.store = None
 
     def __getstate__(self):
         state = self.__dict__.copy()
-        state['store'] = self.store.config()
+        state['store'] = self.store.config() if self.store is not None else None
         return state
 
     def stream_result(self, y: Any, result: Result, start_time: float):

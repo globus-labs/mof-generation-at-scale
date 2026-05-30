@@ -1,4 +1,5 @@
 """Configuring a particular HPC resource"""
+import os
 from functools import cached_property
 from subprocess import Popen
 from typing import Literal
@@ -50,6 +51,12 @@ class HPCConfig(BaseModel):
     """Command used to launch a non-MPI LAMMPS task"""
     lammps_env: dict[str, str] = Field(default_factory=dict)
     """Extra environment variables to include when running LAMMPS"""
+    lammps_pkg: Literal['ml-iap', 'ml-mace'] = Field(default='ml-iap')
+    """LAMMPS pair_style package the MACE model is converted for.
+
+    Set to ``'ml-mace'`` when the LAMMPS build has ``pair_style mace`` and
+    the model was produced with ``mace_create_lammps_model --format libtorch``.
+    """
     raspa_version: RASPAVersion = Field(default='raspa2')
     """Version of RASPA used on this system"""
     raspa_cmd: tuple[str, ...] = Field(default=('simulate',))
@@ -167,16 +174,16 @@ class HPCConfig(BaseModel):
 class LocalConfig(HPCConfig):
     """Configuration used for testing purposes. Runs all non-helper tasks on a single worker"""
 
-    torch_device: str = 'cpu'
+    torch_device: str = 'cuda'
     lammps_env: dict[str, str] = {}
-    lammps_cmd: tuple[str, ...] = {}
-    raspa_cmd: tuple[str, ...] = {}
+    lammps_cmd: tuple[str, ...] = ('/home/lward/Software/lammps-mace/build-mace/lmp',)
+    raspa_cmd: tuple[str, ...] = ('/home/lward/Software/gRASPA/graspa-sycl/bin/sycl.out',)
 
-    lammps_executors: list[str] = ['sim']
-    inference_executors: list[str] = ['ai']
-    train_executors: list[str] = ['ai']
+    lammps_executors: list[str] = ['gpu']
+    inference_executors: list[str] = ['gpu']
+    train_executors: list[str] = ['gpu']
     helper_executors: list[str] = ['helper']
-    raspa_executors: list[str] = ['ai']
+    raspa_executors: list[str] = ['gpu']
 
     @computed_field
     @property
@@ -209,9 +216,7 @@ class LocalConfig(HPCConfig):
         return Config(
             executors=[
                 HighThroughputExecutor(label='helper', max_workers_per_node=1),
-                HighThroughputExecutor(label='ai', max_workers_per_node=1),
-                HighThroughputExecutor(label='sim', max_workers_per_node=1),
-                
+                HighThroughputExecutor(label='gpu', max_workers_per_node=1, available_accelerators=1)
             ],
             run_dir=str(self.run_dir / 'runinfo')
         )
@@ -225,6 +230,66 @@ class LocalXYConfig(LocalConfig):
     @computed_field()
     def dft_cmd(self) -> str:
         return "OMP_NUM_THREADS=1 mpiexec -np 8 /home/xyan11/software/cp2k-v2024.1/exe/local/cp2k_shell.psmp"
+
+
+class CloudVMConfig(LocalConfig):
+    """CPU-only single-host configuration for cloud VMs / non-HPC linux hosts.
+
+    Picks LAMMPS and CP2K up from the active conda env via $PATH by default,
+    overridable with MOFA_LAMMPS_BIN / MOFA_CP2K_BIN env vars. Used by
+    ``configs/cloud-vm.py``; see [docs/adr/0001-mofka-bedrock-transport.md] and
+    [envs/chameleon-stream.md] §9 for the surrounding runbook.
+    """
+
+    # CPU-only, single-host overrides. These previously lived on LocalConfig,
+    # but flipping LocalConfig's long-standing GPU defaults broke
+    # tests/utils/test_config.py::test_local and silently changed behaviour for
+    # every other LocalConfig user; they belong here, on the config that
+    # configs/cloud-vm.py actually selects.
+    torch_device: str = 'cpu'
+    raspa_cmd: tuple[str, ...] = ()
+    lammps_executors: list[str] = ['sim']
+    inference_executors: list[str] = ['ai']
+    train_executors: list[str] = ['ai']
+    raspa_executors: list[str] = ['ai']
+
+    lammps_cmd: tuple[str, ...] = (os.environ.get('MOFA_LAMMPS_BIN', 'lmp'),)
+    # ACEsuit/lammps fork (pair_style mace) paired with a libtorch-format
+    # MACE checkpoint. conda-forge LAMMPS lacks pair_style mace; users with
+    # only that build set MOFA_LAMMPS_BIN at the conda lmp and ml-iap.
+    lammps_pkg: Literal['ml-iap', 'ml-mace'] = 'ml-mace'
+
+    @computed_field
+    @property
+    def dft_cmd(self) -> str:
+        # ASE's CP2K calculator asserts `'cp2k_shell' in command`, so the bare
+        # `cp2k.ssmp --shell` that conda-forge ships fails before CP2K runs.
+        # bin/install-cp2k-shell-wrapper.sh drops a `cp2k_shell.ssmp` wrapper
+        # (also exports CP2K_DATA_DIR); default to it. See envs/chameleon-stream.md §9.
+        return os.environ.get('MOFA_CP2K_BIN', 'cp2k_shell.ssmp')
+
+    def make_parsl_config(self) -> Config:
+        # Pin one worker per executor and never scale to zero. The inherited
+        # LocalConfig.make_parsl_config() leaves the executors on parsl's
+        # default provider (min_blocks=0) + 'simple' strategy, which reaps an
+        # idle executor's worker after max_idletime (~120 s). On octopus the
+        # generation->assembly pipeline can take minutes to produce the first
+        # MOF, so the idle 'sim' (LAMMPS/CP2K) worker is removed before the
+        # first MD task arrives and MD never runs (mofka's near-instant
+        # generation gets a task in before the timeout). min_blocks=1 keeps the
+        # worker alive — the same pinning the HPC configs use. See
+        # envs/chameleon-stream.md §8.
+        def _pinned(label: str) -> HighThroughputExecutor:
+            return HighThroughputExecutor(
+                label=label,
+                max_workers_per_node=1,
+                provider=LocalProvider(init_blocks=1, min_blocks=1, max_blocks=1),
+            )
+
+        return Config(
+            executors=[_pinned('helper'), _pinned('ai'), _pinned('sim')],
+            run_dir=str(self.run_dir / 'runinfo'),
+        )
 
 
 class SingleJobHPCConfig(HPCConfig):

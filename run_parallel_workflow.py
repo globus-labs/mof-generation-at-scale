@@ -9,12 +9,9 @@ from pathlib import Path
 import logging
 import hashlib
 import json
+import secrets
 import sys
 
-from colmena.queue.redis import RedisQueues
-
-from proxystore.connectors.redis import RedisConnector
-from proxystore.store import Store, register_store
 from pymongo import MongoClient
 from rdkit import RDLogger
 from openbabel import openbabel as ob
@@ -86,13 +83,41 @@ if __name__ == "__main__":
                                                                  'or provide the path to a config file containing the config')
     group.add_argument('--ai-fraction', default=0.1, type=float, help='Fraction of workers devoted to AI tasks')
     group.add_argument('--dft-fraction', default=0.1, type=float, help='Fraction of workers devoted to DFT tasks')
-    group.add_argument('--redis-host', default=node(), help='Host for the Redis server')
-    group.add_argument('--proxy-threshold', default=10000, type=int, help='Size threshold to use proxystore for data (bytes)')
+    group.add_argument('--redis-host', default=node(),
+                       help='Unused (ProxyStore is disabled); kept so launch scripts that pass it still parse.')
+    group.add_argument('--stream-engine', default='files', choices=['files', 'mofka', 'octopus'],
+                       help='DiasporaQueues backend. "files" needs no setup; "mofka" needs --mofka-group-file '
+                            'pointing at a bedrock daemon (see envs/chameleon-stream.md §4); "octopus" needs '
+                            'cached Globus tokens (see envs/chameleon-stream.md §5).')
+    group.add_argument('--mofka-group-file', default=None,
+                       help='Path to mofka.flock.json — required when --stream-engine=mofka.')
 
     group = parser.add_argument_group(title='Selector Settings', description='Control how simulation tasks are selected')
     group.add_argument('--md-new-fraction', default=0.5, help='How frequently to start MD on a new MOF')
 
+    group = parser.add_argument_group(title='Launch Role', description='Optionally split the workflow into separate steering (thinker) and execution (server) processes')
+    group.add_argument('--launch-option', default='both', choices=['both', 'thinker', 'server'],
+                       help='Which half of the workflow this process runs. "both" (default) is the original '
+                            'single-process workflow. "thinker" runs the steering logic + MongoDB; "server" '
+                            'runs only the Parsl task server. A thinker and a server rendezvous on the stream '
+                            'queue only if they share --queue-prefix, and the server reaches the thinker\'s '
+                            'mongod via --mongo-host.')
+    group.add_argument('--mongo-host', default='localhost',
+                       help='Host of the MongoDB the steering logic uses. The thinker launches a mongod '
+                            'locally (bound to 0.0.0.0 so a remote server can reach it); a --launch-option=server '
+                            'process points this at the thinker\'s host instead of launching its own.')
+    group.add_argument('--queue-prefix', default=None,
+                       help='Shared DiasporaQueues topic prefix. Defaults to a random per-process prefix (the '
+                            'single-process behaviour); a separate thinker and server MUST pass the same value '
+                            'so both halves route to the same topics.')
+
     args = parser.parse_args()
+
+    # Thinker/server split: which half of the workflow runs in this process.
+    # "both" (the default) preserves the original single-process behaviour, so a
+    # naive `python run_parallel_workflow.py ...` is unchanged.
+    is_thinker = args.launch_option in ('both', 'thinker')
+    is_server = args.launch_option in ('both', 'server')
 
     # Load the example MOF
     # TODO (wardlt): Use Pydantic for JSON I/O
@@ -106,22 +131,25 @@ if __name__ == "__main__":
     run_dir = Path('run') / f'parallel-{config_name}-{start_time.strftime("%d%b%y%H%M%S")}-{params_hash}'
     run_dir.mkdir(parents=True)
 
-    # Open a proxystore with Redis
-    store = Store(name='redis', connector=RedisConnector(hostname=args.redis_host, port=6379), metrics=True)
-    register_store(store)
-
-    # Configure to a use Redis queue, which allows streaming results form other nodes
+    # Configure the streaming queues. The backend is chosen by --stream-engine;
+    # mofka also needs a path to the bedrock daemon's flock file. The topic
+    # prefix comes from --queue-prefix when set (so a separate thinker and server
+    # share topics); otherwise it is randomized per run so re-running the
+    # workflow doesn't fight a partial state of any prior run's octopus topics.
+    # The 11-char layout (`mofa_` + 6 hex) keeps `{prefix}_generation_result`
+    # under the 32-char validate_name cap (see mofa/diaspora.py:319-320).
+    stream_conf = {"region": "us-east-1", "root_path": "stream"}
+    if args.stream_engine == 'mofka':
+        if not args.mofka_group_file:
+            parser.error('--mofka-group-file is required when --stream-engine=mofka')
+        stream_conf['group_file'] = args.mofka_group_file
+    queues_prefix = args.queue_prefix or ('mofa_' + secrets.token_hex(3))
     queues = DiasporaQueues(
         topics=['generation', 'lammps', 'cp2k', 'training', 'assembly'],
-        stream_engine = "files"
+        prefix=queues_prefix,
+        stream_engine=args.stream_engine,
+        stream_conf=stream_conf,
     )
-
-    # queues = RedisQueues(
-    #     hostname=args.redis_host,
-    #     topics=['generation', 'lammps', 'cp2k', 'training', 'assembly'],
-    #     proxystore_name='redis',
-    #     proxystore_threshold=args.proxy_threshold,
-    # )
 
     # Load the ligand descriptions
     templates = []
@@ -143,14 +171,18 @@ if __name__ == "__main__":
     with (run_dir / 'compute-config.json').open('w') as fp:
         print(hpc_config.model_dump_json(indent=2), file=fp)
 
-    # Launch MongoDB as a subprocess
-    mongo_dir = run_dir / 'db'
-    mongo_dir.mkdir(parents=True)
-    mongo_proc = Popen(
-        f'mongod --wiredTigerCacheSizeGB 4 --dbpath {mongo_dir.absolute()} --logpath {(run_dir / "mongo.log").absolute()}'.split(),
-        stderr=(run_dir / 'mongo.err').open('w')
-    )
-    mongo_client = MongoClient()
+    # Launch MongoDB as a subprocess. Only the thinker owns a mongod; a
+    # server-only process instead connects to the thinker's mongod over
+    # --mongo-host. Bind 0.0.0.0 so a separate server container can reach it.
+    mongo_proc = None
+    if is_thinker:
+        mongo_dir = run_dir / 'db'
+        mongo_dir.mkdir(parents=True)
+        mongo_proc = Popen(
+            f'mongod --wiredTigerCacheSizeGB 4 --bind_ip 0.0.0.0 --dbpath {mongo_dir.absolute()} --logpath {(run_dir / "mongo.log").absolute()}'.split(),
+            stderr=(run_dir / 'mongo.err').open('w')
+        )
+    mongo_client = MongoClient(args.mongo_host)
     mongo_coll = initialize_database(mongo_client)
 
     # Make the generator settings and the function
@@ -168,7 +200,6 @@ if __name__ == "__main__":
         name='run_generator',
         store_return_value=True,
         streaming_queue=queues,
-        store=store
     )
 
     # Make the training function
@@ -191,6 +222,7 @@ if __name__ == "__main__":
 
     # Make the LAMMPS function
     lmp_runner = MACERunner(lammps_cmd=hpc_config.lammps_cmd,
+                            lammps_pkg=hpc_config.lammps_pkg,
                             model_path=Path(args.mace_model_path).absolute(),
                             run_dir=Path('/dev/shm/lmp_run' if args.lammps_on_ramdisk else run_dir / 'lmp_run'),
                             delete_finished=args.lammps_on_ramdisk)
@@ -227,23 +259,26 @@ if __name__ == "__main__":
                         cycles=args.raspa_timesteps)
     update_wrapper(raspa_fun, raspa_runner.run_gcmc)
 
-    # Make the thinker
-    thinker = MOFAThinker(queues,
-                          collection=mongo_coll,  # Connect to a local service
-                          hpc_config=hpc_config,
-                          generator_config=generator,
-                          trainer_config=trainer,
-                          simulation_config=sim_config,
-                          simulation_budget=args.simulation_budget,
-                          dft_selector=dft_selector,
-                          md_selector=md_selector,
-                          node_template=node_template,
-                          out_dir=run_dir)
+    # Make the thinker (steering logic; thinker role only). A server-only
+    # process leaves this None and just executes tasks off the queue.
+    thinker = None
+    if is_thinker:
+        thinker = MOFAThinker(queues,
+                              collection=mongo_coll,  # Connect to a local service
+                              hpc_config=hpc_config,
+                              generator_config=generator,
+                              trainer_config=trainer,
+                              simulation_config=sim_config,
+                              simulation_budget=args.simulation_budget,
+                              dft_selector=dft_selector,
+                              md_selector=md_selector,
+                              node_template=node_template,
+                              out_dir=run_dir)
 
     # Turn on logging
     my_logger = logging.getLogger('main')
     handlers = [logging.StreamHandler(sys.stdout), logging.FileHandler(run_dir / 'run.log')]
-    for logger in [my_logger, thinker.logger]:
+    for logger in ([my_logger, thinker.logger] if is_thinker else [my_logger]):
         for handler in handlers:
             handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
             logger.addHandler(handler)
@@ -253,22 +288,25 @@ if __name__ == "__main__":
     # Save the run parameters to disk
     (run_dir / 'params.json').write_text(json.dumps(run_params))
 
-    # Launch the thinker and task server
-    doer = ParslTaskServer(
-        methods=[
-            (gen_method, {'executors': hpc_config.inference_executors}),
-            (train_func, {'executors': hpc_config.train_executors}),
-            (md_fun, {'executors': hpc_config.lammps_executors}),
-            (md_opt_fun, {'executors': hpc_config.lammps_executors}),
-            (cp2k_fun, {'executors': hpc_config.dft_executors}),
-            (compute_partial_charges, {'executors': hpc_config.helper_executors}),
-            (process_ligands, {'executors': hpc_config.helper_executors}),
-            (raspa_fun, {'executors': hpc_config.raspa_executors}),
-            (assemble_many, {'executors': hpc_config.helper_executors})
-        ],
-        queues=queues,
-        config=config
-    )
+    # Launch the task server (executes generation / MD / DFT / assembly / etc.;
+    # server role only). A thinker-only process leaves this None.
+    doer = None
+    if is_server:
+        doer = ParslTaskServer(
+            methods=[
+                (gen_method, {'executors': hpc_config.inference_executors}),
+                (train_func, {'executors': hpc_config.train_executors}),
+                (md_fun, {'executors': hpc_config.lammps_executors}),
+                (md_opt_fun, {'executors': hpc_config.lammps_executors}),
+                (cp2k_fun, {'executors': hpc_config.dft_executors}),
+                (compute_partial_charges, {'executors': hpc_config.helper_executors}),
+                (process_ligands, {'executors': hpc_config.helper_executors}),
+                (raspa_fun, {'executors': hpc_config.raspa_executors}),
+                (assemble_many, {'executors': hpc_config.helper_executors})
+            ],
+            queues=queues,
+            config=config
+        )
 
     # Launch the utilization logging
     log_dir = run_dir / 'logs'
@@ -279,18 +317,24 @@ if __name__ == "__main__":
     my_logger.info(f'Launched monitoring process. pid={util_proc.pid}')
 
     try:
-        doer.start()
-        my_logger.info(f'Running parsl. pid={doer.pid}')
+        if is_server:
+            doer.start()
+            my_logger.info(f'Running parsl. pid={doer.pid}')
 
-        with thinker:  # Opens the output files
-            thinker.run()
+        if is_thinker:
+            with thinker:  # Opens the output files
+                thinker.run()
     finally:
-        queues.send_kill_signal()
+        if is_thinker:
+            queues.send_kill_signal()
 
-        # Kill the services launched during workflow
+            # Kill the services the thinker launched (it owns mongod).
+            if mongo_proc is not None:
+                mongo_proc.terminate()
+                mongo_proc.poll()
+
+        if is_server and not is_thinker:
+            # Server-only: block until the thinker's kill signal drains the doer.
+            doer.join()
+
         util_proc.terminate()
-        mongo_proc.terminate()
-        mongo_proc.poll()
-
-        # Close the proxy store
-        store.close()
