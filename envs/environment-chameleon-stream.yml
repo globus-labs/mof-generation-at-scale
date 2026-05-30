@@ -25,9 +25,9 @@ dependencies:
 
   # Workflow services. mongodb-server is omitted: the conda-forge build
   # pins old openssl/icu that conflicts with mochi-margo's libuuid/libxml2.
-  # Install mongod from apt instead (see chameleon-stream.md §9). pymongo
-  # (client) ships via pip from pyproject.toml.
-  - redis-server==7.*
+  # Install mongod from apt instead (see chameleon-stream.md §1a). pymongo
+  # (client) ships via pip from pyproject.toml. No redis-server: ProxyStore
+  # is disabled by default (run_parallel_workflow.py's --redis-host is unused).
 
   # Tools to work with crystalline and molecular data. openbabel is omitted
   # for the same openssl/icu reason; openbabel-wheel ships via pip.

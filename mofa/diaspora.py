@@ -60,11 +60,16 @@ librdkafka's broker threads ("Unable to create broker thread"):
     OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 <command above>
 """
 
+import atexit
+import json
 import logging
 import os
 import queue as _queue
+import sys
 import threading
 import time
+import uuid
+from pathlib import Path
 from typing import Collection, Dict, Optional, Tuple, Union, Literal, Any
 
 from colmena.exceptions import TimeoutException, KillSignalException
@@ -89,10 +94,15 @@ class _MofkaDispatcher:
     — matching the single-process poll loop.
     """
 
-    def __init__(self, queue_names, group_file, partition_rank):
+    def __init__(self, queue_names, group_file, partition_rank, log_benchmark=None):
         self._queue_names = list(queue_names)
         self._group_file = group_file
         self._partition_rank = partition_rank
+        # Optional DiasporaQueues.log_benchmark callback so the dispatcher
+        # thread can record the broker-side push/pull/ack latencies that the
+        # caller-visible SEND_MSG/GET_MSG numbers fold the inter-thread handoff
+        # into. A no-op default keeps the dispatcher usable on its own.
+        self._log_benchmark = log_benchmark or (lambda *a, **k: None)
         self._req_queue: _queue.Queue = _queue.Queue()
         self._ready = threading.Event()
         self._init_error: Optional[BaseException] = None
@@ -160,7 +170,11 @@ class _MofkaDispatcher:
                     # push().wait() = broker ack; flush() is skipped (see
                     # module docstring: mofka 0.8.2 flush().wait() blocks
                     # the full timeout even when nothing is batched).
+                    push_start = time.perf_counter_ns()
                     t["producer"].push(payload).wait(timeout_ms=10000)
+                    push_end = time.perf_counter_ns()
+                    self._log_benchmark("MOFKA_PUSH", push_start, push_end,
+                                        queue=qname, msg=payload)
                     fut.put((True, None))
                 elif op == "recv":
                     timeout_ms = payload
@@ -170,12 +184,19 @@ class _MofkaDispatcher:
                         )
                     if t["pending_pull"] is None:
                         t["pending_pull"] = t["consumer"].pull()
+                    wait_start = time.perf_counter_ns()
                     ev = t["pending_pull"].wait(timeout_ms=timeout_ms)
+                    wait_end = time.perf_counter_ns()
                     md = None
                     if ev is not None and ev.event_id is not None:
                         md = ev.metadata
                         ev.acknowledge()
+                        ack_end = time.perf_counter_ns()
                         t["pending_pull"] = None
+                        self._log_benchmark("MOFKA_EVENT_WAIT", wait_start,
+                                            wait_end, queue=qname, msg=md)
+                        self._log_benchmark("MOFKA_EVENT_ACK", wait_end,
+                                            ack_end, queue=qname, msg=md)
                     fut.put((True, md))
                 else:
                     fut.put((False, ValueError(f"unknown op {op!r}")))
@@ -214,9 +235,24 @@ class DiasporaQueues(ColmenaQueues):
         proxystore_threshold: Optional[Union[int, Dict[str, int]]] = None,
         stream_engine: Literal["files", "mofka", "octopus"] = "files",
         stream_conf: Optional[Dict[str, str]] = None,
+        benchmark_file: Optional[str] = None,
     ):
         self.stream_engine = stream_engine
         stream_conf = stream_conf or {}
+
+        # Benchmark trace. Always on: every send/recv/connect/topic op is timed
+        # and written as one JSON object per line. ``benchmark_file`` is a *base*
+        # path — the live PID is appended (see _setup_benchmark_logger) so that
+        # the forked Parsl task server and, in the thinker/server split, the two
+        # processes (even when they live in separate containers) each own a
+        # distinct trace file instead of interleaving writes into one.
+        if benchmark_file is None:
+            benchmark_file = f"diaspora-trace-{uuid.uuid4().hex[:8]}.log"
+        self._benchmark_file_base = str(benchmark_file)
+        self._benchmark_handler: Optional[logging.Handler] = None
+        self.benchmark_logger: Optional[logging.Logger] = None
+        self._setup_benchmark_logger()
+        atexit.register(self._flush_benchmark)
 
         if self.stream_engine == "octopus":
             from diaspora_event_sdk import Client as GlobusClient
@@ -285,6 +321,95 @@ class DiasporaQueues(ColmenaQueues):
         # rebuilds its own Argobots state (see module docstring).
         os.register_at_fork(after_in_child=self._on_fork)
 
+    # ------------------------------------------------------------------ benchmark
+
+    def _setup_benchmark_logger(self):
+        """(Re)build the benchmark logger so this process writes its own trace.
+
+        File name is ``<base stem>-pid<PID><suffix>`` so the forked Parsl task
+        server and, in the thinker/server split, the two halves (even in separate
+        containers) never write into the same file. Called from __init__ and
+        again from _on_fork / __setstate__, so a forked or unpickled child drops
+        the handler it inherited (which points at the *parent's* file) and opens
+        its own.
+
+        A plain line-flushed ``FileHandler`` is used rather than a buffering
+        ``MemoryHandler`` on purpose: (a) nothing is lost if a hung run is
+        SIGKILLed, and (b) — the distributed-setting trap — a buffering handler
+        inherited across a multiprocessing fork would, on close() in the child,
+        flush the *parent's* still-buffered records into the *parent's* file and
+        duplicate them. With no buffer there is nothing to mis-flush. The cost
+        (one write per record) is off the measured interval and negligible next
+        to the ms-scale ops being timed. ``delay=True`` means a process that
+        never touches the queue (e.g. a Parsl worker fork) leaves no empty file."""
+        base = Path(self._benchmark_file_base)
+        path = base.with_name(f"{base.stem}-pid{os.getpid()}{base.suffix}")
+        bench_logger = logging.getLogger("diaspora_queue")
+        # Drop handlers inherited across fork/unpickle — they target the parent's
+        # file. A FileHandler holds no buffer, so close() writes nothing.
+        for h in list(bench_logger.handlers):
+            bench_logger.removeHandler(h)
+            try:
+                h.close()
+            except Exception:
+                pass
+        try:
+            base.parent.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            pass
+        file_handler = logging.FileHandler(path, delay=True)
+        file_handler.setFormatter(logging.Formatter("%(message)s"))
+        bench_logger.addHandler(file_handler)
+        bench_logger.setLevel(logging.DEBUG)
+        bench_logger.propagate = False  # keep JSON out of the app's stdout/run.log
+        self.benchmark_logger = bench_logger
+        self._benchmark_handler = file_handler
+        self._benchmark_path = path
+
+    @staticmethod
+    def _msg_size(msg) -> int:
+        """Best-effort payload byte count. The workflow's queue messages are
+        dicts wrapping a serialized colmena Result string, so report that
+        inner length when present; otherwise fall back to sys.getsizeof."""
+        try:
+            if isinstance(msg, (bytes, bytearray, str)):
+                return len(msg)
+            if isinstance(msg, dict) and isinstance(msg.get("message"), (str, bytes, bytearray)):
+                return len(msg["message"])
+        except Exception:
+            pass
+        return sys.getsizeof(msg)
+
+    def log_benchmark(self, task_name: str, start_ns: int, end_ns: int,
+                      queue: Optional[str] = None, msg: Any = None) -> None:
+        """Append one JSON record per timed operation. perf_counter_ns drives
+        the durations (monotonic, per-process); wall_ns/pid let traces from the
+        thinker and server processes be merged onto one timeline afterwards."""
+        if self.benchmark_logger is None:
+            return
+        try:
+            self.benchmark_logger.info(json.dumps({
+                "task_name": task_name,
+                "engine": self.stream_engine,
+                "queue": queue,
+                "msg_size": self._msg_size(msg),
+                "start_ns": start_ns,
+                "end_ns": end_ns,
+                "duration_ns": end_ns - start_ns,
+                "pid": os.getpid(),
+                "wall_ns": time.time_ns(),
+            }))
+        except Exception:
+            pass
+
+    def _flush_benchmark(self) -> None:
+        h = getattr(self, "_benchmark_handler", None)
+        if h is not None:
+            try:
+                h.flush()
+            except Exception:
+                pass
+
     # ------------------------------------------------------------------ helpers
 
     def _expected_queue_names(self):
@@ -313,11 +438,16 @@ class DiasporaQueues(ColmenaQueues):
         # gone in the child. Reset all driver state and let lazy connect()
         # rebuild on first use.
         self._reset_runtime_state()
+        # Re-point the benchmark trace at a fresh per-PID file so the child
+        # (e.g. the forked Parsl task server) writes its own honest trace
+        # instead of inheriting — and corrupting — the parent's buffered file.
+        self._setup_benchmark_logger()
 
     # ------------------------------------------------------------------ pickle
 
     _UNPICKLABLE = ('driver', '_dispatcher', 'opened_topics',
-                    '_driver_lock', '_connect_lock')
+                    '_driver_lock', '_connect_lock',
+                    'benchmark_logger', '_benchmark_handler')
 
     def __getstate__(self):
         state = super().__getstate__()
@@ -330,6 +460,13 @@ class DiasporaQueues(ColmenaQueues):
         was_connected = state.pop('_was_connected', False)
         super().__setstate__(state)
         self._reset_runtime_state()
+        # Rebuild the benchmark logger for this (unpickled, possibly remote)
+        # process — its handlers don't survive pickling. _benchmark_file_base
+        # is carried in state, so the trace name stays consistent.
+        self._benchmark_handler = None
+        self.benchmark_logger = None
+        self._setup_benchmark_logger()
+        atexit.register(self._flush_benchmark)
         if was_connected:
             self.connect()
 
@@ -339,45 +476,56 @@ class DiasporaQueues(ColmenaQueues):
         """For mofka, start the dispatcher thread (owns the Driver and
         pre-creates every expected topic). For files/octopus, open a Driver
         on the calling thread; topic creation is lazy."""
+        start = time.perf_counter_ns()
         if self.stream_engine == "mofka":
             with self._connect_lock:
                 if self._dispatcher is not None and self._dispatcher.alive:
+                    self.log_benchmark("CONNECT", start, time.perf_counter_ns())
                     return
                 self._dispatcher = _MofkaDispatcher(
                     queue_names=self._expected_queue_names(),
                     group_file=self._mofka_group_file,
                     partition_rank=self._mofka_partition_rank,
+                    log_benchmark=self.log_benchmark,
                 )
+            self.log_benchmark("CONNECT", start, time.perf_counter_ns())
             return
 
         if not self.driver:
             self.driver = Driver(backend=self.stream_engine, options=self.driver_config)
+        self.log_benchmark("CONNECT", start, time.perf_counter_ns())
 
     def disconnect(self):
         """Disconnect from the server.
 
         Useful if sending the connection object to another process.
         """
+        start = time.perf_counter_ns()
         if self._dispatcher is not None:
             self._dispatcher.stop()
             self._dispatcher = None
         self.driver = None
         self.opened_topics = {}
+        self.log_benchmark("DISCONNECT", start, time.perf_counter_ns())
+        self._flush_benchmark()
 
     # ------------------------------------------------------------------ non-mofka topic helpers
 
     def get_or_create_queue(self, queue, requester: Literal["producer", "consumer"]):
         """Used by the file/octopus paths. Mofka does not call this — its
         producers/consumers are owned by the dispatcher thread."""
+        start = time.perf_counter_ns()
         with self._driver_lock:
             if queue in self.opened_topics:
                 if requester in self.opened_topics[queue]:
+                    self.log_benchmark("GET_TOPIC", start, time.perf_counter_ns(), queue=queue)
                     return self.opened_topics[queue][requester]
 
                 if requester == "producer":
                     self.opened_topics[queue][requester] = self.opened_topics[queue]["topic"].producer(f"producer-{queue}")
                 else:
                     self.opened_topics[queue][requester] = self.opened_topics[queue]["topic"].consumer(f"consumer-{queue}")
+                self.log_benchmark("GET_TOPIC", start, time.perf_counter_ns(), queue=queue)
                 return self.opened_topics[queue][requester]
 
             if not self.driver.topic_exists(queue):
@@ -398,25 +546,42 @@ class DiasporaQueues(ColmenaQueues):
             else:
                 rq = topic.consumer(f"consumer-{queue}")
             self.opened_topics[queue][requester] = rq
+            self.log_benchmark("CREATE_TOPIC", start, time.perf_counter_ns(), queue=queue)
             return rq
 
     # ------------------------------------------------------------------ send/recv
 
     def _send_message(self, message, queue):
+        start = time.perf_counter_ns()
         if not self.is_connected:
             self.connect()
 
         if self.stream_engine == "mofka":
+            # The actual broker push happens on the dispatcher thread (which
+            # logs MOFKA_PUSH); SEND_MSG here is the full caller-visible cost,
+            # inter-thread handoff included.
             self._dispatcher.submit("send", queue, message)
+            self.log_benchmark("SEND_MSG", start, time.perf_counter_ns(), queue=queue, msg=message)
             return
 
         producer = self.get_or_create_queue(queue, "producer")
+        push_start = time.perf_counter_ns()
         producer.push(message).wait(timeout_ms=10000)
         # files/octopus need flush() for persistence; the mofka path skips it
         # (see module docstring).
+        flush_start = time.perf_counter_ns()
         producer.flush().wait(timeout_ms=10000)
+        end = time.perf_counter_ns()
+        self.log_benchmark("PUSH", push_start, flush_start, queue=queue, msg=message)
+        self.log_benchmark("FLUSH", flush_start, end, queue=queue, msg=message)
+        self.log_benchmark("SEND_MSG", start, end, queue=queue, msg=message)
 
     def _get_message(self, queue, timeout: float = None):
+        # perf_counter_ns drives the GET_MSG duration; a separate monotonic
+        # clock drives the timeout budget. (The bench-branch original reused one
+        # `start` for both, mixing perf_counter_ns with time.time() and
+        # corrupting every duration — fixed here.)
+        start = time.perf_counter_ns()
         if not self.is_connected:
             self.connect()
         # timeout=None means "block forever" — colmena's BaseTaskServer treats
@@ -432,18 +597,26 @@ class DiasporaQueues(ColmenaQueues):
             future = consumer.pull()
 
             def poll():
+                wait_start = time.perf_counter_ns()
                 event = future.wait(timeout_ms=per_poll_ms)
+                wait_end = time.perf_counter_ns()
                 if event is None:
+                    # Idle poll — folded into GET_MSG, not logged on its own to
+                    # keep the trace centered on real message movement.
                     return None
                 event.acknowledge()
+                ack_end = time.perf_counter_ns()
+                self.log_benchmark("EVENT_WAIT", wait_start, wait_end, queue=queue, msg=event.metadata)
+                self.log_benchmark("EVENT_ACK", wait_end, ack_end, queue=queue, msg=event.metadata)
                 return event.metadata
 
-        start = time.time()
+        budget_start = time.monotonic()
         while True:
             md = poll()
             if md is not None:
+                self.log_benchmark("GET_MSG", start, time.perf_counter_ns(), queue=queue, msg=md)
                 return md
-            if budget is not None and time.time() - start > budget:
+            if budget is not None and time.monotonic() - budget_start > budget:
                 raise TimeoutException(
                     f'Consumer {queue} timed out waiting for message.'
                 )

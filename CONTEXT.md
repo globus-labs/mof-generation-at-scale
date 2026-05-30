@@ -9,8 +9,10 @@ ADRs.
 The full workflow launched by [run_parallel_workflow.py](run_parallel_workflow.py):
 DiffLinker generator → ligand assembly → LAMMPS MD → CP2K DFT → RASPA GCMC,
 orchestrated by a Colmena `MOFAThinker` (≈11 agent threads) on top of a Parsl
-task server (forks worker pools). State lives in MongoDB; large payloads
-go through a ProxyStore-on-Redis store.
+task server (forks worker pools). State lives in MongoDB. (A
+ProxyStore-on-Redis path for large payloads exists but is **disabled by
+default** — `--redis-host` is accepted-but-unused; see
+`run_parallel_workflow.py`.)
 
 ## Streaming queue backends — `DiasporaQueues.stream_engine`
 

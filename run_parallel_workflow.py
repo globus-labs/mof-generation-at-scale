@@ -91,6 +91,10 @@ if __name__ == "__main__":
                             'cached Globus tokens (see envs/chameleon-stream.md §5).')
     group.add_argument('--mofka-group-file', default=None,
                        help='Path to mofka.flock.json — required when --stream-engine=mofka.')
+    group.add_argument('--benchmark-file', default=None,
+                       help='Base path for the DiasporaQueues benchmark trace (one JSON record per '
+                            'timed queue op). Defaults to <run_dir>/benchmark/diaspora-trace.log; the '
+                            'live PID is appended per process. Benchmarking is always on.')
 
     group = parser.add_argument_group(title='Selector Settings', description='Control how simulation tasks are selected')
     group.add_argument('--md-new-fraction', default=0.5, help='How frequently to start MD on a new MOF')
@@ -144,11 +148,16 @@ if __name__ == "__main__":
             parser.error('--mofka-group-file is required when --stream-engine=mofka')
         stream_conf['group_file'] = args.mofka_group_file
     queues_prefix = args.queue_prefix or ('mofa_' + secrets.token_hex(3))
+    # Benchmark trace lands under the run directory so it travels with the run's
+    # logs (in the thinker/server split each process writes its own PID-suffixed
+    # file under its own run_dir). Override the base path with --benchmark-file.
+    benchmark_file = args.benchmark_file or str(run_dir / 'benchmark' / 'diaspora-trace.log')
     queues = DiasporaQueues(
         topics=['generation', 'lammps', 'cp2k', 'training', 'assembly'],
         prefix=queues_prefix,
         stream_engine=args.stream_engine,
         stream_conf=stream_conf,
+        benchmark_file=benchmark_file,
     )
 
     # Load the ligand descriptions

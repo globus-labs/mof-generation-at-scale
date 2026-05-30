@@ -51,15 +51,12 @@ if [[ "$BACKEND" == "mofka" ]]; then
 fi
 
 # Sanity checks for shared services. The workflow Popen's mongod itself
-# (see run_parallel_workflow.py:153) but won't start redis-server.
+# (see run_parallel_workflow.py). ProxyStore-on-Redis is disabled by default,
+# so no redis-server is needed.
 command -v mongod >/dev/null || { echo "mongod not on PATH (apt install mongodb-org)" >&2; exit 1; }
 command -v "${MOFA_CP2K_BIN%% *}" >/dev/null || {
     echo "CP2K command '${MOFA_CP2K_BIN%% *}' not on PATH — run bin/install-cp2k-shell-wrapper.sh" >&2
     exit 1
-}
-pgrep -x redis-server >/dev/null || {
-    echo "redis-server not running; starting one in the background" >&2
-    "$CONDA_PREFIX/bin/redis-server" --daemonize yes --port 6379
 }
 
 PYTHON="$CONDA_PREFIX/bin/python"
@@ -77,7 +74,6 @@ exec "$PYTHON" run_parallel_workflow.py \
     --simulation-budget 1 \
     --md-timesteps 50 \
     --dft-opt-steps 1 \
-    --redis-host 127.0.0.1 \
     --compute-config configs/cloud-vm.py \
     --mace-model-path ./input-files/mace/mace-mp0_medium-lammps.pt \
     --stream-engine "$BACKEND" \
