@@ -1,0 +1,11 @@
+# Direct versions recorded from the external Polaris build on 2026-09-18.
+# Transitive dependencies are resolved at installation and recorded by pip freeze.
+torch==2.5.0
+numpy==1.26.4
+mace-torch==0.3.13
+cuequivariance==0.11.1
+cuequivariance-torch==0.11.1
+cuequivariance-ops-cu12==0.4.0
+cuequivariance-ops-torch-cu12==0.4.0
+cupy-cuda12x==13.6.0
+Cython==3.3.0

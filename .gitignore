@@ -166,3 +166,43 @@ logs/
 
 # MOFA project related 
 run 
+
+# Repository-local environments, dependency builds, and runtime artifacts
+*.swp
+/mofa_env/
+/mofa_env_py312/
+/deps/
+/.runtime-cache/
+/test_installation/
+/core.*
+/dump.rdb
+/input-files/mace/mace-mp0_medium
+/input-files/mace/mace-mp0_medium-mliap_lammps.pt
+
+# Local PBS job artifacts
+/mofa-test.*
+/mofa-smoke.*
+/mofa-external-check.*
+/cp2k-diagnostic.[oe]*
+/cp2k-elpa-replay.[oe]*
+/cp2k-block32.[oe]*
+/lammps-diagnostic.[oe]*
+/cp2k-build.[oe]*
+/lammps-build.[oe]*
+# Standalone examples: only sample inputs, runners, and usage are shared.
+# Ignore all generated outputs, saved result reports, and replay collections.
+/cp2k-test/*
+!/cp2k-test/README.md
+!/cp2k-test/cp2k.inp
+!/cp2k-test/diagnose.py
+!/cp2k-test/run-diagnostic-polaris.sh
+!/cp2k-test/run-polaris.sh
+!/cp2k-test/run-polaris-2node.sh
+/lammps-test/*
+!/lammps-test/README.md
+!/lammps-test/in.lj
+!/lammps-test/in.lammps
+!/lammps-test/data.lmp
+!/lammps-test/diagnose.py
+!/lammps-test/run-polaris.sh
+*.cube

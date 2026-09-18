@@ -3,7 +3,9 @@ channels:
   - defaults
   - conda-forge
 dependencies:
-  - python==3.10.*
+  # Python and Parsl match the successful August run's recorded versions.
+  # The remaining pins form a candidate stack validated by create_conda.sh.
+  - python=3.12.13
   - openssl>3
 
 
@@ -14,13 +16,37 @@ dependencies:
   # Tools to work with crystalline and molecular data
   - conda-forge::chargemol
   - conda-forge::raspa2
-  - openbabel
 
   - pip
   - pip:
-    - torch==2.1.0
-    - numpy<2  # torch 2.1 is built with numpy 1
+    # MOFA has its own ML stack. LAMMPS uses its external .venv.
+    # Keep PyPI available for dependencies of the CUDA wheel.
+    - --extra-index-url https://download.pytorch.org/whl/cu124
+    - torch==2.5.0+cu124
+    - numpy==1.26.4
+    - redis==5.3.1  # Colmena 0.7 requires redis-py 5 blocking reads
 
-    # Other stuff
+    # Install MOFA itself with `python -m pip install --no-deps -e .`.
+    # Use one Open Babel provider, matching MOFA's declared dependency.
+    - openbabel-wheel==3.1.1.23
+    - colmena==0.7.2
+    - more-itertools
+    - parsl==2026.7.27
+    - pydantic>=2
+    - proxystore
+    - mpi4py
+    - ase>3.22
+    - rdkit>2024
+    - pymatgen
+    - pytorch-lightning
+    - wandb
+    - imageio
+    - scikit-learn
+    - mace-torch==0.3.13
+    - torch-dftd
+    - gpustat
+    - pymongo>=4
+    - pandas
     - tqdm
-    - -e ..[test,cueq]
+    # Use MACE's e3nn implementation here. ML-IAP acceleration dependencies
+    # belong to the external LAMMPS environment.

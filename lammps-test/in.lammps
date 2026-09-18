@@ -1,0 +1,39 @@
+
+units           metal
+atom_style      atomic
+atom_modify     map yes
+newton          on
+boundary        p p p
+
+
+box             tilt large
+read_data       data.lmp
+
+
+pair_style mliap unified ../input-files/mace/mace-mp0_medium-mliap_lammps.pt 0
+pair_coeff * * C H N O Zn
+
+
+# simulation
+
+timestep            0.0005
+fix                 fxnpt all npt temp 300.0 300.0 $(200.0*dt) tri 1.0 1.0 $(800.0*dt)
+variable            Nevery equal 50
+
+thermo              10
+thermo_style        custom step cpu dt time temp press pe ke etotal density xlo ylo zlo cella cellb cellc cellalpha cellbeta cellgamma
+thermo_modify       flush yes
+
+minimize            0. 1.0e-2 100 10000
+reset_timestep      0
+
+velocity            all create 300.0 12345
+
+thermo              ${Nevery}
+
+dump                trajectAll all custom ${Nevery} dump.lammpstrj.all id type element x y z
+dump_modify         trajectAll element C H N O Zn
+
+run                 100
+undump              trajectAll
+write_restart       relaxing.*.restart

@@ -27,6 +27,7 @@ classifiers = [
 dependencies = [
     # General workflow
     "colmena==0.7.*",
+    "redis==5.*",  # Colmena 0.7 expects blocking reads without a socket timeout
     "more-itertools",
     "parsl>=2023.04",
     "tqdm",

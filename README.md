@@ -15,6 +15,12 @@ Install the environment file appropriate for your system with a command similar 
 conda env create --file envs/environment-cpu.yml --force
 ```
 
+For MOFA on Polaris, follow the
+[Polaris setup guide](polaris-build/instruction.md#1-configure-external-installations).
+CP2K and LAMMPS live in separate external checkouts; MOFA calls their binaries.
+The guide includes [installation scripts and source revisions](polaris-build/instruction.md#build-separate-installations)
+for building them outside this repository, as well as configuration for existing installations.
+
 If solving is slow try updating to the newest version of conda and using the `libmamba` solver:
 
 ```bash
@@ -28,12 +34,24 @@ conda env create --file envs/environment-cpu.yml
 
 The `run_parallel_workflow.py` script defines an HPC workflow using MOFA. 
 
-First set up the required input files by running `assemble-inputs.ipynb` in `input_files/zn-paddle-pillar`.
-and `get-macemp-0a.sh` in `inputs-files/mace`.
+First set up the required input files by running `assemble-inputs.ipynb` in `input-files/zn-paddle-pillar`.
+For Polaris, prepare MACE using the external LAMMPS environment as described in
+the [model preparation instructions](polaris-build/instruction.md#2-prepare-the-models).
 
 The run scripts available in the root directory include input argument configurations appropriate for different systems
 at different scales.
-For example, `run-polaris-test.sh` is configured for a short run on Polaris using a small number of nodes.
+For the current Polaris setup, submit from the repository root after completing setup:
+
+```bash
+qsub run-polaris-local-smoke.sh
+# After reviewing the smoke results, request a limited simulation budget:
+qsub -v MOFA_SIMULATION_BUDGET=8 run-polaris-repo-test.sh
+```
+
+These scripts use one and ten nodes, respectively, and both select `mofa_env_py312`.
+See [running simulations and environment overrides](polaris-build/instruction.md#5-run-simulations)
+for prerequisites, PBS settings, and the changes from the old `mofa_env`/`deps` setup.
+The guide also records the shared LAMMPS access prerequisite and known CP2K limitations.
 
 Each run will produce a run directory in `run` named using the start time and a hash of the run parameters.
 
